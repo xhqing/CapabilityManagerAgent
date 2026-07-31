@@ -1,0 +1,30 @@
+# 环境变量（含密钥），只入库 .env.example
+.env
+.env.*
+
+# find-skill 本机密钥（SkillsMP key）与本机 catalogue / 日志数据
+.claude/skills/find-skill/.env
+.claude/skills/find-skill/cache/
+
+# Claude Code 本机本地配置（permissions + autoMemoryDirectory 绝对路径），仅本机、不入库；
+# clone 者复制 .claude/settings.local.example.json → settings.local.json 后按本机路径填
+.claude/settings.local.json
+
+# AutoMemory 变更标记 / 检查点（运行时产物）
+.memory-changed-this-session
+.last-memory-checkpoint
+
+# 临时产物目录（预览图、调试快照等），不入库
+tmp/
+
+# 运行时数据目录，不入库
+docs/
+
+# Python 字节码缓存（本地生成，不入库）
+__pycache__/
+
+# Node 依赖
+node_modules/
+
+# macOS 系统文件
+.DS_Store
