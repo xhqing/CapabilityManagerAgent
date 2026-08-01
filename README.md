@@ -5,6 +5,8 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Stars](https://img.shields.io/github/stars/xhqing/CapabilityManagerAgent?style=social)](https://github.com/xhqing/CapabilityManagerAgent)
+[![Last Commit](https://img.shields.io/github/last-commit/xhqing/CapabilityManagerAgent)](https://github.com/xhqing/CapabilityManagerAgent/commits/main)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 [![Domain](https://img.shields.io/badge/Domain-%7E%2F.claude-F97316.svg)](#)
 
@@ -14,7 +16,7 @@
 
 > 🔥 **Prometheus** — the capability steward who tends the common-capability backbone shared by every Claude Code agent. When a global skill, rule, or setting changes, Prometheus propagates it to every project copy, so the whole fleet stays in sync.
 
-[中文](README_cn.md)
+[简体中文](README_cn.md)
 
 CapabilityManagerAgent manages the **common-capability backbone** of the Claude Code agent fleet: everything under the user-level `~/.claude/` directory that is **not specific to one agent but shared by all** — global skills, global rules, `settings.json`, and slash commands — plus the cross-project sync that keeps every agent project's `.claude/` copy consistent with the global authority.
 
@@ -80,6 +82,6 @@ Prometheus is independent of the sales pipeline (Scout → Wright → Buzz → V
 
 ## License & Attribution
 
-Copyright (c) 2026 Huaqing Xu, Contributors. Licensed under the [MIT License](LICENSE.md).
+Copyright (c) 2026 All Contributors. Licensed under the [MIT License](LICENSE.md).
 
 **Attribution:** If you derive from or redistribute this project, please retain the copyright notice and license file, and credit the source: [CapabilityManagerAgent](https://github.com/xhqing/CapabilityManagerAgent).

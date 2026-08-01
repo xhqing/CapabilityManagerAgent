@@ -46,7 +46,7 @@
 - **怎么用**：即便用户给了「开源到 GitHub」「提交一下」「推一下」之类大方向指令，也**不能据此直接动手**——仍要逐次把命令列清楚、等确认。哪怕已经授权过一次，下一次仍要重新询问（授权不跨次复用）。
 - **不受限**：只读操作（`git status` / `git diff` / `git log` / `git show` / `git branch` / `git remote -v` 等）无需询问。
 - **新建项目 `git init` 免确认（2026-07-16 用户立）**：凡是新建项目（含 agent 项目），默认都用 `git init` 做本地初始化——项目默认就是 git 项目，**本地初始化即可、不创建远程仓库、不 push**。`git init` 只在项目内创建 `.git`、不改动任何现有仓库，故新建项目时直接执行、无需每次询问。**边界**：免确认仅限 `git init` 本身；其后的 `git add` / `commit` / `push` / 建远程仓库 / 打 tag 等仍按上方规则需先确认（或由 `/commit`、`/release` 触发）。
-- **例外（`/commit`、`/release` 等用户主动触发的提交 / 发布类 skill）**：用户主动输入 `/commit`（commit skill）即**明确授权**当次的 `git add -A` + `git commit` + `git push`；用户主动输入 `/release`（release skill）即**明确授权**当次的 `git tag -a` + `git push origin <tag>` + `gh release create`。两者均应**直接执行**完整流程，**无需再列命令等确认**。上方「逐次确认」规则针对的是**我（Agent）自主发起的** git 写操作（怕擅自提交 / 打 tag / 发版），**不适用于用户主动触发的 `/commit`、`/release`**——用户发这类命令就是要一键完成，再问一遍是多余的反 confirm。`/commit` 仅在敏感扫描或 cache 检测命中时**终止**（不暂停续跑，详见下「commit skill 的触发与终止」段）；`/release` 在 tag 已存在、工作区脏、CHANGELOG 缺条目、Release 已存在等异常时暂停（详见 release skill）。
+- **例外（`/commit`、`/release` 等用户主动触发的提交 / 发布类 skill）**：用户主动输入 `/commit`（commit skill）即**明确授权**当次的 `git commit` + `git push`（不执行 `git add`，只提交用户已自行 `git add` 到暂存区的内容）；用户主动输入 `/release`（release skill）即**明确授权**当次的 `git tag -a` + `git push origin <tag>` + `gh release create`。两者均应**直接执行**完整流程，**无需再列命令等确认**。上方「逐次确认」规则针对的是**我（Agent）自主发起的** git 写操作（怕擅自提交 / 打 tag / 发版），**不适用于用户主动触发的 `/commit`、`/release`**——用户发这类命令就是要一键完成，再问一遍是多余的反 confirm。`/commit` 仅在敏感扫描或 cache 检测命中时**终止**（不暂停续跑，详见下「commit skill 的触发与终止」段）；`/release` 在 tag 已存在、工作区脏、CHANGELOG 缺条目、Release 已存在等异常时暂停（详见 release skill）。
 - **`/release` 即授权发布构建产物，不再问要不要产物（2026-07-17 用户立）**：`/release` 的核心目的之一就是**发布构建产物**（VSCode 扩展的 vsix、可执行包、压缩包等 Release asset）。用户输入 `/release` 即**明确授权「构建并上传构建产物」**——直接构建（如 `npm run package`、`npx @vscode/vsce package`）并作为 asset 上传到该 Release，**不再用 AskUserQuestion 问「要不要构建 / 上传产物」**（再问是多余的反 confirm，与本段「例外」同理）。即便构建需绕过工具限制（如 `vsce` 禁止 README 引用本地 SVG、检测不到仓库 URL、会把 `.claude/` 等本机配置打进包），也**直接用打包工艺解决**（临时中转 README、打包期间临时移走 `.claude/`、补 `--baseContentUrl` / `--allow-missing-repository` 等），不因「要不要产物」打断流程；构建失败则如实报告。**边界**：本条只免除「要不要构建 / 上传产物」的询问，不扩展到 release skill 的其它异常安全阀——tag 已存在、Release 已存在、工作区脏、CHANGELOG 缺条目、版本号异常等仍按 release skill 暂停询问，不因本条跳过。
 
 ## 「发布」「最新版」默认指 GitHub Release（2026-07-19 用户立）
@@ -66,7 +66,7 @@
   - **只看当前指令、不看历史**：当前这条用户消息含 `/commit` 才考虑触发；**历史消息**里出现过 `/commit` **不触发**（不因对话历史里有 `/commit` 就续跑或重跑）。
   - **当前指令含 `/commit` 仍要先理解意图**：即便当前消息字面含 `/commit`，也要先判断意图是否真的是「现在执行提交」——若是在讨论 `/commit` 命令、举例、引用，或意图明显不是提交（例如「这条指令包含 /commit 但不是要 commit」），则**不触发**。
   - 任何疑似误触、续跑、自动触发都不执行；只有「用户当下明确要执行 commit」才走该流程。
-- **命中即彻底终止，不暂停续跑**：`/commit` 流程中一旦命中敏感内容扫描或 cache 检测，**立即终止本次流程**（不 `git add` / `commit` / `push`），**不存在「暂停 → 等用户处理 → 从断点继续」**。要再次提交，用户须**重新输入 `/commit`** 从头走完整流程。
+- **命中即彻底终止，不暂停续跑**：`/commit` 流程中一旦命中敏感内容扫描或 cache 检测，**立即终止本次流程**（不 `commit` / `push`），**不存在「暂停 → 等用户处理 → 从断点继续」**。要再次提交，用户须**重新输入 `/commit`** 从头走完整流程。
 
 ## 版本信息一致性（VERSION 文件为唯一权威，2026-07-19 用户立）
 
@@ -119,6 +119,19 @@
   - 仅在项目根有 `CHANGELOG.md` 时生效；没有 CHANGELOG 的项目不受本条约束。
   - 「查」操作（只读查看文件内容）如果**不产生文件变更**，不需要记录到 CHANGELOG——但如果是为后续改动做调研，建议在后续改动的条目中附带说明调研过程。
   - 盯盘过程中的高频信号记录写入 `signals/` 属运行时数据流，不逐条记入 CHANGELOG；但信号**机制**的变更（如新增 / 修改信号格式、响铃逻辑）必须记。
+
+## 待办（todo）统一存项目根 todos/ 目录（2026-08-01 用户立）
+
+凡「待办 / 下一步 / 代码现状（待办）」类内容——即**还没做、打算以后做**的事——只能记录到**项目根的 `todos/` 目录**，**禁止写到其它任何地方**（含 skill 正文 SKILL.md、references、CHANGELOG、代码注释里的 `# TODO` 等）。
+
+- **为什么**：待办散落在规范文档 / 代码注释里，会随文档迭代过期失真（规范描述的是「现在怎么做」，夹带「以后打算做」会让读者误判当前状态），且无法统一跟踪进度。集中到 `todos/` 一处，既是唯一任务清单、又不污染规范与变更记录。
+- **怎么用**：
+  - 想记一个待办 → 写到 `todos/`（建议一个 `todos/TODO.md` 汇总清单，或按主题拆多个文件），不要写进 SKILL.md / references / CHANGELOG / 代码注释。
+  - **CHANGELOG 只记「已发生的变更」**（为什么改 + 改了什么），不记「待办」；没做完的事不进 CHANGELOG，做完后再记。
+  - **SKILL.md / references 只写规范本身**（当前应怎么做），不夹带「代码现状（待办）」「计划以后迁移」等未决事项。
+  - 代码里的 `# TODO` 也并入 `todos/`，代码注释改为陈述性说明（不留下「待办」语义）。
+- **做完改动要闭环（查 todos/ → 删待办 → 记 CHANGELOG）**：每次做完项目的任何改动后，查一下这项改动是否已在 `todos/` 里——若在，则把该待办从 `todos/` 删除，并把已做出的改动（增 / 删 / 改）记到 `CHANGELOG.md`。这样 `todos/` 只留未完成、`CHANGELOG` 只记已完成，两边不重叠。
+- **边界**：本条管的是「待办 / 未决 / 计划以后做」这类内容；已完成变更的记录（CHANGELOG）、当前规范的描述（SKILL.md）、陈述性说明（代码注释描述这段代码是什么）不受限。
 
 ## skill 项目副本的存在原因（开源自包含）
 

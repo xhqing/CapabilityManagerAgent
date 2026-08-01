@@ -5,6 +5,8 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Stars](https://img.shields.io/github/stars/xhqing/CapabilityManagerAgent?style=social)](https://github.com/xhqing/CapabilityManagerAgent)
+[![Last Commit](https://img.shields.io/github/last-commit/xhqing/CapabilityManagerAgent)](https://github.com/xhqing/CapabilityManagerAgent/commits/main)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 [![Domain](https://img.shields.io/badge/Domain-%7E%2F.claude-F97316.svg)](#)
 
@@ -80,6 +82,6 @@ Prometheus 独立于销售流水线（Scout → Wright → Buzz → Vendy → Ec
 
 ## 许可与署名
 
-版权所有 (c) 2026 Huaqing Xu, Contributors。基于 [MIT License](LICENSE.md) 发布。
+版权所有 (c) 2026 All Contributors。基于 [MIT License](LICENSE.md) 发布。
 
 **署名：** 若你基于本项目衍生或再分发，请保留版权声明与许可文件，并注明来源：[CapabilityManagerAgent](https://github.com/xhqing/CapabilityManagerAgent)。
