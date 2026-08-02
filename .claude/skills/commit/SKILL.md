@@ -1,6 +1,6 @@
 ---
 name: "commit"
-description: "提交当前暂存区已有的内容到本地仓库并推送到远程（依次 git commit → git push；不执行 git add，只提交用户已自行 git add 到暂存区的内容；若无远程仓库则先用 gh repo create --public 创建一个再推送）。当用户输入 commit 时触发。git commit 之前对暂存区已有内容做敏感内容扫描 + cache 文件/目录检测（cache 命中则自动加入 .gitignore），任一命中即彻底终止本次流程——不 commit/push，需重新 /commit 走完整流程；push 之后再检测项目标配（README 中英双语+LOGO+徽章+版权署名(含版权人/署名引用名字归一为 All Contributors)+英文版 README 跳中文版链接文字统一为「简体中文」+Agent 拟人名、LICENSE.md、GitHub About 英文简介+标签、仓库 Sponsors 按钮），缺失则自动补上，齐全则记入项目级 CLAUDE.md 缓存跳过重复检测；push 之后另做版本滞后检测（仅当项目根有 VERSION 文件：若 VERSION 标注版本已在 GitHub Release 发布且仓库有该版本后的新提交，则由智能体自主决定 bump 幅度并直接更新 VERSION/package.json/CHANGELOG 等各文件版本号，不阻塞、每次必查不缓存）+ 版本号一致性检测（项目根有 VERSION 文件才查：各文件版本号须与 VERSION 一致，不一致则以 VERSION 为准自动同步各文件，不阻塞、每次必查不缓存）。"
+description: "提交当前暂存区已有的内容到本地仓库并推送到远程（依次 git commit → git push；不执行 git add，只提交用户已自行 git add 到暂存区的内容；若无远程仓库则先用 gh repo create --public 创建一个再推送）。当用户输入 commit 时触发。git commit 之前对暂存区已有内容做敏感内容扫描 + cache 文件/目录检测（cache 命中则自动加入 .gitignore），任一命中即彻底终止本次流程——不 commit/push，需重新 /commit 走完整流程；push 之后再检测项目标配（README 中英双语+LOGO+徽章+版权署名(含版权人/署名引用名字归一为 All Contributors)+英文版 README 跳中文版链接文字统一为「简体中文」+Agent 拟人名、LICENSE.md、GitHub About 中英双语简介+标签、仓库 Sponsors 按钮），缺失则自动补上，齐全则记入项目级 CLAUDE.md 缓存跳过重复检测；push 之后另做版本滞后检测（仅当项目根有 VERSION 文件：若 VERSION 标注版本已在 GitHub Release 发布且仓库有该版本后的新提交，则由智能体自主决定 bump 幅度并直接更新 VERSION/package.json/CHANGELOG 等各文件版本号，不阻塞、每次必查不缓存）+ 版本号一致性检测（项目根有 VERSION 文件才查：各文件版本号须与 VERSION 一致，不一致则以 VERSION 为准自动同步各文件，不阻塞、每次必查不缓存）。"
 ---
 
 # Auto Git Commit & Push
@@ -17,7 +17,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 - **commit 前检测有两项：敏感内容扫描 + cache 文件/目录检测**（均针对暂存区已有内容）；版本号一致性检测（项目根有 `VERSION` 文件才查）与 README/LOGO/徽章/版权署名/版权人与署名引用名字归一/LICENSE.md/About/仓库 Sponsors 按钮 等「项目标配」检测**全部放在 `git push` 之后**（第 9 步）——先提交推送代码，再补标配，补的内容作为新工作区改动，本次未提交；本 skill 不执行 `git add`，需用户自行 `git add` 后下次 `/commit` 提交。
 - 标配检测：缺则自动补上；齐全则在项目级 `CLAUDE.md` 标记，下次跳过重复检测。
 - **严禁**执行 `git push --force`、`git reset --hard` 等破坏性操作。
-- **严禁**编辑、删除、格式化项目文件（例外仅六类：① README/LICENSE 标配补全——可编辑 `README.md`/`README_cn.md`（顶部 LOGO/徽章居中块 + persona 说明块 + 底部版权署名段 + 版权人/署名引用名字归一为 `All Contributors`（第 9g 步）+ 语言纯度修正：把 `README.md` 里的中文改为英文 + 英文版跳中文版链接文字统一为「简体中文」（第 9h 步））、创建 `assets/logo.svg`、创建 `LICENSE.md`、**删除冗余的其它格式 license 文件**（只保留 `LICENSE.md`）；② 项目级 `CLAUDE.md` 追加「commit skill 检测缓存」段；③ 全局 `~/.claude/CLAUDE.md` 的「智能体命名注册表」**追加**新 agent 行（仅 9d 起名时，不改已有行）；④ cache 检测——第 3 步检测到的 cache 文件/目录可新增进 `.gitignore`；⑤ 版本滞后 bump（第 9j 步）——检测到 VERSION 滞后时，可更新 `VERSION`、`package.json`、`package-lock.json`、`CHANGELOG.md`、主 manifest（`manifest.json`/`pyproject.toml`/`Cargo.toml`/`*.csproj`）、README 的版本号；⑥ 版本号一致性同步（第 9k 步）——检测到 VERSION 与各文件版本号不一致时，以 VERSION 为唯一权威，更新 `package.json`、`package-lock.json`、`CHANGELOG.md`、主 manifest、README 的版本号到与 VERSION 一致（不动 VERSION 自身），不改动 `.gitignore` 的其它部分。
+- **严禁**编辑、删除、格式化项目文件（例外仅六类：① README/LICENSE 标配补全——可编辑 `README.md`/`README_cn.md`（顶部 LOGO/徽章居中块 + persona 说明块 + 底部版权署名段 + 版权人/署名引用名字归一为 `All Contributors`（第 9g 步）+ 语言基调修正：把 `README.md` 里「本该用英文却写成中文」的正文改为英文（特殊场景的中文保留不动）+ 英文版跳中文版链接文字统一为「简体中文」（第 9h 步））、创建 `assets/logo.svg`、创建 `LICENSE.md`、**删除冗余的其它格式 license 文件**（只保留 `LICENSE.md`）；② 项目级 `CLAUDE.md` 追加「commit skill 检测缓存」段；③ 全局 `~/.claude/CLAUDE.md` 的「智能体命名注册表」**追加**新 agent 行（仅 9d 起名时，不改已有行）；④ cache 检测——第 3 步检测到的 cache 文件/目录可新增进 `.gitignore`；⑤ 版本滞后 bump（第 9j 步）——检测到 VERSION 滞后时，可更新 `VERSION`、`package.json`、`package-lock.json`、`CHANGELOG.md`、主 manifest（`manifest.json`/`pyproject.toml`/`Cargo.toml`/`*.csproj`）、README 的版本号；⑥ 版本号一致性同步（第 9k 步）——检测到 VERSION 与各文件版本号不一致时，以 VERSION 为唯一权威，更新 `package.json`、`package-lock.json`、`CHANGELOG.md`、主 manifest、README 的版本号到与 VERSION 一致（不动 VERSION 自身），不改动 `.gitignore` 的其它部分。
 - 敏感内容扫描、cache 检测**均在 `git commit` 之前执行一次**（针对暂存区已有内容）；`git commit` 之后不再重复。（版本号一致性检测已移至 push 后第 9k 步，不阻塞提交。）
 
 ## 执行流程
@@ -71,24 +71,30 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 
    **9a. README 标配**（标记 `readme-standard`）：`README.md` 英文版 + `README_cn.md` 中文版，两版顶部 LOGO/徽章块一致并互链（英文版 `[简体中文](README_cn.md)`、中文版 `[English](README.md)`），底部有版权与许可证 + 署名方式 + 项目地址引用段。
    - **双语**：无 `README.md` → 创建英文版最小 README；无 `README_cn.md` → 基于 `README.md` 翻译创建中文版。
-   - **语言纯度**：`README.md` 须为**纯英文**文档，`README_cn.md` 以中文为主（可含英文）。扫描 `README.md` 是否含中文字符——**唯一允许的中文**是跳转到中文版的链接文字（如 `[简体中文](README_cn.md)` 里的「简体中文」，链接文字规范见 9h），除此之外任何中文均视为违规，覆盖正文、标题、版权署名段，以及 `assets/logo.svg` 里 `<text>`/嵌入的文字、徽章 URL 参数与 alt 文本里的文字。发现违规 → 把对应中文改为英文（LOGO/徽章里的中文一并改成英文）；`README_cn.md` 不受此约束（以中文为主、可含英文）。
+   - **语言基调**（2026-08-01 修订，替代原「语言纯度」）：`README.md` 以**美式英文为主**（特殊场景可用任何语言），`README_cn.md` 以**简体中文为主**（特殊场景可用任何语言）。默认英文版写英文、中文版写中文，但**不追求「逐字纯净」**——正文里需要保留的中文专有名词、人名、机构名、产品名、引用原文、代码示例、注音等属「特殊场景」，可按需混入主语言之外的字词，不视为违规。
+     - 扫描 `README.md` 发现中文时**逐处语义判断**（不再机械地「见中文即违规」）：**属特殊场景（如上列举）→ 保留不动**；**属「本该用英文却写成了中文」**（典型如整段中文叙述塞进英文版、或正文随手用了中文词而非通用英文术语）**→ 改为英文**。
+     - **LOGO（`assets/logo.svg` 里 `<text>`/嵌入文字）与徽章（URL 参数、alt 文本）**：默认用英文（项目名、`AI Agent` 等 Type 标签是面向全球读者的视觉元素）；仅当项目名本身就是中文、或有意做双语 LOGO 时保留中文（属特殊场景）。
+     - `README_cn.md` 反向同理：以简体中文为主，必要的英文术语、代码、引用原文保留，不追求逐字纯净。
    - **LOGO**：`README.md` 无图片引用或图片不存在 → 按 LOGO 生成规则创建 `assets/logo.svg`，并在两版顶部插入 `<div align="center"><img ...></div>`（已有居中 div 则在其中插入）。
    - **徽章**：`README.md` 无 `img.shields.io` → 在 LOGO 下方插入徽章行并同步两版。
    - **版权与署名**：两版底部缺「版权与许可证说明 + 署名方式 + 项目地址引用方式」→ 追加完整段（英文版 `## License & Attribution`，中文版 `## 版权与署名`）：① 版权 `Copyright (c) <年份> All Contributors` + 许可证（链 `LICENSE.md`）；② 署名方式（致谢 + 保留版权声明 + 注明来源）；③ 项目地址引用（`origin` 的 GitHub URL，无 remote 则用 `https://github.com/<git user>/<目录名>`）。**版权人统一 `All Contributors`；已存在的具体人名（含已有版权段里的）由 9g 主动归一，本步不重复扫描。**
    - **项目类型推断**（定 Type 徽章 + LOGO 配色/emoji）：`package.json` 有 `engines.vscode` → VSCode Extension（`Type-VSCode%20Extension-0078D4`，蓝）；目录名以 `Agent` 结尾或 README/CLAUDE.md 自述为 agent → AI Agent（`Type-AI%20Agent-FF1493`，按角色）；`package.json` 有 `main`/`exports` 且无上述特征 → Library（`Type-Library-9CF`，青）；否则 → Project（`Type-Project-lightgrey`，紫）。
    - **LOGO 生成**（`assets/logo.svg`）：640×200、圆角 `rx=28`、线性渐变、左侧大 emoji（按主题选，无把握用 `⚙️`）+ 项目名 + 副标题（`<类型> · <一句话描述>`）；结构对齐 DigiVendAgent logo.svg 模板。
    - **徽章组合**（按 remote）：解析 `git remote -v`，`origin` 为 `github.com` 则提取 `user/repo`。有 remote（4 枚）：License + `github/stars/<user>/<repo>?style=social` + `github/last-commit/<user>/<repo>` + Type；无 remote（2 枚）：License + Type。License 从 `LICENSE.md`/`package.json.license` 推断（MIT→`License-MIT-yellow`、Apache-2.0→`License-Apache_2.0-blue`、GPL-3.0→`License-GPL_v3-blue`，无则跳过）。
-   - **只补不删**：不改动用户已有的 LOGO/徽章/正文（**语言纯度修正除外**：把 `README.md` 里的中文改为英文是允许的）。README 双语 + LOGO + 徽章 + 版权署名段全齐 → 写 `<!-- commit-skill: readme-standard = ok -->` + 日期行。
+   - **只补不删**：不改动用户已有的 LOGO/徽章/正文（**语言基调修正除外**：把 `README.md` 里「本该用英文却写成中文」的正文改为英文是允许的，特殊场景的中文保留不动）。README 双语 + LOGO + 徽章 + 版权署名段全齐 → 写 `<!-- commit-skill: readme-standard = ok -->` + 日期行。
 
    **9b. LICENSE.md**（标记 `license`）：根目录**只保留 `LICENSE.md`**，不与其它格式 license 文件重复。
    - 无 `LICENSE.md` → 创建（若有 `LICENSE`/`LICENSE.txt` 等同名文件则复制其内容，否则用 MIT 模板）；**版权人统一用 `All Contributors`**（覆盖原文件里的具体人名）。已存在 `LICENSE.md` 里写死的具体人名归一由 9g 处理。
    - 创建后、或 `LICENSE.md` 已存在时，若根目录还有其它格式 license 文件（`LICENSE`、`LICENSE.txt` 等）→ **删除冗余**，只留 `LICENSE.md`。
    - `LICENSE.md` 存在且无冗余 → 写 `<!-- commit-skill: license = ok -->` + 日期行。
 
-   **9c. GitHub About**（标记 `github-about`）：确保 GitHub repo About 有全英文 description 与 topics。
+   **9c. GitHub About**（标记 `github-about`）：确保 GitHub repo About 有中英双语 description 与 topics。
    - **前置**：`origin` 指向 `github.com` 且 `gh` 已认证、且第 8 步 push 成功。任一不满足 → 跳过、不记录、如实报告（如「无 GitHub remote / push 未成功，跳过 About 检测」）。
    - `gh repo view <user/repo> --json description,repositoryTopics` 取当前 About。
-     - description 英文判定：description 不含中文（为空或纯英文/拉丁字符）→ 视为合规；含中文（无论纯中文还是「英文 | 中文」双语）→ 用 `gh repo edit --description "<English summary>"` 改写为**纯英文**（从 README/package.json description 提取或翻译为英文，**不含任何中文**，总长 < 350 字符）。
+     - description 中英双语判定：description 须同时含英文与中文（结构形如「English summary | 简体中文摘要」，**英文部分以美式英文为主（特殊场景可用任何语言）、中文部分以简体中文为主（特殊场景可用任何语言）**）。
+       - 已是中英双语（既含英文也含中文）→ 视为合规，保留不动。
+       - 仅含英文或为空 → 缺中文，用 `gh repo edit --description "<English summary> | <简体中文摘要>"` 补成双语（中文部分从 README 中文段提取或由英文翻译为简体中文，英文部分以美式英文为主，总长 < 350 字符）。
+       - 仅含中文 → 缺英文，用同样命令补上英文部分（从 README/package.json description 提取或翻译为英文，拼成「English | 中文」双语，总长 < 350 字符）。
      - topics 判定：为空 → 按项目类型 + 关键词推断，`gh repo edit --add-topic a --add-topic b ...` 补全（**多个 `--add-topic` 写字面量，勿用 shell 变量拼接**）；非空 → 保留不动。
      - topics 推断：VSCode 扩展 → `vscode`/`vscode-extension`；性能监控 → `performance`/`monitoring`；macOS 依赖 → `macos`；TypeScript → `typescript`；Claude Code 构建 → `claude-code`；Agent → `ai-agent`。按实际命中选取，不强加。
    - 补全（或检测发现已配）后 → 写 `<!-- commit-skill: github-about = ok -->` + 日期行。
@@ -201,7 +207,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 - LICENSE.md：已存在（YYYY-MM-DD 确认）
 
 <!-- commit-skill: github-about = ok -->
-- GitHub About：已配置（英文 description + topics，YYYY-MM-DD）
+- GitHub About：已配置（中英双语 description + topics，YYYY-MM-DD）
 
 <!-- commit-skill: agent-persona = ok -->
 - Agent 拟人名：已写入 README（<名字>，YYYY-MM-DD）
@@ -216,7 +222,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 - 仓库 Sponsors 按钮：已就绪（xhqing/.github 全局默认 FUNDING.yml，YYYY-MM-DD 确认）
 ```
 
-- `readme-standard` 标记：第 9a 步检测到 README 中英双语（`README.md` 纯英文、`README_cn.md` 中文为主） + LOGO + 徽章 + 版权署名段全齐时写入。
+- `readme-standard` 标记：第 9a 步检测到 README 中英双语（`README.md` 以美式英文为主、`README_cn.md` 以简体中文为主） + LOGO + 徽章 + 版权署名段全齐时写入。
 - `license` 标记：第 9b 步检测到 `LICENSE.md` 存在（且无冗余）时写入。
 - `github-about` 标记：第 9c 步补全 About（或检测发现已配）后写入。
 - `agent-persona` 标记：第 9d 步检测到 README 已有拟人名（或新起并写入）后写入；仅以 `Agent` 结尾的项目适用。
@@ -236,7 +242,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 - 敏感内容扫描、cache 检测**均在 `git commit` 之前执行一次**（针对暂存区已有内容），是 commit 前的两项硬性检测；`git commit` 之后不再重复。（版本号一致性检测已移至 push 后第 9k 步，不阻塞提交。）
 - 禁止 `git push --force`、`git reset --hard` 等破坏性操作。
 - **无远程仓库时**：第 8 步检测到 `git remote -v` 为空，会用 `gh repo create <目录名> --public --source=. --remote=origin --push` 主动创建公开 GitHub 仓库并推送（需 `gh` 已认证；未认证或创建失败则如实报告、跳过）。
-- 不随意删除文件；处理敏感内容由用户自行完成。编辑/删除项目文件的**例外仅六类**：① README/LICENSE 标配补全（可编辑 `README.md`/`README_cn.md` 顶部 LOGO/徽章居中块 + persona 说明块 + 底部版权署名段 + 版权人/署名引用名字归一为 `All Contributors`（第 9g 步）+ 语言纯度修正（把 `README.md` 里的中文改为英文）+ 英文版跳中文版链接文字统一为「简体中文」（第 9h 步）、创建 `assets/logo.svg`、创建 `LICENSE.md`、**删除冗余的其它格式 license 文件**只保留 `LICENSE.md`）；② 项目级 `CLAUDE.md` 追加「commit skill 检测缓存」段；③ 全局 `~/.claude/CLAUDE.md` 的「智能体命名注册表」追加新 agent 行（仅 9d 起名时，不改已有行）；④ cache 检测（第 3 步检测到的 cache 文件/目录可新增进 `.gitignore`）；⑤ 版本滞后 bump（第 9j 步）——检测到 VERSION 滞后时，可更新 `VERSION`/`package.json`/`package-lock.json`/`CHANGELOG.md`/主 manifest/README 的版本号；⑥ 版本号一致性同步（第 9k 步）——检测到 VERSION 与各文件版本号不一致时，以 VERSION 为唯一权威，更新 `package.json`/`package-lock.json`/`CHANGELOG.md`/主 manifest/README 的版本号到与 VERSION 一致（不动 VERSION 自身）。其余文件及 `.gitignore` 其它部分严禁改动/删除。
+- 不随意删除文件；处理敏感内容由用户自行完成。编辑/删除项目文件的**例外仅六类**：① README/LICENSE 标配补全（可编辑 `README.md`/`README_cn.md` 顶部 LOGO/徽章居中块 + persona 说明块 + 底部版权署名段 + 版权人/署名引用名字归一为 `All Contributors`（第 9g 步）+ 语言基调修正（把 `README.md` 里「本该用英文却写成中文」的正文改为英文，特殊场景的中文保留不动）+ 英文版跳中文版链接文字统一为「简体中文」（第 9h 步）、创建 `assets/logo.svg`、创建 `LICENSE.md`、**删除冗余的其它格式 license 文件**只保留 `LICENSE.md`）；② 项目级 `CLAUDE.md` 追加「commit skill 检测缓存」段；③ 全局 `~/.claude/CLAUDE.md` 的「智能体命名注册表」追加新 agent 行（仅 9d 起名时，不改已有行）；④ cache 检测（第 3 步检测到的 cache 文件/目录可新增进 `.gitignore`）；⑤ 版本滞后 bump（第 9j 步）——检测到 VERSION 滞后时，可更新 `VERSION`/`package.json`/`package-lock.json`/`CHANGELOG.md`/主 manifest/README 的版本号；⑥ 版本号一致性同步（第 9k 步）——检测到 VERSION 与各文件版本号不一致时，以 VERSION 为唯一权威，更新 `package.json`/`package-lock.json`/`CHANGELOG.md`/主 manifest/README 的版本号到与 VERSION 一致（不动 VERSION 自身）。其余文件及 `.gitignore` 其它部分严禁改动/删除。
 - 推送冲突或错误如实报告，不自行破坏性解决。
 
 ## 汇报

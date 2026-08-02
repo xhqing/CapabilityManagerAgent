@@ -11,7 +11,7 @@
 - LICENSE.md：已存在（2026-07-31 确认）
 
 <!-- commit-skill: github-about = ok -->
-- GitHub About：已配置（英文 description + topics，2026-07-31）
+- GitHub About：已配置（英文 description + topics，2026-07-31 确认；2026-08-01 规范改为中英双语——英文部分以美式英文为主（特殊场景可用任何语言）、中文部分以简体中文为主（特殊场景可用任何语言），待 /commit 按新规范重新检测补中文）
 
 <!-- commit-skill: agent-persona = ok -->
 - Agent 拟人名：已写入 README（Prometheus，2026-07-31）
