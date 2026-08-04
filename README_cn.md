@@ -5,10 +5,9 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Stars](https://img.shields.io/github/stars/xhqing/CapabilityManagerAgent?style=social)](https://github.com/xhqing/CapabilityManagerAgent)
 [![Last Commit](https://img.shields.io/github/last-commit/xhqing/CapabilityManagerAgent)](https://github.com/xhqing/CapabilityManagerAgent/commits/main)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
-[![Domain](https://img.shields.io/badge/Domain-%7E%2F.claude-F97316.svg)](#)
+
 
 </div>
 
@@ -20,8 +19,6 @@
 
 CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
 
-> 这**不是**传统意义上的软件项目，没有需要 `npm install` 的应用。仓库本身就是 agent：它的全部行为由 `.claude/` 下的 `skills` 与 `rules` 塑造，Claude Code 把它们加载为 Prometheus 的执行纪律。
-
 ---
 
 ## Prometheus 是谁？
@@ -31,7 +28,7 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力
 名字 **Prometheus**（「盗火者」）正贴合这个角色：守护那团让每个 agent 得以运转的「通用能力之火」。它的优势不在某个领域的专长，而在**一致与谨慎**：
 
 - **全局为权威。** 全局 `~/.claude/` 副本是事实来源，项目副本只是镜像。
-- **经中枢同步。** 某个项目副本的改动先回流到全局，再扩散到其它项目——不直接项目对项目。
+
 - **动底座前先备份。** `~/.claude/` 下的任何改动都影响整个舰队，编辑前先备份、先确认。
 
 ---
@@ -52,12 +49,10 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力
 
 ## 核心工作：全局 ↔ 项目副本同步
 
-每个通用 skill / rule 在 `~/.claude/` 放一份（**权威副本**），又在每个 agent 项目的 `.claude/` 里放一份（**项目副本**）——这样 clone 一个项目就得到一个自包含的 agent。Prometheus 的主要工作，就是在它们之间传递变化。
 
-目前已有两条同步规则成文（来自全局 `~/.claude/CLAUDE.md`）：
+目前已有两条同步规则成文（来自全局 `~/.claude/CLAUDE.md`，与 `claude/CLAUDE.md` 逐字节相同）：
 
-- **anysearch**——全局为权威；核心内容在各副本间保持一致；唯一例外是 `runtime.conf` 的 `Command` 路径（全局用绝对路径，项目副本用项目相对路径以便移植）。
-- **find-skill**——全局为权威；核心文件逐字节相同（无路径例外）；`.env` 与 `cache/` 是本机数据，永不同步。
+
 
 完整的操作步骤、护栏，以及 fleet 注册表的维护流程，都在 skill 里：[`.claude/skills/capability-manager/SKILL.md`](.claude/skills/capability-manager/SKILL.md)。
 
@@ -65,7 +60,7 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力
 
 ## 何时激活
 
-当用户要求**维护或更新某个全局 skill / rule、修改全局 `settings.json` 或 `CLAUDE.md`、新增或下线一个通用 skill、把某个通用 skill 同步到各 agent 项目、统一各项目脚手架、或给 fleet 注册表新增 agent** 时，Claude Code 激活 Prometheus。激活后加载 `capability-manager` skill 并执行其护栏。
+当用户要求**维护或更新某个全局 skill / rule、修改全局 `settings.json` 或 `CLAUDE.md`、新增或下线一个通用 skill、统一各项目脚手架、或给 fleet 注册表新增 agent** 时，Claude Code 激活 Prometheus。激活后加载 `capability-manager` skill 并执行其护栏。
 
 ---
 

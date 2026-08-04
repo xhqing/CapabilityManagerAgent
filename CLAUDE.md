@@ -1,26 +1,5 @@
 # CapabilityManagerAgent
 
-本项目的通用能力主体（`skills` / `rules` / `commands` / `CLAUDE.md`）位于 `.claude/`，与全局 `~/.claude/` 对应部分逐字节一致，是整个 Claude Code 智能体舰队的通用能力底座权威源。项目根本目录的这个 `CLAUDE.md` **不承载通用能力内容**（避免与 `.claude/CLAUDE.md` 重复或冲突、也不参与「全局 ↔ 本项目四部分逐字节一致」的核对），仅作为 commit skill 的检测缓存载体，记录项目标配检测的就绪状态，供后续 `/commit` 跳过重复检测。
+本项目的通用能力主体（`skills` / `rules` / `CLAUDE.md` 三部分）位于 `claude/`，是全局 `~/.claude/`（权威源）的**开源镜像**（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像），与全局逐字节一致。项目根本目录的这个 `CLAUDE.md` **不承载通用能力内容**（避免与 `claude/CLAUDE.md` 重复或冲突、也不参与「全局 ↔ 本项目镜像三部分逐字节一致」的核对），仅作为本项目的简要说明。`.claude/` 目录为本项目独有的项目级能力目录，放本项目特有、不随通用能力同步的内容（如 capability-manager skill——Prometheus 本项目的专属工具，详见 `claude/CLAUDE.md`「底层通用能力开源」节）。
 
-## commit skill 检测缓存
-
-<!-- commit-skill: readme-standard = ok -->
-- README 中英双语 + LOGO + 徽章 + 版权署名：已就绪（2026-07-31 确认）
-
-<!-- commit-skill: license = ok -->
-- LICENSE.md：已存在（2026-07-31 确认）
-
-<!-- commit-skill: github-about = ok -->
-- GitHub About：已配置（中英双语 description + topics，2026-08-02 按新规范补全中文——英文部分以美式英文为主（特殊场景可用任何语言）、中文部分以简体中文为主（特殊场景可用任何语言））
-
-<!-- commit-skill: agent-persona = ok -->
-- Agent 拟人名：已写入 README（Prometheus，2026-07-31）
-
-<!-- commit-skill: attribution-name = ok -->
-- 版权人/署名引用名字：已归一为 All Contributors（2026-07-31 确认）
-
-<!-- commit-skill: readme-link-text = ok -->
-- 英文版 README 跳转中文版链接文字：已统一为「简体中文」（2026-07-31 确认）
-
-<!-- commit-skill: repo-sponsors = ok -->
-- 仓库 Sponsors 按钮：已就绪（xhqing/.github 全局默认 FUNDING.yml，2026-07-31 确认）
+commit skill 的检测缓存已独立到项目根 [`.commit-skill-cache.md`](.commit-skill-cache.md)（2026-08-03 起从本文件迁出），不再寄生在本 `CLAUDE.md` 里。

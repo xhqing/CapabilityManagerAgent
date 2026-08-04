@@ -108,7 +108,7 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
   - `/commit` 流程会做版本号一致性检测（详见 commit skill）：项目根有 `VERSION` 文件才查，各文件版本号与 `VERSION` 不一致即**彻底终止**本次提交。
   - 平时手动改版本号（升版本、加 beta 标记）时，以 `VERSION` 为准同步更新所有引用处，不要只改一处；改之前先改 `VERSION` 再同步其它，避免基线漂移。
 - **边界**：
-  - 仅在项目根有 `VERSION` 文件时生效；没有 `VERSION` 的项目不受本条约束，按各文件原有规则。
+  - **`VERSION` 文件为项目标配**（2026-08-03 用户立：任何项目都必须有 `CHANGELOG.md` 与 `VERSION` 两个文件，缺失由 commit skill 第 9m 步自动新建）——本规则对任何项目都生效，不存在「没有 `VERSION` 就不受约束」的情况。
   - 版本号**后缀**（`-beta`、`-rc.1`、`+build` 等 pre-release / build metadata）不属于「前缀」，不自动豁免——出现后缀差异时需判断是否为有意区分（如 beta 与正式通道版本不同），不能默认视为一致。
 
 ## 版本发布状态必须实测 GitHub Release（2026-07-27 用户立）
@@ -146,7 +146,7 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 4. **无回归则照常执行**：评估后确认新改动不影响已有修复，正常推进，无需额外提醒。
 
 - **边界**：
-  - 仅在项目根有 `CHANGELOG.md` 时生效；没有 CHANGELOG 的项目不受本条约束。
+  - **`CHANGELOG.md` 为项目标配**（2026-08-03 用户立：任何项目都必须有 `CHANGELOG.md` 与 `VERSION` 两个文件，缺失由 commit skill 第 9m 步自动新建）——本规则对任何项目都生效，不存在「没有 CHANGELOG 就不受约束」的情况。
   - 「查」操作（只读查看文件内容）如果**不产生文件变更**，不需要记录到 CHANGELOG——但如果是为后续改动做调研，建议在后续改动的条目中附带说明调研过程。
   - 盯盘过程中的高频信号记录写入 `signals/` 属运行时数据流，不逐条记入 CHANGELOG；但信号**机制**的变更（如新增 / 修改信号格式、响铃逻辑）必须记。
 
@@ -170,7 +170,7 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 
 ## skill 项目副本的存在原因（开源自包含）
 
-凡是**自身要公开 / 开源的项目**（尤其是开源「Agent 本身」的项目），skill 属于 Agent 的核心内容、是 Agent 的一部分，必须随项目公开——所以即便本机全局 `~/.claude/skills/` 已有该 skill，仍需在项目 `.claude/skills/` 放一份副本。这样他人 clone 项目即得完整 Agent，不依赖作者本机环境。下方 anysearch / find-skill 的「同步规则」服务于这个目标：保持项目副本与全局权威副本一致（`runtime.conf` 路径例外除外）。后续遇到其它 skill 需纳入开源项目时同理（2026-07-13 用户立）。
+凡是**自身要公开 / 开源的项目**（尤其是开源「Agent 本身」的项目），skill 属于 Agent 的核心内容、是 Agent 的一部分，必须随项目公开——所以即便本机全局 `~/.claude/skills/` 已有该 skill，仍需在项目里放一份副本（**本项目（CapabilityManagerAgent）的副本位于 `claude/skills/`**；其它 agent 项目仍位于各自的 `.claude/skills/`——Claude Code 只从 `.claude/skills/` 加载技能）。这样他人 clone 项目即得完整 Agent，不依赖作者本机环境。下方 anysearch / find-skill 的「同步规则」服务于这个目标：保持项目副本与全局权威副本逐字节一致。后续遇到其它 skill 需纳入开源项目时同理（2026-07-13 用户立）。
 
 ## 写 skill 内容须依据 skill-creator（2026-07-31 用户立）
 
@@ -202,19 +202,18 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 
 ## anysearch skill 同步（全局为权威副本）
 
-全局 `~/.claude/skills/anysearch/` 是 anysearch skill 的权威副本，所有项目下的 `.claude/skills/anysearch/` 副本必须与它一致：
+全局 `~/.claude/skills/anysearch/` 是 anysearch skill 的权威副本，所有 agent 项目下的 `.claude/skills/anysearch/` 副本必须与它一致（本项目自身的镜像在 `claude/skills/anysearch/`，属「底层通用能力开源」节管理、是该节的三部分镜像之一，不参与本层的项目间分发）：
 
-- 全局副本核心内容改动 → 同步到**所有**含 anysearch 的项目副本。
+- 全局副本核心内容改动 → 同步到**所有**含 anysearch 的 agent 项目副本。
 - 任一项目副本改动 → 同步到全局，再由全局同步到其它项目。
-- 核心内容（`scripts/` 下所有 CLI、`shared/`、`SKILL.md`、`README.md`、`SECURITY.md`、`LICENSE`、`NOTICE`、`requirements.txt`、文件清单）必须一致。
-- **例外**：`runtime.conf` 的 `Command` 路径各自保持（项目副本用项目根相对路径以开源可移植，全局用绝对路径）。
+- 核心内容（`scripts/` 下所有 CLI、`shared/`、`SKILL.md`、`README.md`、`SECURITY.md`、`LICENSE`、`NOTICE`、`requirements.txt`、`runtime.conf`）必须**逐字节一致**——自 2026-07-31 起 `runtime.conf` 不再特殊对待，项目副本与全局逐字节相同，clone 者拿到后按本机路径自行适配。
 - 同步后告知用户改了哪些副本。
 
 ## find-skill skill 同步（全局为权威副本）
 
-全局 `~/.claude/skills/find-skill/` 是 find-skill 的权威副本，所有项目下的 `.claude/skills/find-skill/` 副本必须与它一致：
+全局 `~/.claude/skills/find-skill/` 是 find-skill 的权威副本，所有 agent 项目下的 `.claude/skills/find-skill/` 副本必须与它一致（本项目自身的镜像在 `claude/skills/find-skill/`，属「底层通用能力开源」节管理、是该节的三部分镜像之一，不参与本层的项目间分发）：
 
-- 全局副本核心内容改动 → 同步到**所有**含 find-skill 的项目副本。
+- 全局副本核心内容改动 → 同步到**所有**含 find-skill 的 agent 项目副本。
 - 任一项目副本改动 → 同步到全局，再由全局同步到其它项目。
 - 核心内容（`SKILL.md`、`scripts/install-skill.sh`、`update-skills-catalogue.sh`、`.env.example`，以及配套 `.claude/commands/install-skill.md`）必须一致。
 - **不同步**：`.env`（本机 SkillsMP 密钥）、`cache/`（本机 catalogue、日志）——机器本地数据。
@@ -236,7 +235,7 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 | **Kit** | PersonalAssistantAgent | 个人助理 | 通用助手：处理琐碎事（不在销售流水线内） |
 | **Victor** | DayTradingAgent | 日内交易员 | 信号：港股 / 美股盘中盯盘 → 分析标的 + 计算仓位与止损 → 发出交易信号（信号模式，不下单，人工执行） |
 | **Tinker** | PatchClaudeAgent | 补丁维护匠 | 维护：VSCode Claude Code 扩展升级后重新应用自定义补丁（自愈引擎：定位→应用→校验→回写），独立工具型 agent |
-| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.claude/` 通用能力（skills / rules / settings / commands）+ 全局↔项目副本跨项目同步 + fleet 注册表维护，独立于销售流水线 |
+| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.claude/` 通用能力（全局为权威源、`claude/` 为开源镜像；同步 skills / rules / CLAUDE.md 三部分）+ 全局 ↔ 各 agent 项目副本跨项目同步 + fleet 注册表维护，独立于销售流水线 |
 | **Markowitz** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度 → 产量化信号给 Victor 当加权投票员（离线开发，不盯盘不下单） |
 
 销售流水线顺序：① Scout → ② Wright → ③ Mason → ④ Buzz → ⑤ Vendy → ⑥ Echo；Kit、Victor、Tinker、Prometheus、Markowitz 各自独立（不在销售流水线内）。其中 Mason（建设期：建成交阵地 + 接支付）必须在 Buzz 之前就位，Buzz 的带货链接才有处可指；Vendy 在 Buzz 之后做运营期（接单 / 履约 / 售后 / 对账）——Mason 建、Vendy 营，接力同一阵地。Markowitz（量化策略开发）与 Victor（日内交易）协作：Markowitz 产回测标定的策略给 Victor 当加权输入。每个 agent 的拟人名同时写在其项目 README 里。
@@ -263,15 +262,16 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 - **`.gitignore` 必含**：`.env`/`.env.*`（留 `.env.example`）、`find-skill/.env` 与 `cache/`、`settings.local.json`、`tmp/`、`docs/`（运行时数据）、`artifacts/`（**可售卖成品，绝不公开**）、`node_modules/`、`.DS_Store`、`__pycache__/`。
 - **开源到 GitHub**：`gh repo create XxxAgent --public --source=. --remote=origin --push` → 设 About + topics（`gh repo edit --description "<English summary> | <简体中文摘要>" --add-topic a --add-topic b ...`——description 用**中英双语**，英文部分以美式英文为主（特殊场景可用任何语言）、中文部分以简体中文为主（特殊场景可用任何语言）；**多个 `--add-topic` 写字面量、勿用 shell 变量拼接**，否则报 `accepts at most 1 arg(s)`）→ FUNDING.yml **只放一份在 `xhqing/.github` 仓库**（`github: xhqing`），作为所有仓库的默认 Sponsor 配置；**不要在每个 agent 项目里放 `.github/`**——赞助配置不是项目主体内容。别用 `repos/.../funding` API 验证（不公开返回）。
 
-## 底层通用能力开源：全局 ↔ 本项目四部分时刻一致（2026-07-31 用户立）
+## 底层通用能力开源：全局权威 ↔ 本项目镜像，三部分时刻一致（2026-07-31 立；2026-08-04 反转权威方向 + 范围收为三部分）
 
-本项目（CapabilityManagerAgent）是把 Claude Code 智能体的**底层通用能力底座开源出去**的源头仓库。全局 `~/.claude/` 下这 4 部分——`CLAUDE.md`、`skills/`、`rules/`、`commands/`——的全部内容，必须与本项目 `.claude/` 下对应的这 4 部分**时刻保持逐字节一致**。
+本项目（CapabilityManagerAgent）是把 Claude Code 智能体的**底层通用能力底座开源出去**的源头仓库。**全局 `~/.claude/` 是通用能力的权威源**；本项目 `claude/` 下对应的 3 部分——`skills/`、`rules/`、`CLAUDE.md`——是全局权威源的**开源镜像**，必须与全局**时刻保持逐字节一致**。
 
-- **权威方向**：**本项目 `.claude/` 是唯一权威源**，全局 `~/.claude/` 对应部分是它的镜像。改动只能先在本项目落地、再同步覆盖全局；反过来不准直接改全局（直接改全局会破坏一致性，必须回到本项目改、再镜像过去）。
-- **范围**：全集。`skills/` 下所有 skill、`rules/` 下所有规则、`commands/` 下所有命令、根 `CLAUDE.md`——每一项都在本项目里有一份，且与全局逐字节相同。
+- **目录布局**：本项目 `claude/` 目录（不带点）是全局 `~/.claude/` 的开源镜像。因目录名不是 `.claude`，Claude Code 不会自动加载它、本项目运行时也不依赖它（本项目运行时的能力由全局 `~/.claude/` 直接提供）；`.claude/` 目录保留为本项目**独有的项目级能力目录**，放本项目特有、不随通用能力同步的内容（如 capability-manager skill——Prometheus 本项目的专属工具）。两者分工：`claude/` 镜像「开源给全世界的通用能力」、`.claude/` 放「本项目自己的项目级能力」。
+- **权威方向（2026-08-04 反转）**：**全局 `~/.claude/` 是唯一权威源**，本项目 `claude/` 对应部分是它的镜像。改动先在全局落地（全局是所有项目运行时实际加载的「活」源头），再同步覆盖到本项目 `claude/` 镜像；反过来不准只改 `claude/` 镜像而不动全局（那样镜像会与权威源分叉）。**为什么以全局为权威**：全局是实际运行时加载的中心、是「活」的；`claude/` 只是把全局内容开源出去的快照，以全局为权威更贴合实际使用，也避免了「权威源不被加载、要靠镜像回流」的别扭。
+- **范围（2026-08-04 收为三部分）**：`skills/` 下所有**通用** skill、`rules/` 下所有规则、根 `CLAUDE.md`——这三部分在全局 `~/.claude/` 是权威、在本项目 `claude/` 是镜像，逐字节相同。**不含 `commands/`**（2026-08-04 起从同步体系去掉，各处 commands 自行管理）；**不含项目级专属 skill**（如 capability-manager，放 `.claude/`、不进通用同步）。
 - **唯一例外：敏感信息**。涉及密钥、凭证、本机运行数据的内容（如 `find-skill/.env` 里的 SkillsMP 密钥、`find-skill/cache/` 里的本机数据、`settings.local.json`），不在「逐字节一致」的硬要求内——由本项目用 `.gitignore` 在项目级隔离，确保敏感信息不随开源仓库泄露。除此之外**不存在任何特例**：包括 `runtime.conf` 路径也不再特殊对待，项目副本与全局逐字节相同，clone 者拿到后按本机路径自行适配即可。
-- **为什么**：把底座钉成单一开源源头，任何人 clone 本项目即得完整通用能力，不依赖作者本机环境；本项目改一处、全局镜像一处，避免两边分叉、互相漂移。
-- **怎么验证**：每次改动后用 `diff -r ~/.claude/<部分> .claude/<部分>` 核对四部分是否仍逐字节一致（被 `.gitignore` 隔离的敏感文件不参与公开比对，是唯一允许的差异）。
-- **与下方各 skill 同步小节的关系**：本规定管的是「CapabilityManagerAgent ↔ 全局」这一层（项目为权威）；下方 anysearch / find-skill 同步小节管的是「全局 ↔ 其它 agent 项目副本」那一层（全局为权威，向各 agent 分发）。两层方向衔接——本项目是终极源头 → 全局 → 各 agent 项目副本，互不冲突。
-- **自动同步、无需每次询问（2026-08-01 用户补充）**：一旦发现全局 `~/.claude/` 与权威源本项目 `.claude/` 之间出现分叉（无论哪边领先），**直接自动同步对齐，不要再向用户询问「要不要同步」**。同步方向仍以权威源优先为准——理想流程是改动先落权威源、再镜像全局；若分叉是全局领先（比如临时直接改了全局），就把全局内容覆盖回权威源、一次性对齐后，继续走权威源优先。
-- **同步动作只记权威源的 CHANGELOG（2026-08-01 用户补充）**：通用能力同步这件事本身的变更记录，**只记在权威源本项目（CapabilityManagerAgent）的 `CHANGELOG.md`**，**不记到其它任何项目的 CHANGELOG**（如各业务项目 DayTradingAgent 等）。为什么：底层通用能力的同步归权威源管、是它本身的事，不该混进各业务项目自己的变更记录里、污染那些项目的 changelog。
+- **为什么**：把全局钉成权威源（实际运行时的中心），`claude/` 作为开源镜像，任何人 clone 本项目即得通用能力快照；全局改一处、镜像同步一处，避免两边分叉、互相漂移。
+- **怎么验证**：每次改动后用 `diff -r ~/.claude/<部分> claude/<部分>` 核对三部分（`skills` / `rules` / `CLAUDE.md`）是否仍逐字节一致（被 `.gitignore` 隔离的敏感文件不参与公开比对，是唯一允许的差异）。
+- **与下方各 skill 同步小节的关系**：本规定管的是「全局 ↔ CapabilityManagerAgent `claude/` 镜像」这一层（全局为权威）；下方 anysearch / find-skill 同步小节管的是「全局 ↔ 各 agent 项目副本」那一层（同为全局权威，向各 agent 分发）。两层方向一致——全局为唯一权威，本项目 `claude/` 镜像与各 agent 项目 `.claude/` 副本都从全局来，互不冲突。
+- **自动同步、无需每次询问（2026-08-01 用户立；2026-08-04 方向反转）**：一旦发现全局 `~/.claude/` 与本项目 `claude/` 镜像之间出现分叉（无论哪边领先），**直接自动同步对齐，不要再向用户询问「要不要同步」**。同步方向以全局权威优先——理想流程是改动先落全局、再镜像 `claude/`；若分叉是 `claude/` 镜像领先（比如临时直接改了镜像），就把 `claude/` 内容覆盖回全局、一次性对齐后，继续走全局优先。
+- **同步动作只记本项目的 CHANGELOG（2026-08-01 用户立）**：通用能力同步这件事本身的变更记录，**只记在本项目（CapabilityManagerAgent）的 `CHANGELOG.md`**，**不记到其它任何项目的 CHANGELOG**（如各业务项目 DayTradingAgent 等）。为什么：底层通用能力的同步归这个开源仓库管、是它本身的事，不该混进各业务项目自己的变更记录里、污染那些项目的 changelog。

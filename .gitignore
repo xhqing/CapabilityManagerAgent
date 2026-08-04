@@ -3,8 +3,8 @@
 .env.*
 
 # find-skill 本机密钥（SkillsMP key）与本机 catalogue / 日志数据
-.claude/skills/find-skill/.env
-.claude/skills/find-skill/cache/
+claude/skills/find-skill/.env
+claude/skills/find-skill/cache/
 
 # Claude Code 本机本地配置（permissions + autoMemoryDirectory 绝对路径），仅本机、不入库；
 # clone 者复制 .claude/settings.local.example.json → settings.local.json 后按本机路径填
