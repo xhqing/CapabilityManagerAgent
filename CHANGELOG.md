@@ -35,6 +35,11 @@
   - **验证**：`bash -n` 语法通过；注册表 token 读取正常；功能文件（SKILL.md / references / scripts / README）私人信息扫描清零；临时项目端到端实测——脚本从注册表读 token 建云端文件夹、`.md` 实际转为 docx（type=docx、标题与内容抽验通过），测试产物已全部清理。
   - **镜像同步**：`claude/skills/backup/`（SKILL.md / README.md / references / scripts / endpoints/README.md）与 `claude/CLAUDE.md` 已 cp 覆盖，md5 逐一核对一致；`endpoints/endpoints.json` 为本机数据按 gitignore 规则不入镜像。
 
+### 变更（新增 CI workflow + main 分支保护：dev-workflow 门禁引导）
+
+- **为什么改**：新建分支触发 dev-workflow 门禁自检，发现仓库缺三项门禁——无 CI workflow、main 无分支保护、auto-merge 未开；「main 必须永远绿」需要 PR 触发的 CI + required check 把「改 A 坏 B」的红灯拦在合并进 main 之前。
+- **改了什么**：① 新增 `.github/workflows/ci.yml`（纯文档仓库极简模板：push main / pull_request / workflow_dispatch 三触发，`validate` job 秒级空验证，checkout 不保留凭证）；② main 配分支保护——required check `validate`（strict 模式）+ enforce_admins + 禁 force push 与删除，改动一律经 PR 合并；③ 仓库打开 allow_auto_merge（`gh pr merge --auto` 自动合并链的前提）。全程经 GitHub API 配置（gh token 补 workflow scope 后写入 workflow 文件）。
+
 ## 2026-09-05
 
 ### 变更（commit skill 汇报收尾新增 git status 原样输出）
