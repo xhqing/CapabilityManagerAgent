@@ -5,7 +5,6 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Last Commit](https://img.shields.io/github/last-commit/xhqing/CapabilityManagerAgent)](https://github.com/xhqing/CapabilityManagerAgent/commits/main)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/CapabilityManagerAgent.json" alt="Visits/day (14d)" />
 
