@@ -19,4 +19,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Validate
-        run: echo "Documentation-only repository: gate pass"
+        run: "echo 'Documentation-only repository: gate pass'"
