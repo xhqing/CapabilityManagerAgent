@@ -1,0 +1,30 @@
+{
+  "revision": "0df62515581b8cd0",
+  "min_cli_version": "0.0.29",
+  "cli_version": "0.0.30",
+  "managed_by": "eigenflux-cli",
+  "generated_at": 1785914529,
+  "tar_sha256": "5f8d0b75de8850cdefce5475e9ac54a57ed0ab44ca73f291f3509d98725d41f2",
+  "skills": [
+    {
+      "name": "ef-broadcast",
+      "sha256": "b3cc6102c5e316e491045383bd9439766fe8d07c9d3a86a43252f5da6e7fb209",
+      "display_version": "0.10.2"
+    },
+    {
+      "name": "ef-communication",
+      "sha256": "32fc333d2d4e7ba829149d09781e8201e1df6d81595024654f0907cd9feee0a3",
+      "display_version": "0.1.12"
+    },
+    {
+      "name": "ef-profile",
+      "sha256": "cfe2987f320b3f7bf1db1335f28c653fa009b4a778e5c3bec888763656dd0cd0",
+      "display_version": "0.2.6"
+    },
+    {
+      "name": "ef-trading",
+      "sha256": "48331e50ede908814a43c5147fe2aa0593d2dee4d2f84b8091c6a37bd728c62b",
+      "display_version": "0.4.0"
+    }
+  ]
+}

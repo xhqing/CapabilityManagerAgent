@@ -7,29 +7,30 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Last Commit](https://img.shields.io/github/last-commit/xhqing/CapabilityManagerAgent)](https://github.com/xhqing/CapabilityManagerAgent/commits/main)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
+<img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/CapabilityManagerAgent.json" alt="Visits/day (14d)" />
 
 
 </div>
 
 # CapabilityManagerAgent
 
-> 🔥 **Prometheus（普罗米修斯）**——守护整个 Claude Code 智能体舰队「通用能力底座」的能力管家。当某个全局 skill、rule 或配置发生变化时，Prometheus 把变化同步到每一个项目副本，让整个舰队保持一致。
+> 🔥 **Prometheus（普罗米修斯）**——守护整个 Claude Code 智能体团队「通用能力底座」的能力管家。当某个全局 skill、rule 或配置发生变化时，Prometheus 把变化同步到每一个项目副本，让整个团队保持一致。
 
 [English](README.md)
 
-CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
+CapabilityManagerAgent 管理的是 Claude Code 智能体团队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
 
 ---
 
 ## Prometheus 是谁？
 
-这个 agent 的人格是 **Prometheus（普罗米修斯）**——舰队的能力管家。别的 agent 负责交易、生产或营销，Prometheus 守护的是它们共同立足的**共享底座**：`~/.claude/` 下的全局 skill、rule 与配置。
+这个 agent 的人格是 **Prometheus（普罗米修斯）**——团队的能力管家。别的 agent 负责交易、生产或营销，Prometheus 守护的是它们共同立足的**共享底座**：`~/.claude/` 下的全局 skill、rule 与配置。
 
 名字 **Prometheus**（「盗火者」）正贴合这个角色：守护那团让每个 agent 得以运转的「通用能力之火」。它的优势不在某个领域的专长，而在**一致与谨慎**：
 
 - **全局为权威。** 全局 `~/.claude/` 副本是事实来源，项目副本只是镜像。
 
-- **动底座前先备份。** `~/.claude/` 下的任何改动都影响整个舰队，编辑前先备份、先确认。
+- **动底座前先备份。** `~/.claude/` 下的任何改动都影响整个团队，编辑前先备份、先确认。
 
 ---
 
@@ -41,7 +42,7 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力
 | `~/.claude/rules/` | 全局通用工作规范（file-operation-priority、tmp-dir、verify-before-report） |
 | `~/.claude/settings.json` | 全局配置（env、availableModels、effortLevel、theme、hooks） |
 | `~/.claude/commands/` | 全局 slash 命令 |
-| `~/.claude/CLAUDE.md` | 全局偏好 + fleet 注册表 + 脚手架约定（元规范） |
+| `~/.claude/CLAUDE.md` | 全局偏好 + 团队注册表 + 脚手架约定（元规范） |
 
 **不在管辖范围**（归别处，Prometheus 不碰）：各 agent 的领域 skill 与业务配置；VSCode 扩展补丁（归 Tinker / PatchClaudeAgent）。
 
@@ -54,24 +55,24 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体舰队的**通用能力
 
 
 
-完整的操作步骤、护栏，以及 fleet 注册表的维护流程，都在 skill 里：[`.claude/skills/capability-manager/SKILL.md`](.claude/skills/capability-manager/SKILL.md)。
+完整的操作步骤、护栏，以及团队注册表的维护流程，都在 skill 里：[`.claude/skills/capability-manager/SKILL.md`](.claude/skills/capability-manager/SKILL.md)。
 
 ---
 
 ## 何时激活
 
-当用户要求**维护或更新某个全局 skill / rule、修改全局 `settings.json` 或 `CLAUDE.md`、新增或下线一个通用 skill、统一各项目脚手架、或给 fleet 注册表新增 agent** 时，Claude Code 激活 Prometheus。激活后加载 `capability-manager` skill 并执行其护栏。
+当用户要求**维护或更新某个全局 skill / rule、修改全局 `settings.json` 或 `CLAUDE.md`、新增或下线一个通用 skill、统一各项目脚手架、或给团队注册表新增 agent** 时，Claude Code 激活 Prometheus。激活后加载 `capability-manager` skill 并执行其护栏。
 
 ---
 
-## 在舰队中的位置
+## 在团队中的位置
 
 | Agent | 职责 |
 |---|---|
-| **Prometheus**（本项目） | 通用能力底座 + 跨项目同步 + fleet 注册表 |
+| **Prometheus**（本项目） | 通用能力底座 + 跨项目同步 + 团队注册表 |
 | Tinker（PatchClaudeAgent） | VSCode Claude Code 扩展的自愈补丁 |
 
-Prometheus 独立于销售流水线（Scout → Wright → Buzz → Vendy → Echo），它服务于整个舰队的共享底座。
+Prometheus 独立于销售流水线（Scout → Wright → Buzz → Vendy → Echo），它服务于整个团队的共享底座。
 
 ---
 

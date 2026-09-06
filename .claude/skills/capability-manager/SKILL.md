@@ -1,11 +1,11 @@
 ---
 name: capability-manager
-description: 维护 Claude Code 智能体舰队的通用能力底座，是 Prometheus（通用能力管家）的操作手册。覆盖全局 ~/.claude/ 下 skills / rules / CLAUDE.md 三部分的增删改，全局权威源 ~/.claude/ ↔ 本项目开源镜像 claude/ ↔ 各 agent 项目副本 .claude/ 的跨项目同步与一致性核对，以及 fleet 智能体注册表维护与新 agent 项目脚手架。当用户要求：新增 / 修改 / 下线某个全局 skill 或 rule、改全局 CLAUDE.md 或 settings.json、把某个通用能力同步到本项目镜像或分发到各 agent 项目、核对全局与镜像或项目副本是否一致（diff）、给 fleet 注册表新增或调整 agent、搭新 agent 项目脚手架，或任何涉及「~/.claude 通用能力维护 / 跨项目同步 / fleet 注册表」的工作时，都必须用本 skill——即便用户没明说「capability-manager」，只要意图落在上述场景即触发。触发后按对应场景执行流程、跑通用护栏（全局权威优先落地、敏感信息禁写、暂存区禁 AI 增删改、diff 验证逐字节一致、记本项目 CHANGELOG）。
+description: 维护 Claude Code 智能体团队的通用能力底座，是 Prometheus（通用能力管家）的操作手册。覆盖全局 ~/.claude/ 下 skills / rules / CLAUDE.md 三部分的增删改，全局权威源 ~/.claude/ ↔ 本项目开源镜像 claude/ ↔ 各 agent 项目副本 .claude/ 的跨项目同步与一致性核对，以及团队智能体注册表维护与新 agent 项目脚手架。当用户要求：新增 / 修改 / 下线某个全局 skill 或 rule、改全局 CLAUDE.md 或 settings.json、把某个通用能力同步到本项目镜像或分发到各 agent 项目、核对全局与镜像或项目副本是否一致（diff）、给团队注册表新增或调整 agent、搭新 agent 项目脚手架，或任何涉及「~/.claude 通用能力维护 / 跨项目同步 / 团队注册表」的工作时，都必须用本 skill——即便用户没明说「capability-manager」，只要意图落在上述场景即触发。触发后按对应场景执行流程、跑通用护栏（全局权威优先落地、敏感信息禁写、暂存区禁 AI 增删改、diff 验证逐字节一致、记本项目 CHANGELOG）。
 ---
 
 # Capability Manager（Prometheus 的操作手册）
 
-本 skill 是 **Prometheus（通用能力管家）** 的操作手册。当用户要维护整个 Claude Code 智能体舰队共享的「通用能力底座」时，按场景给出可执行的步骤、护栏与命令模板。
+本 skill 是 **Prometheus（通用能力管家）** 的操作手册。当用户要维护整个 Claude Code 智能体团队共享的「通用能力底座」时，按场景给出可执行的步骤、护栏与命令模板。
 
 > **本 skill 自身的位置（特殊定位）**：capability-manager 是 Prometheus（本项目 agent）的**项目级专属 skill**，放在本项目 `.claude/skills/` 下，**不进通用能力同步体系**——它管理通用能力，但自己不是通用 skill（不属于下文「三部分」同步对象）。这是它与 anysearch / find-skill 等通用 skill 的区别。
 
@@ -88,9 +88,9 @@ description: 维护 Claude Code 智能体舰队的通用能力底座，是 Prome
 
 ---
 
-## 场景 C：fleet 扩展（注册表 + 脚手架）
+## 场景 C：团队扩展（注册表 + 脚手架）
 
-**触发**：给 fleet 注册表新增 / 调整 agent；搭一个新 agent 项目脚手架。
+**触发**：给团队注册表新增 / 调整 agent；搭一个新 agent 项目脚手架。
 
 **核心步骤**：
 
@@ -114,7 +114,7 @@ description: 维护 Claude Code 智能体舰队的通用能力底座，是 Prome
 - 「新增一个通用 skill」「下线 / 删除某个 skill」
 - 「把 xx 同步到本项目镜像 / 同步到各 agent 项目」
 - 「检查全局和镜像 / 项目副本是不是一致」「同步一下」
-- 「新建一个 agent」「给 fleet 加个成员」「起个 agent 名字」
+- 「新建一个 agent」「给团队加个成员」「起个 agent 名字」
 - 「搭个新 agent 项目脚手架」
 
 **不激活**的边界：单个业务项目内部的功能开发（那是各 agent 自己的职责）；VSCode 扩展补丁（归 Tinker / PatchClaudeAgent）；git 提交 / 发布（走 `/commit`、`/release`）。

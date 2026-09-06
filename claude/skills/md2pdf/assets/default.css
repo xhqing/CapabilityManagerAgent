@@ -1,0 +1,123 @@
+/* md2pdf 默认 A4 文档样式：中文紧凑专业风
+ * 关键：开头三行 body 覆盖必须保留——pandoc standalone 输出自带
+ *   body { margin: 0 auto; max-width: 36em; padding: 50px }
+ * 若不显式覆盖，正文会被压成窄栏（居中「窄书芯」或靠左半页），页数虚多一倍。
+ * 本文件经 pandoc --include-in-header 注入，位于 pandoc 默认样式之后，同名规则后者胜。
+ */
+
+@page {
+  size: A4;
+  margin: 12mm 14mm 12mm 14mm;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  /* ===== pandoc 默认样式覆盖（勿删） ===== */
+  margin: 0;
+  max-width: none;
+  padding: 0;
+  /* ======================================= */
+  font-family: "PingFang SC", "Hiragino Sans GB", "Heiti SC", "Microsoft YaHei", sans-serif;
+  color: #1a1a1a;
+  line-height: 1.44;
+  font-size: 10.5px; /* 紧凑文档档位；阅读型文档可调 11~12px */
+}
+
+/* pandoc standalone 模式的 metadata 标题块：隐藏（正文通常已有自己的标题） */
+#title-block-header {
+  display: none;
+}
+
+h1.title {
+  display: none;
+}
+
+/* ===== 标题层级 ===== */
+h1 {
+  font-size: 17px;
+  margin: 0 0 3px 0;
+  letter-spacing: 1px;
+  color: #111;
+  border-bottom: 2.5px solid #2c5f8a;
+  padding-bottom: 4px;
+}
+
+h2 {
+  font-size: 12px;
+  margin: 7px 0 3px 0;
+  color: #2c5f8a;
+  border-left: 4px solid #2c5f8a;
+  padding-left: 6px;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 10.6px;
+  margin: 6px 0 2px 0;
+  color: #1a1a1a;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* ===== 段落与引用 ===== */
+p {
+  margin: 3px 0;
+}
+
+blockquote {
+  margin: 5px 0;
+  padding: 4px 8px;
+  background: #f4f7fa;
+  border-left: 3px solid #7ba3c4;
+  color: #333;
+}
+
+blockquote p {
+  margin: 0;
+}
+
+/* ===== 列表 ===== */
+ul, ol {
+  margin: 3px 0 5px 0;
+  padding-left: 1.3em;
+}
+
+li {
+  margin: 1px 0;
+}
+
+li p {
+  margin: 0;
+}
+
+/* ===== 强调 ===== */
+strong {
+  color: #0f3a5c;
+}
+
+/* ===== 分页控制 ===== */
+h2, h3 {
+  break-inside: avoid;
+}
+
+li {
+  break-inside: avoid;
+}
+
+/* 末节孤行治理：最后一个列表与上一段贴紧 */
+h2 + ul {
+  margin-top: 2px;
+}
+
+ul:last-child {
+  margin-bottom: 2px;
+}
+
+ul {
+  widows: 3;
+  orphans: 3;
+}

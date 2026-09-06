@@ -10,7 +10,7 @@
 |---|---|---|---|
 | CLAUDE.md 元规范 | ✅ 改 | ✅ 镜像 | ❌（各项目有自己的 CLAUDE.md，不通用） |
 | rules/ | ✅ 改 | ✅ 镜像 | ❌（rules 随 CLAUDE.md @ 引用，不单独分发） |
-| 全 fleet 通用 skill | ✅ 改 | ✅ 镜像 | ✅ 分发（anysearch / find-skill 等） |
+| 全团队通用 skill | ✅ 改 | ✅ 镜像 | ✅ 分发（anysearch / find-skill 等） |
 | 特定 agent 专属 skill | ❌（不进全局） | ❌（不进镜像） | 只放该项目的 `.claude/skills/`（capability-manager / trade 等） |
 | `settings.json` | ✅ 改 | ❌ 不镜像 | ❌ |
 | `commands/` | ✅ 改 | ❌ 不镜像 | 视命令通用性 |
@@ -24,7 +24,7 @@
 1. **先读 skill-creator**：`~/.claude/skills/skill-creator/SKILL.md`。按它的 Capture Intent → Interview → Write SKILL.md 流程来，遵循 Progressive Disclosure（frontmatter name + pushy description；SKILL.md 正文 <500 行；详情拆 references）。这是 CLAUDE.md「写 skill 内容须依据 skill-creator」的硬要求，**不能凭感觉写**。
 2. **在全局落地**：创建 `~/.claude/skills/<skill名>/SKILL.md`（及 references / scripts 等子目录）。
 3. **判断是否分发**：
-   - 全 fleet 通用的基础能力（搜索、提交、发布、图标等）→ 要分发到各 agent 项目。
+   - 全团队通用的基础能力（搜索、提交、发布、图标等）→ 要分发到各 agent 项目。
    - 仅 Prometheus / 某单个 agent 用的专属能力 → 不分发，放该项目的 `.claude/skills/`、不进全局。
 4. **镜像到本项目 `claude/`**：`cp -R ~/.claude/skills/<skill名> "$AUTH/claude/skills/"`。
 5. **分发到各项目**（仅通用 skill）：见 [`sync-flow.md`](sync-flow.md)「同步情形 2」。

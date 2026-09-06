@@ -46,7 +46,7 @@ ls ~/.claude/skills/find-skill/.env  # 应存在
 
 **第一步：判断该 skill 该分发到哪些项目。** 分两类：
 
-- **全 fleet 通用 skill**（分发到所有 agent 项目）：`anysearch`、`find-skill`，以及 `commit`、`release`、`vsce-install`、`icon-design`、`image-ocr`、`skill-creator`、`browser-use` 这类基础能力。
+- **全团队通用 skill**（分发到所有 agent 项目）：`anysearch`、`find-skill`，以及 `commit`、`release`、`vsce-install`、`icon-design`、`image-ocr`、`skill-creator`、`browser-use` 这类基础能力。
 - **特定 agent 专属 skill**（**不**分发，只留在该 agent 项目自己的 `.claude/`）：`capability-manager`（只给 Prometheus 本项目，在 `CapabilityManagerAgent/.claude/skills/`）、`trade`（Victor/DayTradingAgent）、`vend`（Vendy/DigiVendAgent）、`patch-claude`（Tinker/PatchClaudeAgent）、`quant`（Markowitz/QuantStrategistAgent）、`site-builder`（Mason/SiteBuilderAgent）、`hot-trend`（Scout/ProductStrategistAgent）等。
 
 **第二步：定位目标项目。** 本机所有 agent 项目都在 `~/Documents/Projects/`，目录名见全局 CLAUDE.md「智能体命名注册表」。先确认哪些项目装了该 skill：

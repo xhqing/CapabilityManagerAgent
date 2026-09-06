@@ -6,6 +6,10 @@
 claude/skills/find-skill/.env
 claude/skills/find-skill/cache/
 
+# backup skill 本机端点注册表与凭证（endpoints.json / *.token 等），仅 endpoints/README.md 入库
+claude/skills/backup/endpoints/*
+!claude/skills/backup/endpoints/README.md
+
 # Claude Code 本机本地配置（permissions + autoMemoryDirectory 绝对路径），仅本机、不入库；
 # clone 者复制 .claude/settings.local.example.json → settings.local.json 后按本机路径填
 .claude/settings.local.json
