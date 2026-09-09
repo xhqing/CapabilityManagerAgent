@@ -79,7 +79,7 @@ description: 维护 Claude Code 智能体团队的通用能力底座，是 Prome
    - **本项目 `claude/` → 全局**（反向对齐）：若镜像被临时直接改过、领先于全局，把镜像覆盖回全局一次性对齐，之后继续全局优先。
 2. **执行同步**：用 `cp` 覆盖目标位置（命令模板与各 agent 项目的定位方法见 [`references/sync-flow.md`](references/sync-flow.md)）。
 3. **diff 验证**：
-   - 全局 vs 本项目镜像：`diff -r ~/.claude/<部分> ~/Documents/Projects/CapabilityManagerAgent/claude/<部分>`。
+   - 全局 vs 本项目镜像：`diff -r ~/.claude/<部分> ~/Developer/CapabilityManagerAgent/claude/<部分>`。
    - 全局 vs 某项目副本：`diff -r ~/.claude/skills/<skill> <项目路径>/.claude/skills/<skill>`。
 4. **处理差异**：diff 报差异 → 判断是「同步没做对」还是「合法差异」（如 find-skill 的 `.env` / `cache/` 是本机数据、被 `.gitignore` 隔离）。前者修到一致，后者保留。
 5. **记 CHANGELOG**：同步动作只记本项目 CHANGELOG。

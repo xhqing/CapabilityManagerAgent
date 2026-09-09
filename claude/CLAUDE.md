@@ -287,22 +287,22 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 | **Buzz** | GrowthMarketerAgent | 增长营销 | 引流：各渠道引流内容 + 链接（X / IG / YouTube / 小红书 / 知乎 / B 站） |
 | **Vendy** | DigiVendAgent | 电商运营 | 成交：上架 / 定价执行 / 履约 / 售后纠纷 / 多平台铺货 / 对账 |
 | **Echo** | DataAnalystAgent | 数据分析师 | 复盘：归因（决策→业绩）+ 分发建议 + 累积 playbook |
-| **Kit** | ExecutiveAssistantAgent | 总经理助理 | 通用助手：用户的第一助理，找单接活入口与综合事务协调（不分组、直属用户；原「个人助理」Title 2026-08-23 改，同日项目由 PersonalAssistantAgent 更名为 ExecutiveAssistantAgent） |
+| **Kit** | ExecutiveAssistantAgent | 总经理助理 | 通用助手：用户的第一助理、团队多面手，几乎任何事务都接得住（不分组、直属用户；原「个人助理」Title 2026-08-23 改，同日项目由 PersonalAssistantAgent 更名为 ExecutiveAssistantAgent；2026-09-08 起找单找岗接活整体移交 Hopkins） |
 | **Victor** | DayTradingAgent | 日内交易员 | 信号：港股 / 美股盘中盯盘 → 分析标的 + 计算仓位与止损 → 发出交易信号（信号模式，不下单，人工执行） |
 | **Tinker** | PatchClaudeAgent | 补丁维护匠 | 维护：VSCode Claude Code 扩展升级后重新应用自定义补丁（自愈引擎：定位→应用→校验→回写），独立工具型 agent |
 | **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.claude/` 通用能力（全局为权威源、`claude/` 为开源镜像；同步 skills / rules / CLAUDE.md 三部分）+ 通用能力开源单一出口（2026-08-09 起新建 agent 项目不再分发副本，既有项目副本按需维护）+ 团队注册表维护，独立于销售流水线 |
-| **Markowitz** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度 → 产量化信号给 Victor 当加权投票员（离线开发，不盯盘不下单） |
+| **Markowitz** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度（离线开发，不盯盘不下单） |
 | **Hermes** | NetOpsAgent | 网络运维管理员 | 网络：代理节点真实流量测速与连通性检测 → 自动选路（纯延迟 / 纯带宽 / 混合）→ 故障转移 → 订阅刷新，基于 Xray-core（`xpilot` CLI），独立于销售流水线 |
 | **Anvil** | BackendEngineerAgent | 后端开发工程师 | 后端：负责所有后端开发工作（服务端逻辑 / API / 数据库 / 系统架构 / 桥接服务），目前在手 CC-BRIDGE（Claude Code 上游桥接框架），独立于销售流水线 |
 | **Atlas** | FullStackEngineerAgent | 全栈开发工程师 | 全栈：负责横跨前后端的完整开发（前端界面 / 后端服务 / 构建发布工程化），目前在手 zcode-cli（非官方 ZCode 终端客户端）与 zcode-vsce（非官方 ZCode VSCode 扩展客户端），独立于销售流水线 |
 | **Ada** | NeuralCoreAgent | AI 算法工程师 | 算法：设计 / 迭代 / 评测深度推理引擎（目前在手 AgentCortex——Infinite / Rapid / Incisive 三套推理引擎规则 + 评测体系），独立于销售流水线 |
 | **Alfred** | DeviceStewardAgent | 电脑管家 | 资源管理：本地电脑 / 远程服务器 / 云电脑的资源监控与管理建议（进程 / 内存 / 存储治理）→ 让设备始终处于低负载的流畅工作状态，独立于销售流水线 |
-| **Hopkins** | ApplyOptimizerAgent | 投递转化率优化师 | 转化优化：工作接单小组的漏斗上游——任务池投标与招聘平台求职（电鸭、BOSS直聘等）同为小组下的接单策略、同属一条投递漏斗：投递材料工程（接单的标书 + 求职的简历与打招呼话术，模板库 + 单变量 A/B 测试）、漏斗追踪（投递 → 回应 → 沟通 / 面试 → 成单 / offer）、转化率归因、报价与薪资策略测试、渠道淘汰（多渠道数据触发不凭感觉）；名字取自「科学广告之父」Claude Hopkins（简历即自我广告、话术即文案、漏斗归因即本行），隶属工作接单小组；项目原名 BidOptimizerAgent，2026-09-06 更名（投单与求职合流，业务从「投标」扩展为「投递」） |
-| **Justin** | LegalCounselAgent | 法务顾问 | 法务：负责整个团队所有跟合同和收款相关的事项——合同起草审查、收款结构设计（分期付款）、交易对手尽调、证据链留存、纠纷应对、合规备忘；名字取自编纂《民法大全》的查士丁尼大帝，隶属财务与法务小组 |
+| **Hopkins** | ApplyOptimizerAgent | 投递转化率优化师 | 工作接单全链路（2026-09-08 起专门负责：找单找岗、投递、转化一条龙，原由 Kit 发起的找单找岗动作并入）——任务池投标与招聘平台求职（电鸭、BOSS直聘等）同为并行接单策略、同属一条投递漏斗：投递材料工程（接单的标书 + 求职的简历与打招呼话术，模板库 + 单变量 A/B 测试）、漏斗追踪（投递 → 回应 → 沟通 / 面试 → 成单 / offer）、转化率归因、报价与薪资策略测试、渠道淘汰（多渠道数据触发不凭感觉）；名字取自「科学广告之父」Claude Hopkins（简历即自我广告、话术即文案、漏斗归因即本行），直属用户、不属任何小组（工作接单，单人）；项目原名 BidOptimizerAgent，2026-09-06 更名（投单与求职合流，业务从「投标」扩展为「投递」） |
+| **Justin** | LegalAgent | 法务Agent | 法务：负责整个团队所有跟合同和收款相关的事项——合同起草审查、收款结构设计（分期付款）、交易对手尽调、证据链留存、纠纷应对、合规备忘；名字取自编纂《民法大全》的查士丁尼大帝，直属用户、不属任何小组（纯法务，跨组服务全部小组；财务职能暂时空缺） |
 | **Gatsby** | CommunityManagerAgent | 社群运营官 | 社群：运营用户的微信社群「AI前沿跨界交流群」——运营理念与方法（群规迭代、新人欢迎流程、话题日历、内容整理、运营复盘）由 Gatsby 主导产出，群主为辅助、引导和执行角色（微信内一切操作由群主落地）；名字取自《了不起的盖茨比》的传奇派对主人 Jay Gatsby，不分组、直属用户（2026-08-25 立） |
 | **Hopper** | TestEngineerAgent | 软件测试工程师 | 测试：全团队软件项目的功能测试与回归防护网——需求转验收用例（用例先行）、存量项目从事故补回归用例（先红后绿）、用例库与 CI（GitHub Actions）维护、交付验收判定；持用例定义权，与开发 agent 的实现权、CI 的裁决权三权分立（开发 agent 禁改用例迁就实现）；名字取自史上第一个计算机 bug 的发现者、「debug」一词推广者 Grace Hopper，隶属基础设施小组（2026-09-06 立） |
 
-销售流水线顺序：① Scout → ② Wright → ③ Mason → ④ Buzz → ⑤ Vendy → ⑥ Echo。整个团队按涉及领域分为五个小组（2026-08-23 用户立）：**工作接单小组**（Hopkins 漏斗上游做转化优化 + Justin 下游保障合同收款；任务池投标与招聘平台求职为小组下并行的接单策略——小组原名任务池投标小组，2026-09-06 更名）、**数字产品销售小组**（六段流水线 Scout → Wright → Mason → Buzz → Vendy → Echo）、**投资与交易小组**（Markowitz 产回测标定的策略给 Victor 当加权输入）、**财务与法务小组**（Justin 负责整个团队所有跟合同和收款相关的事项，跨组服务）、**基础设施小组**（Tinker 给 CC 打补丁；Prometheus 开源全团队通用能力；Hermes 网络运维，为需要稳定代理连接的 agent 提供节点测速选路与故障转移；Anvil 纯服务端项目；Atlas 横跨前后端的完整项目及偏前端 / TUI / 客户端侧的工作——两者分工协作；Ada 负责全团队推理引擎的设计与评测，为所有 agent 的思考能力供底；Alfred 负责本地电脑 / 远程服务器 / 云电脑的资源管理与建议，让各设备始终处于低负载的流畅工作状态；Hopper 负责全团队软件项目的功能测试与回归防护网——用例先行 + CI 红灯门禁，把「改 A 坏 B」拦在合并进 main 之前）。**Kit（总经理助理）不分组、不属于任何小组**——用户的第一助理，直属用户，找单接活入口与综合事务协调（工作接单小组的找单找岗动作由 Kit 发起、转化优化归 Hopkins、合同收款归 Justin）。**Gatsby（社群运营官）同样不分组、直属用户**——运营用户自己的微信社群（私域阵地），理念方法由 Gatsby 出、群主执行；公域渠道投放仍归 Buzz（Gatsby 只做私域社群，不越界到公域）。其中 Mason（建设期：建成交阵地 + 接支付）必须在 Buzz 之前就位，Buzz 的带货链接才有处可指；Vendy 在 Buzz 之后做运营期（接单 / 履约 / 售后 / 对账）——Mason 建、Vendy 营，接力同一阵地。每个 agent 的拟人名同时写在其项目 README 里。
+销售流水线顺序：① Scout → ② Wright → ③ Mason → ④ Buzz → ⑤ Vendy → ⑥ Echo。整个团队按涉及领域分为三个小组（2026-08-23 用户立五小组，2026-09-08 精简为三小组——工作接单与财务法务转为直属用户的单人岗位）：**数字产品销售小组**（六段流水线 Scout → Wright → Mason → Buzz → Vendy → Echo）、**投资与交易小组**（Markowitz 量化策略研发与回测标定，Victor 日内盯盘发信号）、**基础设施小组**（Tinker 给 CC 打补丁；Prometheus 开源全团队通用能力；Hermes 网络运维，为需要稳定代理连接的 agent 提供节点测速选路与故障转移；Anvil 纯服务端项目；Atlas 横跨前后端的完整项目及偏前端 / TUI / 客户端侧的工作——两者分工协作；Ada 负责全团队推理引擎的设计与评测，为所有 agent 的思考能力供底；Alfred 负责本地电脑 / 远程服务器 / 云电脑的资源管理与建议，让各设备始终处于低负载的流畅工作状态；Hopper 负责全团队软件项目的功能测试与回归防护网——用例先行 + CI 红灯门禁，把「改 A 坏 B」拦在合并进 main 之前）。**Kit（总经理助理）不分组、不属于任何小组**——用户的第一助理、团队多面手，几乎任何事务都接得住（工作接单整体归 Hopkins、合同收款归 Justin）。**Gatsby（社群运营官）同样不分组、直属用户**——运营用户自己的微信社群（私域阵地），理念方法由 Gatsby 出、群主执行；公域渠道投放仍归 Buzz（Gatsby 只做私域社群，不越界到公域）。其中 Mason（建设期：建成交阵地 + 接支付）必须在 Buzz 之前就位，Buzz 的带货链接才有处可指；Vendy 在 Buzz 之后做运营期（接单 / 履约 / 售后 / 对账）——Mason 建、Vendy 营，接力同一阵地。每个 agent 的拟人名同时写在其项目 README 里。
 
 ## 新建带拟人名的 Agent 时自动维护注册表（免确认，2026-07-16 用户立）
 
@@ -352,6 +352,7 @@ AI 对 git 暂存区（staging area / index）的操作，按「能否自主做�
 | FullStackEngineerAgent（Atlas） | zcode-cli | 非官方 ZCode 终端客户端（Node.js / TypeScript，TUI） |
 | FullStackEngineerAgent（Atlas） | zcode-vsce | 非官方 ZCode VSCode 扩展客户端（与 zcode-cli 平行的姊妹项目：同一官方 runtime、`app-server` 协议、webview 前端） |
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
+| ExecutiveAssistantAgent（Kit） | CyberRipple | 组织总览仓库（AI Agent 团队总览 README 中英双语；2026-09-08 交由 Kit 负责，远程仓库待建） |
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | DeviceStewardAgent（Alfred） | ResourceMonitor | 整机资源监控 + AI 清理建议的 VSCode 扩展（TypeScript） |

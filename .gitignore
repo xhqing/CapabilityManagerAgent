@@ -10,6 +10,10 @@ claude/skills/find-skill/cache/
 claude/skills/backup/endpoints/*
 !claude/skills/backup/endpoints/README.md
 
+# scroll-reverser skill 本机应然配置快照（local/config.md 含本机路径与惯用开关组合），仅 local/README.md 入库
+claude/skills/scroll-reverser/local/*
+!claude/skills/scroll-reverser/local/README.md
+
 # Claude Code 本机本地配置（permissions + autoMemoryDirectory 绝对路径），仅本机、不入库；
 # clone 者复制 .claude/settings.local.example.json → settings.local.json 后按本机路径填
 .claude/settings.local.json

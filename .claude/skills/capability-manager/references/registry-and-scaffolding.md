@@ -25,7 +25,7 @@
 ### 3. 镜像本项目 claude/ + 验证
 
 ```bash
-AUTH=~/Documents/Projects/CapabilityManagerAgent
+AUTH=~/Developer/CapabilityManagerAgent
 cp ~/.claude/CLAUDE.md "$AUTH/claude/CLAUDE.md"
 diff ~/.claude/CLAUDE.md "$AUTH/claude/CLAUDE.md" && echo "✅ 一致"
 ```
@@ -39,7 +39,7 @@ diff ~/.claude/CLAUDE.md "$AUTH/claude/CLAUDE.md" && echo "✅ 一致"
 ### 1. 建项目目录 + git init
 
 ```bash
-cd ~/Documents/Projects
+cd ~/Developer
 mkdir XxxAgent && cd XxxAgent
 git init   # 免确认（CLAUDE.md「新建项目 git init 免确认」）
 ```
@@ -80,7 +80,7 @@ git init   # 免确认（CLAUDE.md「新建项目 git init 免确认」）
 确认后步骤：
 
 ```bash
-cd ~/Documents/Projects/XxxAgent
+cd ~/Developer/XxxAgent
 # 1. 建公开仓库 + 设 origin + push（一条命令）
 gh repo create XxxAgent --public --source=. --remote=origin --push
 

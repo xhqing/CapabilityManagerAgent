@@ -17,7 +17,7 @@
 
 **三部分之外**（`settings.json`、`commands/`）只在全局 `~/.claude/` 维护、**不进本项目 `claude/` 镜像**——它们不是开源同步对象。改全局 `settings.json` / `commands/` 时，直接改全局、记 CHANGELOG，不涉及 `claude/` 镜像、不跑 diff。
 
-下面把本项目根记作 `$AUTH`，即 `~/Documents/Projects/CapabilityManagerAgent`。
+下面把本项目根记作 `$AUTH`，即 `~/Developer/CapabilityManagerAgent`。
 
 ## 新增一个通用 skill（全链路）
 

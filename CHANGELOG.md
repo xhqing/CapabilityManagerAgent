@@ -4,7 +4,74 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## 2026-09-08
+
+### 变更（项目迁移收尾：capability-manager skill 内路径更新）
+
+- **为什么改**：本项目现址在 `~/Developer/CapabilityManagerAgent`（`~/Documents/Projects/` 旧址已弃用，2026-09-08 迁移收尾时发现 skill 的 `$AUTH` 定义、diff / 循环脚本里仍指旧路径），避免按 skill 操作时访问不存在的位置。
+- **改了什么**：`.claude/skills/capability-manager/` 下 SKILL.md + references 三篇（sync-flow.md、registry-and-scaffolding.md、content-lifecycle.md）共 17 处 `~/Documents/Projects` / `$AUTH` 路径更新为 `~/Developer`；skill 为本项目专属（不入全局 ↔ 镜像同步体系），不涉及 `claude/` 三部分镜像。
+
+### 变更（注册表：Kit 定位多面手，找单找岗整体移交 Hopkins）
+
+- **为什么改**：用户 2026-09-08 口径调整——Kit（总经理助理）定位为第一助理、团队多面手，不再强调找单找岗；找单接活找工作整体移交 Hopkins 专门负责。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`（即 `~/.zcode/AGENTS.md` 软链接源）三处——注册表 Kit 行职责改为多面手（附 2026-09-08 移交注记）、Hopkins 行职责扩为「工作接单全链路（找单找岗、投递、转化一条龙，原由 Kit 发起的找单找岗动作并入）」、销售流水线段落 Kit 分工描述同步；本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。Kit 项目侧同步见 ExecutiveAssistantAgent CHANGELOG。
+
+### 变更（超集映射表：Kit 新增子项目 CyberRipple）
+
+- **为什么改**：用户 2026-09-08 把 CyberRipple 仓库（组织总览 README 中英双语）交由 Kit 负责，按超集规则须在全局映射表登记。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`（即 `~/.zcode/AGENTS.md` 软链接源）超集关系映射表新增一行「ExecutiveAssistantAgent（Kit） → CyberRipple（组织总览仓库；远程仓库待建）」；本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。子项目侧落地与标配补齐记 ExecutiveAssistantAgent CHANGELOG。
+
+### 变更（团队注册表：Justin 定位纯法务直属——「财务与法务」残留括注清理）
+
+- **为什么改**：用户 2026-09-08 二次明确口径——Justin 现在的定位是纯法务（职称「法务Agent」、项目名 `LegalAgent`、直属用户不属任何小组），财务职能暂时空缺；注册表 Justin 行行尾「（财务与法务，跨组服务全部小组）」括注与新口径矛盾，属前次精简三小组时的中间态残留。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`（即 `~/.zcode/AGENTS.md` 软链接源）Justin 行括注改为「（纯法务，跨组服务全部小组；财务职能暂时空缺）」；本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。同轮连带（Hopkins 会话）：xhqing README 双语 Justin 两处括注同步清理、CyberRipple org README 双语链接统一为 `LegalAgent`（GitHub 仓库尚未创建，立项待办见 ApplyOptimizerAgent TODO T12）。
+
+### 变更（release / bump skill：安装链接固定 tag 形式，禁用 latest/download）
+
+- **为什么改**：用户发现已发布 Release 的 notes 与 zcode-cli 三版 README 里安装命令用 `releases/latest/download/<带版本号资产名>.tgz` 形式——latest 指针随每次发布移动、资产名带版本号，版本一更新历史链接必然 404（zcode-cli 曾以「发版前预对齐」勉强维持，CHANGELOG 记录过两轮忘记执行导致 README 链接长期 404）。用户 2026-09-08 裁定弃用 latest 形式，改固定 tag URL（`releases/download/<tag>/<asset>`，永指该版本资产、历史链接不失效）。
+- **改了什么**：① release skill（`~/.claude/skills/release/SKILL.md`）新增「安装链接：固定 tag 形式，禁用 latest/download」规范节——notes / README 安装链接一律固定 tag 形式、翻译改写 notes 时遇到存量 latest 链接顺手改、发布中发现项目 README 存量 latest 链接在汇报中列出建议随下次 bump 修（不当场改文件，保持发布原子性）；「注意」段未动（规范节自足）。② bump skill（`~/.claude/skills/bump/SKILL.md`）版本对齐范围调整——README 对齐项原排除「安装命令示例」，现改为：固定 tag URL 的安装命令版本号（tag 段与资产名）一并同步、遇到 latest/download 存量顺手改为固定 tag 形式（与 release skill 规范互指）。③ 本项目 `claude/skills/release/`、`claude/skills/bump/` 镜像同步（diff 验证逐字节一致）。zcode-cli 侧配套（README 9 处 + RELEASING.md 口径 + Release notes 存量）记 zcode-cli 自己的 CHANGELOG。
+
+### 变更（团队注册表：投资与交易小组联动口径更新——删除 Markowitz→Victor 信号供给关系）
+
+- **为什么改**：用户 2026-09-08 明确「量化策略师和日内交易员之间没有『标定信号』联系，这个定位过时了」——注册表与小组段里的「产量化信号给 Victor 当加权投票员 / 当加权输入」为旧口径，须删；两人在小组内的职责改为并列陈述（Markowitz 量化策略研发与回测标定，Victor 日内盯盘发信号）。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`（即 `~/.zcode/AGENTS.md` 软链接源）两处——注册表 Markowitz 行职责描述去掉「→ 产量化信号给 Victor 当加权投票员」、五小组段「投资与交易小组」括注改为并列职责表述；本项目 `claude/CLAUDE.md` 镜像同步（diff 验证与全局逐字节一致）。触发场景：CyberRipple org README 架构图绘制时用户纠正（Hopkins 会话执行）。
+
+### 变更（dev-workflow 大转向重写为本地门禁版：镜像同步 + CodeBuddy 分发补齐）
+
+- **为什么改**：2026-09-07 晚用户对开发工作流大转向定稿并拍板两轮口径（7 项 + 4 项）——远端 GitHub PR / CI 门禁整体取消（各仓库存量 `ci.yml` 保留不动、不再新增），裁决全部本地化：开工门禁（main 上须有 pending 需求组）+ 机器门禁（本地全量测试：passed 全绿 + 本次组全绿、其它组不阻塞）+ 人工门禁（用户装测试版安装包按 requirement.md 验收）+ 超集硬校验快进合并 + Hopper 归档验收。ZCode 侧 `~/.zcode/skills/dev-workflow/` 当晚整篇重写（SKILL.md 130 行九步骨架 + 三个 references：test-cases / merge-discipline / acceptance；旧 `references/ci-templates.md` 删除）；配套「测试用例目录只读」四端 hook（`~/.claude/hooks/test-cases-guard.py`，CC / ZCode / CodeBuddy / Trae 挂载，授权标记 `# TEST_CASES_WRITE_OK`）。全局权威源 `~/.claude/skills/dev-workflow/` 已是新版（与 ZCode 逐字节一致），但本项目 `claude/` 镜像仍停留在 2026-09-07 白天的 PR + CI 纪律制版本、CodeBuddy 端缺失——本轮补齐。
+- **改了什么**：① `claude/skills/dev-workflow/` 从全局权威源 rsync 同步（含删除旧版 `references/ci-templates.md`），diff 逐字节验证一致；② `~/.codebuddy/skills/dev-workflow` 按该端软链惯例（既有 9 个 skill 同模式）建软链指向权威源；③ TestEngineerAgent（Hopper）角色文件 `CLAUDE.md` 同步对齐新流程（用例生产线 + 本地门禁裁决权 + hook 授权标记写入通道），变更记录记该项目自己的 CHANGELOG。
+- **分发格局澄清（用户两次指正后实测定稿）**：权威源唯一在 `~/.claude/skills/dev-workflow`。ZCode（09-06 起即软链）与 CodeBuddy 为**条目级软链**指向权威源；**Trae CN 为 skills 目录级软链**（`~/.trae-cn/skills` → `~/.claude/skills`，inode 实证同一目录）——2026-09-07 晚经 ZCode 路径的重写实际直接落在权威源上，CC / ZCode / CodeBuddy / Trae 四端全部零维护、改权威源即生效。**唯一需要改动后手动同步的实体副本是本项目 `claude/` 开源镜像**（镜像实体进 git，体系使然）。
+
+## 2026-09-07
+
+### 变更（新增全局 skill：scroll-reverser——Mac 滚动方向工具 Scroll Reverser 的使用、配置与失灵修复）
+
+- **为什么改**：用户 2026-09-07 交办——本机长期用 Scroll Reverser（Pilotmoon，开源）反转触控板滚动方向，偶发失灵（方向变回系统默认），要求把使用 / 配置 / 排障方法沉淀为全局 skill 供全部 agent 掌握，失灵时直接排查修复、无需现查。
+- **改了什么**：
+  - 新建 `~/.claude/skills/scroll-reverser/`（权威源）：`SKILL.md`（116 行，失灵六步分级修复流程 + 配置键速查 + 常见坑；description 229 字符，远低于 ZCode 1024 上限）；`references/guide.md`（完整参考：CGEventTap 工作原理、权限与官方重授权流程、安装 / 升级 / 卸载、全部偏好键与默认值、已知问题表——唤醒失灵自愈机制（ReleaseNotes v1.7.3）、外接屏需彻底重启（issue #132）、macOS 26 时好时坏（issue #200）、手势界面不可反转（#184）、AppleScript enabled 接口）；`local/`（本机数据，config.md 存本机应然配置快照与一键恢复命令块，按「Skill 内容纯净性」不进镜像，仅 README.md 入库）。
+  - `~/.zcode/skills/scroll-reverser` 软链至权威源（ZCode 全局可用，与既有 20 个 skill 同模式）。
+  - 镜像 `claude/skills/scroll-reverser/` 同步（SKILL.md + references/ + local/README.md，diff 逐字节验证一致；local/config.md 排除）；`.gitignore` 补 `claude/skills/scroll-reverser/local/*` + `!README.md` 排除规则。
+  - **调研依据**：官方站点（版本 / 系统要求 / FAQ 重授权流程 / brew cask 安装）+ 源码键名实证（clone 仓库读 `AppDelegate.m` registerDefaults 与 `MouseTap.m` 反转逻辑链、sdef AppleScript 词典）+ GitHub issues（#132 / #195 / #200 / #92 / #184 / #38 / #165）+ 本机实测（AppleScript get enabled 通道打通、plist / 登录项 / 安装位置核查；发现本机装在桌面 iCloud 目录，已作为迁移建议记入 local/config.md）。
+
+### 变更（main push 政策放宽：dev-workflow / commit / bump / release 四 skill 修订 + 镜像同步）
+
+- **为什么改**：用户 2026-09-07 裁定三项——① **main push 不做限制**：受保护 main 挡住了一切直接 push（本地 main 领先想直推被拒、合并后本地 main 需绕路 reset 对齐），代价大于收益；② **普通文件处理修改不走 dev-workflow**：文档、版本号 bump、配置等不新增测试用例、不碰核心功能的杂事，直接在 main 上改 + commit + push；③ **只有存在测试用例的软件开发项目才走 dev-workflow**（feature 分支 + PR + CI）。推翻 2026-09-06 的「全团队统一无豁免配分支保护」与「main 仅本地提交」两项政策。
+- **改了什么**：
+  - **GitHub 远端**：撤除 zcode-cli 与 CapabilityManagerAgent 两个仓库的 main 分支保护（required checks `validate` + enforce_admins——全团队唯二挂保护的仓库，实测其余仓库均未保护）。撤除依据：GitHub 的 required checks 一旦配置就同时挡 merge 和直接 push、无法只挡其一；官方文档确认 auto-merge 仅对「有不满足合并要求的 PR」提供，无 required checks 的仓库 auto-merge 选项根本不出现。
+  - **`skills/dev-workflow/`**：适用范围收窄为「存在测试用例的软件开发项目」（原：每个仓库必须配门禁、全团队统一无豁免）；main 不设分支保护、不限制直接 push，「CI 绿才合并」改由流程纪律保证；第 0 步门禁自检四项瘦身为两项（fork 检测 + CI workflow 存在；删分支保护配置与 auto-merge 开关检查）；第 4 步 `git publish` 别名从 `--auto`（auto-merge）改为 `gh pr checks --watch && gh pr merge --squash --delete-branch`（等 CI 完成、全绿退出码 0 才合并，红灯链自动中断）；第 5 步 strict 绿灯过期条目改为纪律建议（无强制）。`references/ci-templates.md`：job 名 `validate` 不再关联分支保护；删「纯文档仓库极简 CI 模板」段（纯文档仓库不走 dev-workflow、不配 CI），YAML 引号坑移入调整原则。
+  - **`skills/commit/`**：main 分支感知从「仅本地提交模式」（2026-09-06 立）恢复为直推——`git commit && git push` 直推远程 main（普通文件修改、杂事、main 对齐走这条通道）；功能分支 PR 链第 3 步从设 auto-merge 改为 `gh pr checks --watch` 等 CI 完成绿灯 squash 合并（红灯不合并、报失败 job 与日志指引；会话不便久等时报 PR 号由用户手动收尾）；9j 版本滞后指引同步 bump 新流程；description 828 字符（< ZCode 客户端 1024 上限，实测安全）。
+  - **`skills/bump/`**：流程简化为 main 直改——对齐 main → 在 main 上直接改齐版本号 → 指引 `git add` + `/commit` 直推（原：建 `chore/bump-<版本>` 分支走 PR；bump 属普通文件处理修改、不走 dev-workflow）；功能分支不碰版本号纪律不变；新增「改动只限版本号载体文件」边界。
+  - **`skills/release/`**：对齐校验措辞同步（bump 走 `/commit` 直推、功能分支等 PR 合并）；删「不受 main 分支保护限制」的过时说明。
+  - **镜像同步**：`claude/skills/` 补齐缺失的 dev-workflow（SKILL.md + references/）与 bump（SKILL.md），更新 commit / release 两份 SKILL.md，`diff -rq` 逐字节验证通过；`backup/endpoints/endpoints.json`（本机敏感数据）按规则不同步。
+  - **待处理**：镜像 `claude/skills/win-ai-monitor/scripts/` 在全局无对应、且两侧 SKILL.md 有差异——本次未动的既有分叉，待判断方向后处理。
+  - 关联：TestEngineerAgent `CLAUDE.md` 工作原则同步修订（记其自己的 CHANGELOG）。
+
 ## 2026-09-06
+
+### 变更（commit skill description 压缩至 1024 字符以内：修复 ZCode 客户端发现不了该 skill）
+
+- **为什么改**：2026-09-06 在 zcode-cli 会话实测定位——ZCode 官方 runtime 对 skill 的 frontmatter description 有 1024 字符硬上限（vendor/zcode.cjs 中 `desc.length > 1024` 即丢弃、错误码 `skill_description_too_long`；官方 zcode-guide 插件的 diagnosing-skills 指南明文同口径），commit skill 的 description 1126 字符超限，整个 skill 被 ZCode 加载器丢弃、Skill 工具报 `Skill not found: commit`。CC 侧不受影响（该上限是 ZCode runtime 行为）。同病待修：ef-communication（1465 字符）同样超限被丢。
+- **改了什么**：`skills/commit/SKILL.md` frontmatter description 从 1126 压缩至 751 字符——保留全部语义骨架（触发词、只提交暂存区不执行 git add、main 分支仅本地提交模式、敏感扫描 + cache 检测命中即彻底终止、功能分支 PR 链 + auto-merge、push 后项目标配补齐与 `.commit-cache.md` 缓存、版本滞后与版本号一致性两个每次必查检测），去掉正文已详述的枚举细节；顺手把过期的「gh pr create --fill」表述改为「创建（标题须具体达意）」，与正文第 8 步 2026-09-06 的 PR 标题规范对齐。镜像同步：`~/.zcode/skills/commit` 为指向 `~/.claude/skills/commit` 的软链接（同一文件、天然同步）；`claude/skills/commit/SKILL.md` 已 cp 覆盖并逐字节核对，三处 description 实测均 751 < 1024。
 
 ### 变更（全局 CLAUDE.md 小组更名：任务池投标小组 → 工作接单小组）
 
@@ -39,6 +106,12 @@
 
 - **为什么改**：新建分支触发 dev-workflow 门禁自检，发现仓库缺三项门禁——无 CI workflow、main 无分支保护、auto-merge 未开；「main 必须永远绿」需要 PR 触发的 CI + required check 把「改 A 坏 B」的红灯拦在合并进 main 之前。
 - **改了什么**：① 新增 `.github/workflows/ci.yml`（纯文档仓库极简模板：push main / pull_request / workflow_dispatch 三触发，`validate` job 秒级空验证，checkout 不保留凭证）；② main 配分支保护——required check `validate`（strict 模式）+ enforce_admins + 禁 force push 与删除，改动一律经 PR 合并；③ 仓库打开 allow_auto_merge（`gh pr merge --auto` 自动合并链的前提）。全程经 GitHub API 配置（gh token 补 workflow scope 后写入 workflow 文件）。
+
+### 变更（commit skill：main 分支由「彻底终止」修订为「仅本地提交」，镜像同步补齐欠账）
+
+- **为什么改**：用户 2026-09-06 修订——当日上午立的「main 分支且有提交历史 → 彻底终止」把「在 main 上只做本地提交、暂不推送」的需求也堵死了（如本地攒批改动、后续再经功能分支 + PR 进远程 main）。改为：感知到当前在 main（或 master）且有提交历史 → 不终止，敏感扫描 / cache 检测与 `git commit` 照常执行，但跳过全部推送动作（不 `git push`、不创建远程仓库、不建 PR、不设 auto-merge）——远程 main 仍只能经 PR + CI 门禁进入，本地 main 提交不同步远程。全新仓库无提交历史的初始提交场景维持原样（push 直推 main，新仓库无分支保护）。
+- **改了什么**：全局 `~/.claude/skills/commit/SKILL.md`（权威源）多处：① description——main 感知句由「即彻底终止」改为「降级为仅本地提交模式」；② 「触发与终止规则」——「main 分支终止」条目改为「main 分支降级为仅本地提交」，「命中即彻底终止」的列举去掉 main 分支检测；③ 执行流程第 0 步——main 有提交历史分支由「立即彻底终止」改为「进入 main 仅本地提交模式：继续第 1-7 步、跳过第 8 步全部推送」；④ 第 7 步——补 main 模式无 push 可串联、单独执行 `git commit`；⑤ 第 8 步——开头加总闸「main 仅本地提交模式跳过本步全部动作（含 `gh repo create`——其自带推送、与不推送矛盾）」；⑥ 第 9 步——补 main 模式同样进入本步：本地检测项照常、push 依赖项（9c / 9j）自然跳过；⑦ 9j 前置示例补「push 未成功（含 main 仅本地提交模式未推送）」；⑧ 「核心定位」与「注意」段的 && 串联条目各补 main 例外；⑨ 汇报段——删「因 main 分支检测终止」分支，加「main 仅本地提交模式加报：仅本地未推送 + 本地领先 origin/main 提交数 + 后续出路」。
+- **镜像同步**：`claude/skills/commit/SKILL.md` 随本次 cp 对齐全局，diff 验证逐字节一致——该镜像此前已落后全局一轮（缺当日上午的 main 分支感知、PR 链、9j 提示制、`>> git status` 命令标记等改动），本次一并补齐；ZCode 客户端用户级路径 `~/.zcode/skills/commit/SKILL.md` 与全局为硬链接（同 inode），天然同步。
 
 ## 2026-09-05
 

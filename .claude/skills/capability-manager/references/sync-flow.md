@@ -7,17 +7,17 @@
 | 角色 | 路径 | 作用 |
 |---|---|---|
 | 权威源 | `~/.claude/` | 唯一事实来源；所有项目运行时加载它；改动从这里开始 |
-| 本项目开源镜像 | `~/Documents/Projects/CapabilityManagerAgent/claude/` | 把全局开源出去的快照（三部分） |
-| 各 agent 项目副本 | `~/Documents/Projects/<各 agent 项目>/.claude/` | 各 agent 运行时加载自己项目里的这份 |
+| 本项目开源镜像 | `~/Developer/CapabilityManagerAgent/claude/` | 把全局开源出去的快照（三部分） |
+| 各 agent 项目副本 | `~/Developer/<各 agent 项目>/.claude/` | 各 agent 运行时加载自己项目里的这份 |
 
-下面把本项目根记作 `$AUTH`，即 `~/Documents/Projects/CapabilityManagerAgent`。
+下面把本项目根记作 `$AUTH`，即 `~/Developer/CapabilityManagerAgent`。
 
 ## 同步情形 1：全局 → 本项目镜像（最常见）
 
 全局 `~/.claude/` 改好了三部分内容，把它镜像到本项目 `claude/`。逐部分操作：
 
 ```bash
-AUTH=~/Documents/Projects/CapabilityManagerAgent
+AUTH=~/Developer/CapabilityManagerAgent
 
 # CLAUDE.md（元规范）
 cp ~/.claude/CLAUDE.md "$AUTH/claude/CLAUDE.md"
@@ -49,10 +49,10 @@ ls ~/.claude/skills/find-skill/.env  # 应存在
 - **全团队通用 skill**（分发到所有 agent 项目）：`anysearch`、`find-skill`，以及 `commit`、`release`、`vsce-install`、`icon-design`、`image-ocr`、`skill-creator`、`browser-use` 这类基础能力。
 - **特定 agent 专属 skill**（**不**分发，只留在该 agent 项目自己的 `.claude/`）：`capability-manager`（只给 Prometheus 本项目，在 `CapabilityManagerAgent/.claude/skills/`）、`trade`（Victor/DayTradingAgent）、`vend`（Vendy/DigiVendAgent）、`patch-claude`（Tinker/PatchClaudeAgent）、`quant`（Markowitz/QuantStrategistAgent）、`site-builder`（Mason/SiteBuilderAgent）、`hot-trend`（Scout/ProductStrategistAgent）等。
 
-**第二步：定位目标项目。** 本机所有 agent 项目都在 `~/Documents/Projects/`，目录名见全局 CLAUDE.md「智能体命名注册表」。先确认哪些项目装了该 skill：
+**第二步：定位目标项目。** 本机所有 agent 项目都在 `~/Developer/`，目录名见全局 CLAUDE.md「智能体命名注册表」。先确认哪些项目装了该 skill：
 
 ```bash
-for d in ~/Documents/Projects/*Agent; do
+for d in ~/Developer/*Agent; do
   [ -d "$d/.claude/skills/<skill名>" ] && echo "$(basename "$d")"
 done
 ```
@@ -60,7 +60,7 @@ done
 **第三步：分发（逐个项目覆盖）**：
 
 ```bash
-for d in ~/Documents/Projects/*Agent; do
+for d in ~/Developer/*Agent; do
   if [ -d "$d/.claude/skills/anysearch" ]; then
     cp -R ~/.claude/skills/anysearch "$d/.claude/skills/"
   fi
@@ -88,7 +88,7 @@ done
 **全局 vs 本项目镜像**：
 
 ```bash
-AUTH=~/Documents/Projects/CapabilityManagerAgent
+AUTH=~/Developer/CapabilityManagerAgent
 diff "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md
 diff -r "$AUTH/claude/rules" ~/.claude/rules
 diff -r "$AUTH/claude/skills" ~/.claude/skills
@@ -97,7 +97,7 @@ diff -r "$AUTH/claude/skills" ~/.claude/skills
 **全局 vs 某项目副本**（以 anysearch 为例）：
 
 ```bash
-diff -r ~/.claude/skills/anysearch ~/Documents/Projects/<项目>/.claude/skills/anysearch
+diff -r ~/.claude/skills/anysearch ~/Developer/<项目>/.claude/skills/anysearch
 ```
 
 ### 合法差异（diff 报这些不算错）
@@ -116,7 +116,7 @@ diff -r ~/.claude/skills/anysearch ~/Documents/Projects/<项目>/.claude/skills/
 改动影响面大时，跑这个巡检一次性看三部分 + 所有项目的状态：
 
 ```bash
-AUTH=~/Documents/Projects/CapabilityManagerAgent
+AUTH=~/Developer/CapabilityManagerAgent
 echo "=== 全局 vs 本项目镜像（三部分）==="
 diff "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md >/dev/null 2>&1 && echo "CLAUDE.md ✅" || echo "CLAUDE.md ❌"
 diff -r "$AUTH/claude/rules" ~/.claude/rules >/dev/null 2>&1 && echo "rules ✅" || echo "rules ❌"
@@ -125,7 +125,7 @@ for s in "$AUTH/claude/skills/"*/; do
   diff -r "$s" ~/.claude/skills/"$name" >/dev/null 2>&1 && echo "skills/$name ✅" || echo "skills/$name ❌（find-skill 的 .env/cache 差异属正常）"
 done
 echo "=== 全局 vs 各项目（仅 anysearch / find-skill）==="
-for d in ~/Documents/Projects/*Agent; do
+for d in ~/Developer/*Agent; do
   for sk in anysearch find-skill; do
     [ -d "$d/.claude/skills/$sk" ] || continue
     diff -r ~/.claude/skills/$sk "$d/.claude/skills/$sk" >/dev/null 2>&1 && echo "$(basename $d)/$sk ✅" || echo "$(basename $d)/$sk ❌（find-skill 的 .env/cache 差异属正常）"
