@@ -1,6 +1,6 @@
 ---
 name: "commit"
-description: "提交当前暂存区已有的内容到本地仓库并推送到远程（依次 git commit → git push；不执行 git add，只提交用户已自行 git add 到暂存区的内容；无远程仓库则先用 gh repo create --public 创建再推送）。当用户输入 commit 时触发。分支感知（2026-09-07 用户修订：main 不设分支保护、不限制直接 push，2026-09-06 的「main 仅本地提交」模式废止）：在 main（或 master）上 → commit 后直接 push 远程 main（普通文件修改、杂事、main 对齐走这条直推通道）；在功能分支上（存在测试用例的软件开发项目走 dev-workflow）→ commit → push → 已有 open PR 则复用、没有则创建（标题须具体达意）→ 等 CI 完成（gh pr checks --watch）→ 绿灯 squash 合并+删分支（分支保护已撤，auto-merge 不可用）。git commit 前对暂存区已有内容做敏感内容扫描 + cache 文件/目录检测（cache 命中自动加入 .gitignore），任一命中即彻底终止——不 commit/push，须重新 /commit 走完整流程。push 之后补齐项目标配（README 中英双语+LOGO+标准徽章、版权署名归一 All Contributors、LICENSE.md、CHANGELOG.md 与 VERSION、GitHub About、Sponsors 按钮），缺则自动补、齐则记项目根 .commit-cache.md 缓存跳过重复检测；另做版本滞后检测（VERSION 已在 GitHub Release 发布且其后有新提交 → 报告并指引 /bump，不就地改文件）与版本号一致性检测（以 VERSION 为唯一权威自动同步各文件），均不阻塞、每次必查不缓存。"
+description: "提交当前暂存区已有的内容到本地仓库并推送到远程（依次 git commit → git push；不执行 git add，只提交用户已自行 git add 到暂存区的内容；无远程仓库则先用 gh repo create --public 创建再推送）。当用户输入 commit 时触发。分支感知（2026-09-07 用户修订：main 不设分支保护、不限制直接 push，2026-09-06 的「main 仅本地提交」模式废止）：在 main（或 master）上 → commit 后直接 push 远程 main（普通文件修改、杂事、main 对齐走这条直推通道）；在功能分支上（存在测试用例的软件开发项目走 dev-workflow）→ commit → push 分支本身即止，不建 PR、不等 CI、不合并——dev-workflow 2026-09-07 起取消远端 PR / CI 流程，功能分支合并回 main 由用户验收后在本地进行（dev-workflow 第 7 步超集校验 + 快进合并）。git commit 前对暂存区已有内容做敏感内容扫描 + cache 文件/目录检测（cache 命中自动加入 .gitignore），任一命中即彻底终止——不 commit/push，须重新 /commit 走完整流程。push 之后补齐项目标配（README 中英双语+LOGO+标准徽章、版权署名归一 All Contributors、LICENSE.md、CHANGELOG.md 与 VERSION、GitHub About、Sponsors 按钮），缺则自动补、齐则记项目根 .commit-cache.md 缓存跳过重复检测；另做版本滞后检测（VERSION 已在 GitHub Release 发布且其后有新提交 → 报告并指引 /bump，不就地改文件）与版本号一致性检测（以 VERSION 为唯一权威自动同步各文件），均不阻塞、每次必查不缓存。"
 ---
 
 # Auto Git Commit & Push
@@ -25,7 +25,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 
 0. **分支感知（最前置的硬性检查，先于一切其它步骤；2026-09-07 用户修订：main 不设分支保护、不限制直接 push——2026-09-06 的「main 仅本地提交」模式废止，main 恢复直推）**：运行 `git rev-parse --abbrev-ref HEAD` 获取当前分支名。
    - **当前在 `main`（或 `master`）**（无论仓库有无提交历史）→ 走正常完整流程：第 1-7 步照常（敏感扫描、cache 检测、`git commit`），第 8 步 `git push` 直推远程 main——普通文件处理修改（文档、版本号 bump、配置等杂事）与 main 对齐场景走这条通道，不经 PR。
-   - **当前在功能分支**（存在测试用例的软件开发项目走 dev-workflow 的常态）→ 放行，继续第 1 步（第 8 步将自动走 push → PR → 等 CI 绿 → squash 合并链）。
+   - **当前在功能分支**（存在测试用例的软件开发项目走 dev-workflow 的常态）→ 放行，继续第 1 步（第 8 步只推送分支本身，不建 PR、不等 CI——合并回 main 属 dev-workflow 第 7 步，在用户验收后本地进行）。
 1. 运行 `git status`，确认当前处于 git 仓库中。判断**暂存区是否已有内容**（本 skill 只提交暂存区已有的内容，**不执行 `git add`**）。
    - 暂存区为空（无任何已暂存的改动）→ 告知用户「暂存区无内容可提交（本 skill 不执行 git add，请先自行 git add 要提交的内容）」并结束流程（无提交则不推送）。
    - 暂存区有内容 → 继续下一步。
@@ -33,11 +33,11 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
    - 凭证与密钥：`.env`、`.env.*`、`*.pem`、`*.key`、`id_rsa` 等私钥、API key、token、密码、数据库连接串；
    - 凭证目录：`.ssh/`、`.aws/`、`.gcloud/`、`secrets/`、`credentials/` 等；
    - 本地私有配置：`.claude/` 中含个人设置/记忆的文件、`.idea/`、`.vscode/` 中含个人配置的文件；
-   - **敏感行为记录（2026-08-23 扩充，防「代理交易行为记录」类泄漏——不只拦「值」、也拦把「身份 + 绕行手段」串成故事的行为叙述）**：
+   - **敏感行为记录（2026-08-23 扩充，防「网络出口相关行为记录」类泄漏——不只拦「值」、也拦把「身份 + 绕行手段」串成故事的行为叙述；本节规则描述一律用中性释义，不写字面词）**：
      - **公网 IP 字面量**：暂存内容中出现公网 IPv4 字面量（含 IP 串、`;` 分隔的 IP 清单）即告警——本地回环（127.x / 192.168.x / 10.x / 172.16-31.x / ::1）与已知公共服务 IP（如 8.8.8.8、1.1.1.1）除外；技术文档确需引用 IP 时逐个判断（测试网段 192.0.2.x / 198.51.100.x / 203.0.113.x 属文档示例地址、放行）；
-     - **代理服务商标识**：代理订阅商名称（如 Just My Socks / JMS）、代理节点入口域名体系、节点代号（如 c56s* 系列）；
-     - **券商监管报文**：监管拒单错误码 + 报文原文引用（如 code=1200、"Under regulatory requirements..." 类整段券商报文）；
-     - **地域规避叙述**：「境内 IP 被拒、境外出口受理」「翻墙 / 科学上网 / 绕过监管」类把身份与绕行手段串成完整故事线的叙述（合规要求本身的中性表述不拦——「网络环境须满足券商合规要求」可写，「同一账户境内拒境外受理的实测对比」不写）。
+     - **特定网络服务商标识**：订阅制网络服务商的名称（语义识别，字面词不入本文档）、其入口域名体系、节点代号（字母数字组合的代号系列）；
+     - **交易服务方合规拒单报文**：交易服务方（券商等）因合规原因拒绝指令的错误码 + 报文原文引用（错误码 + 含合规要求说明的整段报文）；
+     - **地域规避叙述**：把「身份 + 网络出口地域 + 绕行手段」串成完整故事线的叙述（典型如：同一账户在不同地域出口被区别对待的实测对比、通过特定网络通道绕开属地限制的描述）。合规要求本身的中性表述不拦——「网络环境须满足服务方合规要求」可写，实测对比与绕行手段的具体描述不写。
      命中上述任一类 → 与其它敏感内容同等处理（终止 + 列出 + 提示改写为中性表述——技术结论保留、节点 / 出口 / 报文实值移入本机 gitignore 配置）。
    - 其他不宜入库内容：大文件、二进制、本地数据库文件等。
 
@@ -46,7 +46,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 
    扫描方式：
    - 列出上述文件，按敏感路径/文件名模式匹配；
-   - **对全部暂存文件跑内容正则扫描**（不只抽样——凭证与 IP 类特征串靠逐文件 grep，模式含：私钥头 `-----BEGIN`、token 特征、公网 IPv4 正则、代理商标识关键词、监管报文关键词、地域规避叙述关键词）；
+   - **对全部暂存文件跑内容正则扫描**（不只抽样——凭证与 IP 类特征串靠逐文件 grep，模式含：私钥头 `-----BEGIN`、token 特征、公网 IPv4 正则、特定网络服务商标识词、合规拒单报文特征词、地域规避叙述特征词）；
    - 对命中或可疑文件抽样读取内容，确认是否含明文敏感信息。
 
    结果处理：
@@ -65,8 +65,8 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 4. 运行 `git status` / `git diff --cached --name-only`，获取本次暂存区已有的文件清单（按类别分组：新增、修改、删除）。
 5. 获取当前分支名与远程仓库地址（`git remote -v`）。
 6. 根据 `git diff --cached --stat` / `git diff --cached` 生成简洁英文提交信息（1-2 句话，说明本次改动的性质）。
-7. 运行 `git commit -m "<生成的提交信息>"` 提交暂存区内容。**本步与第 8 步 push 用 `&&` 串联成一条命令执行**（不拆开、不中途停下确认，分类器拦单条也不退缩——详见「核心定位」段「两步用 && 串联一条命令跑完」；main 直推与功能分支 PR 链场景均如此串联）。
-8. 执行推送与 PR 链（2026-09-06 用户立：功能分支自动走 PR 链；2026-09-07 修订：main 恢复直推，PR 链的 auto-merge 改为等 CI 绿后合并——分支保护已全量撤除，GitHub 仅对「有不满足合并要求的 PR」提供 auto-merge，无 required checks 的仓库设 `--auto` 无意义）。先检查远程仓库（`git remote -v`），按情形处理：
+7. 运行 `git commit -m "<生成的提交信息>"` 提交暂存区内容。**本步与第 8 步 push 用 `&&` 串联成一条命令执行**（不拆开、不中途停下确认，分类器拦单条也不退缩——详见「核心定位」段「两步用 && 串联一条命令跑完」；main 直推与功能分支推送场景均如此串联）。
+8. 执行推送（2026-09-09 用户修订：**功能分支不再走 PR 链**——dev-workflow 2026-09-07 起取消远端 PR / CI 流程、裁决全部本地化，合并回 main 由用户验收后在本地进行（dev-workflow 第 7 步：超集校验成立后 `git merge dev` 快进合并），本 skill 对功能分支只做「commit + push 分支」，不建 PR、不等 CI、不合并。2026-09-06 的「功能分支自动走 PR 链」模式随之废止）。先检查远程仓库（`git remote -v`），按情形处理：
    - **无 `origin`（remote 为空）** → 主动创建 GitHub 远程仓库再推送：
      - 仓库名取项目目录名（`basename "$PWD"`），可见性 `--public`（本 skill 服务于开源项目）；
      - `gh repo create <仓库名> --public --source=. --remote=origin --push`（一条命令完成：创建公开仓库 + 设置 `origin` + 推送当前分支）；
@@ -74,10 +74,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
      - 创建失败（重名冲突 / 网络等）→ 如实报告错误，不自行重试或破坏性解决；
      - 创建并推送成功后，第 9c 步的前置条件（有 `origin` + push 成功）即满足。
    - **有 `origin`，当前在 main**（含全新仓库初始提交，与既有仓库的普通文件修改 / main 对齐）→ `git push -u origin main`（已有上游时 `git push`）；推送冲突或非 fast-forward 如实报告，不破坏性解决（禁止 `--force`）。
-   - **有 `origin`，当前在功能分支**（存在测试用例的软件开发项目，dev-workflow 场景）→ 依次执行 PR 链：
-     1. 推送分支：无上游 `git push -u origin <分支名>`，有上游 `git push`；
-     2. 该分支是否已有 open PR：`gh pr list --head <分支名> --state open --json number`——**有则复用**（本次提交自动进入该 PR，不重复创建），并顺带检查现 PR 标题：若不达意（等于分支名、单词、`dev` / `update` / `wip` 类无信息量标题）→ 用 `gh pr edit <PR> --title "<具体标题>"` 按下方标准修正；**无则创建**——PR 标题必须**具体，表达本次新增的功能或解决的问题**（2026-09-06 用户立：禁止像 "dev" 那样只写分支名）：由智能体基于 `git diff --cached` 与 commit 内容生成，格式为 conventional 前缀 + 具体描述（如 `feat: resolve model slot references to env slots when signed out`、`test: add regression coverage for the tool group summary`、`fix: captureCommand throws instead of returning code 1 on missing binary`），禁止分支名、单词、泛称作标题；`gh pr create --title "<生成的标题>" --body "<描述：从 commit 信息与改动摘要展开>"`。PR 标题经 squash 合并后就是 main 上的 commit 标题，是 main 历史与日后溯源检索的主要线索，信息量必须够；
-     3. 等 CI 完成并合并：`gh pr checks <PR号或分支名> --watch` 等 CI 结束（全绿退出码 0、有失败非 0）→ **绿则** `gh pr merge <PR号或分支名> --squash --delete-branch`（squash 合并 + 删远端分支）；**红则不合并**，报告失败 job 与看日志的命令（`gh run view <id> --log-failed`），修复后再次 `/commit` 推送会自动进入同一 PR 重新评估。CI 长时间不动或无 checks 上报（fork 仓库 PR 不触发 CI、workflow 缺失等）→ 如实报告，不阻塞第 9 步。等待 CI 是流程固有环节（有测试项目的全量用例需数分钟），`--watch` 挂着等即可；若会话不便久等，报告 PR 号与查看命令，由用户稍后 `gh pr merge <PR> --squash --delete-branch` 手动收尾。
+   - **有 `origin`，当前在功能分支**（存在测试用例的软件开发项目，dev-workflow 场景）→ 只推送分支本身：无上游 `git push -u origin <分支名>`，有上游 `git push`。**不建 PR、不等 CI、不合并、不删分支**——远端分支仅作备份；合并回 main 走 dev-workflow 第 7 步（超集校验 + 本地快进合并，由用户验收触发），不是本 skill 的职责。存量仓库的 ci.yml 保留不动、不主动删。
    - 推送过程中如遇冲突或其他错误，将错误信息如实报告给用户，不自行尝试破坏性解决（禁止 `--force`）。
 9. **项目标配检测（`git push` 之后，最后一步）**：提交推送已完成，这里补齐项目标配。push 失败时仍进入本步（9a/9b/9d/9g/9h/9k/9l/9m 是本地检测；9e 永久跳过，见第 9e 步），但 9c 需 push 成功。先读项目根 `.commit-cache.md`（不存在则视为无缓存、稍后新建），按缓存标记跳过已确认的项（见「`.commit-cache.md` 检测缓存」）；对未跳过的项逐一检测，**缺则补、齐则记标记，不再停下阻塞**。补的内容作为新工作区改动，本次未提交；本 skill 不执行 `git add`，需用户自行 `git add` 后下次 `/commit` 提交。
 
@@ -274,7 +271,7 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 
 ## 注意
 
-- 本 skill 先完成「`git commit` + `git push`」（**不执行 `git add`**，只提交暂存区已有内容；main 直推与功能分支 PR 链均如此，见第 0/8 步），**再**在第 9 步补齐项目标配（README/LICENSE/CHANGELOG/VERSION/About/Sponsors，含版权人/署名引用名字归一）；标配检测不阻塞提交推送。
+- 本 skill 先完成「`git commit` + `git push`」（**不执行 `git add`**，只提交暂存区已有内容；main 直推与功能分支推送均如此，见第 0/8 步），**再**在第 9 步补齐项目标配（README/LICENSE/CHANGELOG/VERSION/About/Sponsors，含版权人/署名引用名字归一）；标配检测不阻塞提交推送。
 - **commit + push 用 `&&` 串联成一条命令一次跑完**（2026-07-17 用户立；2026-08-01 修订：去除 git add，只提交暂存区）：不拆成多次 Bash 调用、不中途停下来向用户列命令确认（`/commit` 触发即授权当次完整流程）；auto mode 权限分类器拦下其中某条 git 写命令也不退缩去问用户——改用 `&&` 组合命令继续执行。详见「核心定位」段「两步用 && 串联一条命令跑完」。
 - 敏感内容扫描、cache 检测**均在 `git commit` 之前执行一次**（针对暂存区已有内容），是 commit 前的两项硬性检测；`git commit` 之后不再重复。（版本号一致性检测已移至 push 后第 9k 步，不阻塞提交。）
 - 禁止 `git push --force`、`git reset --hard` 等破坏性操作。
@@ -284,4 +281,4 @@ description: "提交当前暂存区已有的内容到本地仓库并推送到远
 
 ## 汇报
 
-报告提交与推送结果：本次提交的暂存区文件清单（按新增、修改、删除分组）、commit hash、分支名、远程仓库地址、推送是否成功、推送的提交范围（如适用）；**功能分支场景加报 PR 链状态**：PR 号（新建或复用）、CI 等待与合并结果（绿灯已 squash 合并 + 删分支 / 红灯未合并——报失败 job 与看日志命令 / 会话未等完 CI——报 PR 号与手动合并命令 `gh pr merge <PR> --squash --delete-branch`），并提醒——**`/release` 发版前先确认 PR 已合并进 main**（`gh pr view <PR> --json state` 或看 main 提交历史）；若因发现敏感内容而终止，则列出对应文件清单、敏感片段与处理建议；若因发现 cache 文件/目录而终止，则列出 cache 清单、已写入 `.gitignore` 的忽略规则，并提示用户从暂存区移除 cache（`git restore --staged` / `git rm --cached`）。（版本号不一致不再终止提交——已移至 push 后第 9k 步处理。）并提示「本次 `/commit` 已终止，处理 / 确认后需重新输入 `/commit` 走完整流程」。随后报告第 9 步项目标配检测的结果：补了哪些内容（logo.svg、README/README_cn 改动或新建、徽章清单（License / Version / Type 三枚补全情况，含移除 Forks / Stars / Last Commit 等动态徽章，如有；团队仓库已挂的 Visitors 访问量徽章属允许例外、如实报告「保留未动」）、版权署名段、persona 拟人名、LICENSE.md 新建/冗余删除、About 的 description/topics、版权人/署名引用名字归一为 All Contributors 的改动、英文版 README 跳中文版链接文字统一为「简体中文」的改动、仓库 Sponsors 按钮（检测 / 修复 `xhqing/.github` 全局 FUNDING.yml）的改动、CHANGELOG.md 与 VERSION 文件（第 9m 步）的新建结果（缺哪个建哪个 + 版本号取值来源）或已存在确认、版本滞后检测的结果（VERSION 是否滞后；若滞后则报告：当前 VERSION / 最新已发布版本 / 待发布提交数 + 指引「发版时统一 bump，执行 /bump」——不就地修改文件）、版本号一致性检测的结果（VERSION 与各文件是否一致；若不一致则报告：以 VERSION 为准同步了哪些文件 + 各自旧值→新值））以及写入了哪些缓存标记；提醒「本次补全的标配内容是新工作区改动，本 skill 不执行 git add，需用户自行 `git add` 后再 `/commit` 才会提交（功能分支上，下次 `/commit` 的内容会自动进入同一个 PR）」。**汇报的最后一件事（2026-09-05 用户立；同日修订：代码块首行加 `>> git status` 命令标记）**：执行 `git status`，把该命令的输出**原样**以代码块方式直接输出——不加工、不总结、不截断、不做额外解读，代码块**首行固定加一行 `>> git status` 命令标记**（让用户一眼看出这是 `git status` 的执行输出；标记行是呈现格式、不算命令输出的一部分）；无论流程走完还是中途终止（敏感内容扫描 / cache 检测命中），汇报都以这个 `git status` 代码块收尾（对应执行流程第 10 步）。
+报告提交与推送结果：本次提交的暂存区文件清单（按新增、修改、删除分组）、commit hash、分支名、远程仓库地址、推送是否成功、推送的提交范围（如适用）；**功能分支场景加报分支推送结果**（分支名、推送范围），并提醒——功能分支合并回 main 走 dev-workflow 验收后本地合并（超集校验 + 快进合并），**`/release` 发版前先确认功能分支已合并回 main**（看 main 提交历史）；若因发现敏感内容而终止，则列出对应文件清单、敏感片段与处理建议；若因发现 cache 文件/目录而终止，则列出 cache 清单、已写入 `.gitignore` 的忽略规则，并提示用户从暂存区移除 cache（`git restore --staged` / `git rm --cached`）。（版本号不一致不再终止提交——已移至 push 后第 9k 步处理。）并提示「本次 `/commit` 已终止，处理 / 确认后需重新输入 `/commit` 走完整流程」。随后报告第 9 步项目标配检测的结果：补了哪些内容（logo.svg、README/README_cn 改动或新建、徽章清单（License / Version / Type 三枚补全情况，含移除 Forks / Stars / Last Commit 等动态徽章，如有；团队仓库已挂的 Visitors 访问量徽章属允许例外、如实报告「保留未动」）、版权署名段、persona 拟人名、LICENSE.md 新建/冗余删除、About 的 description/topics、版权人/署名引用名字归一为 All Contributors 的改动、英文版 README 跳中文版链接文字统一为「简体中文」的改动、仓库 Sponsors 按钮（检测 / 修复 `xhqing/.github` 全局 FUNDING.yml）的改动、CHANGELOG.md 与 VERSION 文件（第 9m 步）的新建结果（缺哪个建哪个 + 版本号取值来源）或已存在确认、版本滞后检测的结果（VERSION 是否滞后；若滞后则报告：当前 VERSION / 最新已发布版本 / 待发布提交数 + 指引「发版时统一 bump，执行 /bump」——不就地修改文件）、版本号一致性检测的结果（VERSION 与各文件是否一致；若不一致则报告：以 VERSION 为准同步了哪些文件 + 各自旧值→新值））以及写入了哪些缓存标记；提醒「本次补全的标配内容是新工作区改动，本 skill 不执行 git add，需用户自行 `git add` 后再 `/commit` 才会提交（功能分支上，下次 `/commit` 继续推送到同一分支）」。**汇报的最后一件事（2026-09-05 用户立；同日修订：代码块首行加 `>> git status` 命令标记）**：执行 `git status`，把该命令的输出**原样**以代码块方式直接输出——不加工、不总结、不截断、不做额外解读，代码块**首行固定加一行 `>> git status` 命令标记**（让用户一眼看出这是 `git status` 的执行输出；标记行是呈现格式、不算命令输出的一部分）；无论流程走完还是中途终止（敏感内容扫描 / cache 检测命中），汇报都以这个 `git status` 代码块收尾（对应执行流程第 10 步）。

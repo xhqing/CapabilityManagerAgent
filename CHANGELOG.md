@@ -4,6 +4,18 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## 2026-09-09
+
+### 变更（commit skill：功能分支撤 PR 链，对齐 dev-workflow 2026-09-07 无 PR 无 CI 版）
+
+- **为什么改**：2026-09-09 在 zcode-cli 功能分支上 `/commit` 时仍自动创建了 PR——commit skill 第 8 步的功能分支逻辑停留在 2026-09-06 版「功能分支自动走 PR 链（push → 建 PR → 等 CI 绿 → squash 合并）」，而 dev-workflow 已于 2026-09-07 改版为「全程本地、无 PR 无 CI」（合并回 main 是用户验收后本地超集校验 + 快进合并），两个 skill 脱节，commit skill 照旧走了已废止的 PR 链。误建的 PR（xhqing/zcode-cli#3）已关闭。用户裁定：功能分支上 `/commit` 到「commit + push 分支」即止，不建 PR、不等 CI、不合并。
+- **改了什么**：commit skill（SKILL.md）共 6 处——frontmatter description 功能分支段改为「commit → push 分支本身即止，不建 PR、不等 CI、不合并」；第 0 步功能分支括注同步；第 7 步「功能分支 PR 链场景」措辞改「功能分支推送场景」；第 8 步整段重写（标题改「执行推送」，功能分支子流程从三步 PR 链改为「只推送分支本身——远端分支仅作备份，合并回 main 属 dev-workflow 第 7 步，存量仓库 ci.yml 保留不动」）；「注意」段同步；「汇报」段改「功能分支场景加报分支推送结果 + /release 前确认功能分支已合并回 main + 下次 /commit 继续推送同一分支」。全局 `~/.claude/skills/commit/`（与 `~/.zcode/skills/commit/` 为同一文件）改毕，本项目 `claude/skills/commit/` 镜像同步（diff 一致）。教训：dev-workflow 2026-09-07 改版撤 PR/CI 时未同步排查引用它的 skill——被其它 skill 引用的流程改版时，须排查交叉引用方同步修订。
+
+### 变更（commit skill 镜像：敏感行为记录段对齐全局脱敏版）
+
+- **为什么改**：同步 commit skill 时发现本项目 `claude/skills/commit/` 镜像第 36-49 行仍是旧版——敏感行为记录段含代理服务商与拒单报文的**字面词**（服务商名、节点代号、报文错误码原文），而全局权威源早已改为中性释义（不写字面词）；镜像落后于全局脱敏修订，属「敏感信息禁止写入未被 .gitignore 忽略的文件」的存量违规（历史 commit 中的旧字面词无法通过本次覆盖清除，如需彻底清除须重写历史，由用户另行决定）。
+- **改了什么**：随上一条 commit skill 修订同步，以全局权威版整体覆盖本项目 `claude/skills/commit/SKILL.md`（PR 链修订与脱敏对齐同一次 cp 完成），diff 一致。
+
 ## 2026-09-08
 
 ### 变更（项目迁移收尾：capability-manager skill 内路径更新）
