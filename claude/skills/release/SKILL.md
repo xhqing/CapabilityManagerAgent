@@ -1,6 +1,6 @@
 ---
 name: "release"
-description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix）。当用户输入 release / 打tag发布 / 发版 时触发。用户主动触发即授权完整流程（git tag -a + git push tag + gh release create），标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。"
+description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix）。当用户输入 release / 打tag发布 / 发版 时触发。用户主动触发即授权完整流程（git tag -a + git push tag + gh release create），标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。正式发布（默认）只从 main 打 tag——正式版必须在功能合并进 main 之后（remote main 锁定、经 PR + CI 合并，2026-09-21 起）；另支持预发布通道（用户明确要求 prerelease / 预发布 / 发 rc / beta 时）：从功能分支打带 -rc.N / -beta.N 后缀的 tag 发 --prerelease 标记的 Release，不 bump 版本文件，供合并 main 前的验收与早期尝鲜。"
 ---
 
 # Auto Tag & GitHub Release
@@ -50,13 +50,24 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - **为什么**：`latest/download` 永远指向**当前最新** Release 的同名 asset，而 asset 文件名通常带版本号——下一个版本发布后，历史文档里的该链接必然 404（zcode-cli 曾以「发版前预对齐版本号」勉强维持，历史上两轮忘记执行导致 README 链接长期 404；2026-09-08 用户裁定弃用）。固定 tag URL 永指该版本 asset，历史链接永不失效。
 - **README 里的存量 latest 链接**：发布涉及的项目 README 若仍用 latest/download 形式，**发现即在汇报中列出、建议随下次 bump / commit 改为固定 tag 形式**——本 skill 仍不编辑项目文件（发布要求工作区干净，中途改文件破坏发布原子性）。
 
+## 预发布通道：合并 main 之前的功能分支 Release（2026-09-21 立）
+
+- **触发**：用户明确说「预发布 / prerelease / 发个 rc / beta 版」；或 dev-workflow 第 9 步使用验收选择手动预发布安装来源（配 auto-rc workflow 的项目：合并进 main 后的 rc 由 workflow 自动发，手动预发布主要用于合并前提前试用与未配 workflow 的项目——用户要 rc 而项目有 auto-rc 时先报告最近的自动 rc，避免重复手发）。正式发布（默认路径）不涉及本节。
+- **与正式发布的分界**：正式版 tag 只打在 main 上（第 0 步强校验 HEAD === origin/main）——**正式发布必须在功能合并进 main 之后、且以用户试用满意为前提**（dev-workflow 2026-09-21：合并由 CI 独裁、验收是过程——用户体验预发布版本就是在验收，试用满意才正式发版）；预发布 tag 打在当前分支 HEAD 上——**合并前从功能分支打**（前瞻快照，CI 慢的窗口期就开始试用）、**合并后从 main 打**（带修复的持续试用，正式发版前的最后确认），两个阶段都服务「体验即验收」。
+- **版本号**：目标版本 + 预发布后缀——`v<目标版本>-rc.N`（接近定稿）或 `v<目标版本>-beta.N`（功能成型）。目标版本 = CHANGELOG 顶部待发布条目版本（若有），否则从当前 VERSION 按待发布改动性质 +1（新增功能 → minor；修复 / 文档 → patch）；N 从 1 起，`git tag -l 'v<目标版本>-rc.*'` 与 `gh release list` 查已有序号后递增。**不 bump 版本文件**：VERSION / package.json / CHANGELOG 都不动（正式发版时经 `/bump` 统一改），预发布只存在于 tag 与 Release 层面——与「功能分支不碰版本号」纪律一致。
+- **流程差异**（相对正式发布各步）：第 0 步按分流处理（不要求对齐 main，改为确认当前分支与 HEAD 即预发布目标）；第 2 步工作区干净检查照常；第 3 步 tag 存在检查照常；第 4 步 CHANGELOG 无对应条目 → notes 用 `--generate-notes` 或与用户确认的简短英文描述（不强求 CHANGELOG 条目，预发布内容未定稿属正常）；第 5-6 步打 annotated tag（message 用 notes 首行）+ 推送照常；第 7 步 `gh release create <tag> --prerelease --title "<项目名> <版本号>" ...`（必带 `--prerelease` 标记）；产物从当前分支构建上传，产物惯例核查照旧适用。
+- **试用后处置**：试用中发现问题 → 修复合并（fix 分支 + PR + CI auto-merge）后递增 N 发新预发布（rc.1 → rc.2），旧的保留不动；试用满意 → 用户触发正式发版（`/bump` + `/release`），预发布 Release 保留即可（正式版发布后自然被取代），不删除。
+- **版本一致性交互**：预发布 tag 的后缀版本号与 VERSION 不一致属「有意区分」（全局版本一致性规则允许判断后缀），commit skill 9k 不据此改文件；9j 版本滞后检测查的是正式版 tag（`gh release view v<VERSION>`），预发布 tag 不同名、不误报。
+
 ## 执行流程
 
-0. **对齐 remote main（2026-09-06 新工作流，最前置）**：正式发布发布的就是 main 分支的内容——
-   - `git switch main && git fetch origin && git pull --ff-only`；
-   - 校验 `HEAD === origin/main`：落后（bump 直推未完成 / 功能 PR 还没合并）→ **暂停**，提示先完成对应提交（bump 走 `/commit` 直推 main；功能分支等 PR 合并，`gh pr list` 查看未合并 PR）后再 `/release`；本地与远端分叉 → **暂停**报告，等用户确认对齐方式；
-   - 校验版本就绪：`VERSION`（或版本源文件）与 CHANGELOG 顶部条目版本号一致——不一致说明尚未 bump → **暂停**，提示先执行 `/bump`（三段式发版：/bump → /commit 直推 → /release）；
-   - 本 skill **不 push main 分支**：tag 推送（`git push origin <tag>`）只推 tag 引用、不碰分支更新，不携带本地 main 的未推送提交。
+0. **路径分流 + 对齐 remote main（最前置）**：先分正式发布 or 预发布——
+   - **预发布**（用户明确要求 prerelease / 预发布 / 发 rc / beta 版，或 dev-workflow 第 9 步使用验收选择手动预发布安装来源——配 auto-rc 的项目优先用自动 rc，见「预发布通道」触发条）→ 走「预发布通道」一节：不从 main 校验（合并前从功能分支、合并后从 main 均可），不适用本步其余校验（版本就绪校验跳过），确认当前分支与 HEAD 即预发布目标后，按预发布变体进入第 2 步起的流程；
+   - **正式发布**（默认路径）：正式版只从 main 发布——**功能必须已合并进 main**（remote main 锁定、经 PR + CI 合并，2026-09-21 起）：
+     - `git switch main && git fetch origin && git pull --ff-only`；
+     - 校验 `HEAD === origin/main`：落后（bump PR 还没合并 / 功能 PR 还没合并）→ **暂停**，提示先完成对应合并（`gh pr list` 查看未合并 PR；bump PR 等 CI 绿 auto-merge）后再 `/release`；本地与远端分叉 → **暂停**报告，等用户确认对齐方式；
+     - 校验版本就绪：`VERSION`（或版本源文件）与 CHANGELOG 顶部条目版本号一致——不一致说明尚未 bump → **暂停**，提示先执行 `/bump`（三段式发版：/bump → /commit（push + 建 PR）→ CI 绿 auto-merge → /release）；
+     - 本 skill **不 push main 分支**：tag 推送（`git push origin <tag>`）只推 tag 引用、不碰分支更新，不携带本地 main 的未推送提交。
 1. **确定版本号与 tag 名**
    - 依次探测版本来源（取第一个命中的）：`package.json` 的 `version` 字段 → `VERSION` 文件 → `pyproject.toml` 的 `version` → `Cargo.toml` 的 `version`。
    - 规范化 tag 名：若版本号不以 `v` 开头则加 `v` 前缀（如 `0.2.2` → `v0.2.2`）；若已是 `v0.2.2` 则保留。下文记为 `<tag>`。
@@ -94,8 +105,14 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
    - 先 `gh release view <tag>` 确认是否已有 Release：
      - 无 → `gh release create <tag> --title "<项目名> <版本号>" --notes "<notes>"`（title 格式见「Release 标题」一节）。
      - 已有 → **暂停**，问用户是否编辑（`gh release edit`）或保持不动。
-   - **构建产物上传**：探测常见产物路径（`*.vsix`、`dist/*`、`build/*`、`target/*.zip` 等）。若有，作为 asset 附加：`gh release create <tag> ... <asset-paths>` 或 `gh release upload <tag> <asset-paths>`。
+   - **构建产物上传**：探测常见产物路径（`*.vsix`、`*.tgz`、`dist/*`、`build/*`、`target/*.zip` 等）。若有，作为 asset 附加：`gh release create <tag> ... <asset-paths>` 或 `gh release upload <tag> <asset-paths>`。
      - 若产物需先构建（如 `npm run package` 生成 vsix），**暂停**提示用户先构建，或征得同意后执行构建命令再上传。
+   - **产物惯例核查（本地探测为空时必做，2026-09-19 立）**：本地未检出产物 ≠ 可以无产物发布。探测为空时，先核查「本项目发布惯例是否带产物」，以下三个信号任一命中即视为本版应有产物：
+     1. 仓库存在 tag 触发的产物构建 workflow（`.github/workflows/*.yml` 中有 `on: push: tags` 且工作内容为构建并上传 Release assets 的 workflow，如 `build-binaries.yml`）；
+     2. fork 场景：`upstream` remote 同名 tag 的 Release 挂有 assets（`gh release view <tag> -R <upstream-owner>/<upstream-repo>`）；
+     3. 本仓库历史 Release 挂过 assets（`gh release list --limit 5` 逐个查 assets）。
+     命中任一 → **暂停**，报告「按项目惯例本版应有产物，但本地未检出」，指引先构建再上传：构建方式优先用仓库自带的构建 / 打包脚本（CI 中心化项目通常配有本地镜像 CI 的脚本，如 `build-binaries.sh`，常带 `--platform` 参数可只构所需平台），征得同意后执行构建 → 冒烟验证产物（解包后可执行、`--version` / 基本功能正确）→ `gh release upload` 补挂。三个信号都不命中（纯文档项目、历史 Release 一贯无 assets）→ 照旧无产物发布。
+     - 为什么：产物探测模式偏 VSCode 扩展（vsix / dist / build），对「产物由 CI 或专用脚本构建、发布前本地不存在」的项目（如 monorepo 的各平台二进制包）零命中；探测为空就安静发布，会让这类项目发出无任何 assets 的裸 Release、事后人工补救。CI 中心化项目（上游靠 CI 从 draft 转正并挂 assets）在 fork 里 CI 链通常不可用——GitHub 对 fork 默认抑制 workflow 运行、发布类 secrets 缺失，产物只能本地构建，本地核查必须补位。另注意：本地直接 `gh release create` 正式 Release 与这类 CI 的「draft → 校验 → 转正」编排互斥（CI 拒绝碰已发布的正式 Release），fork 场景以本地构建 + `gh release upload` 手动补挂为准。
    - Release notes 优先用 CHANGELOG 内容（`--notes "<notes>"`）；若内容很长，写入临时文件用 `--notes-file <file>`（临时文件放项目 `tmp/` 目录，用后清理；确保 `tmp/` 已在 `.gitignore`）。
 
 8. **验证**
@@ -116,7 +133,8 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - GitHub Release 对外内容（Release title / notes、tag message）统一全英文；CHANGELOG 是中文时翻译后使用，不回写源文件。
 - Release title 统一「`<项目名> <版本号>`」格式（如 `zcode-cli 3.8.1-27`）；概述句只作 notes / tag message 正文首行，不作 title。
 - 遇 tag 已存在、工作区脏、CHANGELOG 缺条目、Release 已存在等异常，**暂停询问**，不自行 force push / 删除 / 覆盖。
-- 构建产物上传前确认产物存在；需构建时先暂停征得同意。
+- 预发布必带 `--prerelease` 标记（不带标记会把功能分支版本当作正式版暴露给 latest 指针）；预发布不 bump 版本文件，正式发版时统一 `/bump`。
+- 构建产物上传前确认产物存在；需构建时先暂停征得同意；**本地探测为空时必做产物惯例核查（见第 7 步）**——命中「tag 触发的产物构建 workflow / 上游或本仓库历史 Release 挂过 assets」任一信号即视为本版应有产物，暂停指引先构建再上传，不得安静无产物发布。
 - 临时 notes 文件放 `tmp/` 并清理，不污染项目。
 - 发布成功后删除本次构建的可分发产物（vsix / 压缩包 / 可执行包等），不删中间编译输出（`dist/`、`out/`、`build/`）与正式 `assets/`；异常暂停时保留产物。
 - 推送或 Release 创建失败如实报告，不自行破坏性重试。

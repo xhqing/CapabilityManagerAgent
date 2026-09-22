@@ -1,6 +1,6 @@
 # 同步与一致性核对（场景 B 详细流程）
 
-本文件是 SKILL.md「场景 B」的详细展开。讲清楚**全局权威源 ↔ 本项目镜像 ↔ 各项目副本**之间怎么同步、怎么验证、哪些差异是合法的。同步范围只覆盖**三部分**（skills / rules / CLAUDE.md），不含 `commands/`、`settings.json`。
+本文件是 SKILL.md「场景 B」的详细展开。讲清楚**全局权威源 ↔ 本项目镜像 ↔ 各项目副本**之间怎么同步、怎么验证、哪些差异是合法的。同步范围只覆盖**三部分**（skills / CLAUDE.md / docs；全局规则随 CLAUDE.md 走，原 `~/.claude/rules/` 目录已废弃删除），不含 `commands/`、`settings.json`。
 
 ## 位置与角色速查
 
@@ -22,9 +22,6 @@ AUTH=~/Developer/CapabilityManagerAgent
 # CLAUDE.md（元规范）
 cp ~/.claude/CLAUDE.md "$AUTH/claude/CLAUDE.md"
 
-# rules（逐个，或整个目录）
-cp ~/.claude/rules/*.md "$AUTH/claude/rules/"
-
 # skills（逐个通用 skill 整个目录覆盖）
 # 注：全局只放通用 skill；项目级专属 skill（如本项目的 capability-manager）
 # 在各项目的 .claude/skills/ 里、不进全局、不进 claude/ 镜像。
@@ -32,6 +29,10 @@ for s in ~/.claude/skills/*/; do
   name=$(basename "$s")
   cp -R "$s" "$AUTH/claude/skills/$name"
 done
+
+# docs（参考文档：agents-registry / new-agent-scaffold / capability-sync）
+mkdir -p "$AUTH/claude/docs"
+cp ~/.claude/docs/*.md "$AUTH/claude/docs/"
 ```
 
 **find-skill 的例外（重要）**：`find-skill/.env`（SkillsMP 密钥）和 `find-skill/cache/`（本机 catalogue、日志）是**本机数据**，不参与「逐字节一致」核对（属合法差异，见下文）。整目录 `cp -R` 不会丢它们（本机同一台机器两边一致），但同步后可单独核对全局里的 `.env` 还在：
@@ -75,23 +76,24 @@ done
 
 ```bash
 cp "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md
-cp -R "$AUTH/claude/rules/." ~/.claude/rules/
 for s in "$AUTH/claude/skills/"*/; do
   cp -R "$s" ~/.claude/skills/"$(basename "$s")"
 done
+mkdir -p ~/.claude/docs
+cp "$AUTH/claude/docs/"*.md ~/.claude/docs/
 ```
 
 ## 一致性核对（diff 验证）
 
-每次同步后必跑，确认逐字节一致。只核对**三部分**（skills / rules / CLAUDE.md）。
+每次同步后必跑，确认逐字节一致。只核对**三部分**（skills / CLAUDE.md / docs）。
 
 **全局 vs 本项目镜像**：
 
 ```bash
 AUTH=~/Developer/CapabilityManagerAgent
 diff "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md
-diff -r "$AUTH/claude/rules" ~/.claude/rules
 diff -r "$AUTH/claude/skills" ~/.claude/skills
+diff -r "$AUTH/claude/docs" ~/.claude/docs
 ```
 
 **全局 vs 某项目副本**（以 anysearch 为例）：
@@ -109,7 +111,7 @@ diff -r ~/.claude/skills/anysearch ~/Developer/<项目>/.claude/skills/anysearch
 | `settings.local.json` | 本机配置（不入库） | 保留，不同步 |
 | `commands/`、`settings.json` | 不在三部分同步范围（全局有、本项目 `claude/` 镜像无） | 正常，不核对 |
 
-除这几类外，三部分（skills / rules / CLAUDE.md）的 diff 报任何差异都说明同步没做对，必须修到一致。
+除这几类外，三部分（skills / CLAUDE.md / docs）的 diff 报任何差异都说明同步没做对，必须修到一致。
 
 ## 一致性巡检（一键扫全部）
 
@@ -119,11 +121,11 @@ diff -r ~/.claude/skills/anysearch ~/Developer/<项目>/.claude/skills/anysearch
 AUTH=~/Developer/CapabilityManagerAgent
 echo "=== 全局 vs 本项目镜像（三部分）==="
 diff "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md >/dev/null 2>&1 && echo "CLAUDE.md ✅" || echo "CLAUDE.md ❌"
-diff -r "$AUTH/claude/rules" ~/.claude/rules >/dev/null 2>&1 && echo "rules ✅" || echo "rules ❌"
 for s in "$AUTH/claude/skills/"*/; do
   name=$(basename "$s")
   diff -r "$s" ~/.claude/skills/"$name" >/dev/null 2>&1 && echo "skills/$name ✅" || echo "skills/$name ❌（find-skill 的 .env/cache 差异属正常）"
 done
+diff -r "$AUTH/claude/docs" ~/.claude/docs >/dev/null 2>&1 && echo "docs ✅" || echo "docs ❌"
 echo "=== 全局 vs 各项目（仅 anysearch / find-skill）==="
 for d in ~/Developer/*Agent; do
   for sk in anysearch find-skill; do

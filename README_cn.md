@@ -14,11 +14,11 @@
 
 # CapabilityManagerAgent
 
-> 🔥 **Prometheus（普罗米修斯）**——守护整个 Claude Code 智能体团队「通用能力底座」的能力管家。当某个全局 skill、rule 或配置发生变化时，Prometheus 把变化同步到每一个项目副本，让整个团队保持一致。
+> 🔥 **Prometheus（普罗米修斯）**——守护整个智能体团队「通用能力底座」的能力管家。当某个全局 skill、rule 或配置发生变化时，Prometheus 把变化同步到每一个项目副本，让整个团队保持一致。
 
 [English](README.md)
 
-CapabilityManagerAgent 管理的是 Claude Code 智能体团队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
+CapabilityManagerAgent 管理的是智能体团队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule（在 `CLAUDE.md` 内）、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
 
 ---
 
@@ -38,11 +38,10 @@ CapabilityManagerAgent 管理的是 Claude Code 智能体团队的**通用能力
 
 | 位置 | 内容 |
 |---|---|
-| `~/.claude/skills/` | 全局通用 skill（anysearch、commit、find-skill、image-ocr、release 等） |
-| `~/.claude/rules/` | 全局通用工作规范（file-operation-priority、tmp-dir、verify-before-report） |
+| `~/.claude/skills/` | 全局通用 skill（anysearch、commit、image-ocr、release 等） |
 | `~/.claude/settings.json` | 全局配置（env、availableModels、effortLevel、theme、hooks） |
 | `~/.claude/commands/` | 全局 slash 命令 |
-| `~/.claude/CLAUDE.md` | 全局偏好 + 团队注册表 + 脚手架约定（元规范） |
+| `~/.claude/CLAUDE.md` | 全局偏好 + 全局工作规范 + 团队注册表 + 脚手架约定（元规范） |
 
 **不在管辖范围**（归别处，Prometheus 不碰）：各 agent 的领域 skill 与业务配置；VSCode 扩展补丁（归 Tinker / PatchClaudeAgent）。
 

@@ -1,8 +1,268 @@
 # Changelog
 
-本项目（CapabilityManagerAgent）是 Claude Code 智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `rules` / `CLAUDE.md` 三部分与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/` 三部分的增删改，以及全局 ↔ 本项目镜像的同步动作。
+本项目（CapabilityManagerAgent）是智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `CLAUDE.md` / `docs` 三部分（全局规则随 CLAUDE.md 走；原 `~/.claude/rules/` 目录已废弃删除，2026-09-14 起文档口径统一）与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/` 镜像范围的增删改，以及全局 ↔ 本项目镜像的同步动作。
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
+
+## 2026-09-22
+
+### 变更（add skill 过目粒度修订：人工过目以内容 change block 为单位，文件类型不再触发强制过目）
+
+- **为什么改**：用户定规（2026-09-22）：新增文档 / 配置 / 记录类文件扫描之后内容没有敏感信息就不需要人工过目——「是否要过目」不以文件 / 文档为单位，而以具体的内容 change block 为单位。原第 4 步「高风险类型强制人工」按文件类型一刀切（新增 `*.md` 等即使两层扫描干净也进人工清单），与该口径冲突，且让用户肉眼过目的量变大（每个新增文档都要点一次头），稀释「少而精」。
+- **改了什么**：① 第 3 步引入「内容 change block」为最小判断单位（修改类看 diff hunk、新增类按逻辑段落 / 配置项分块），判断纪律同步从「拿不准的文件」改为「拿不准的块」；② 第 4 步整体重写：取消类型强制人工——新增文档 / 配置 / 记录类所有内容块干净即直接进暂存区，触发过目的唯一理由是具体内容块疑似敏感，报告理由精确到块（行号 + 片段）；保留「这些类型是敏感叙述高发区、逐块扫描格外仔细」的警觉要求（把关强度落在扫描质量而非类型一刀切）；③ 第 5 步分流口径同步（「干净文件」条件从「不属强制人工类型」改为「所有内容块均无敏感信息」，可疑侧从「可疑 / 高风险文件」改为「含可疑内容块的文件」）；④ 第 6 步报告示例去掉「新增文档类双保险」类型理由行、理由示例落到内容块；⑤ description 同步（449/1024 实测 PASS）。
+- **镜像同步**：`claude/skills/add/SKILL.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接自动跟随。
+
+### 变更（dev-workflow 预发布供料自动化：新增 auto-rc workflow 模板，main CI 绿后自动发 rc 预发布）
+
+- **为什么改**：用户提出把 dev-workflow 的 release 部分改成「CI 通过 + auto-merge 进 main 后自动发布」。分析后裁定：完全自动正式发版不可取——它架空「正式发布的版本必须是用户使用验收过的」这条根基（CI 只能断言客观回归，断言不了「好用」），且与 VERSION 唯一权威（自动发版要自动 bump，bump 须经 PR 进 main，结构上套娃）、CHANGELOG 纪律（自动生成满足不了「为什么改 + 改了什么」）冲突，还会让每个 PR 合并都出一个正式版、版本节奏失控。真正繁琐且值得自动化的是**预发布的供料**：采纳折中方案——「CI 绿 + auto-merge 后自动发 rc 预发布，正式发版仍由用户触发 /bump + /release」，验收供料自动化、发版裁决权保留。
+- **改了什么**：① 新建 `skills/dev-workflow/assets/auto-rc.yml`（可复制模板）：GitHub Actions workflow_run 监听 main 的 CI workflow（success 才进入）、concurrency 串行防撞号、排队期间 main 前进则旧运行跳过、目标版本 = CHANGELOG 顶部第一条未发布的语义版本否则 VERSION patch+1、rc 号查 tag 递增、notes 自动列自上个正式 tag 以来的提交、打 tag + `gh release create --prerelease`；两个定制点（workflow 名与 ci.yml 一致、构建命令按项目改）以注释标注，构建步 exit 1 兜底防未定制直接用。② dev-workflow SKILL.md 六处：核心逻辑段验收来源补自动供料说明、沿革补 2026-09-22 预发布供料自动化一笔、流程总览第 9 条补「配 auto-rc 时随合并自动发」、第 1 步远端门禁新增可选项「自动预发布 workflow」、第 8 步合并后收尾补自动 rc 时序（比合并完成晚一个 CI 周期）、第 9 步预发布主通道改写为自动（主）+ 手动（辅）两条供料通道。③ dev-workflow `references/acceptance.md` 两处：预发布主通道一节重写（自动 / 手动两通道的机制、时序、版本号推导、防重复手发）、「main 与发布的语义闭环」补自动 rc 定位句（自动化的是供料，不是「替用户决定满意」，不碰发版裁决权）。④ release SKILL.md 两处：预发布通道「触发」条补 auto-rc 分工（配了的项目合并后 rc 自动发，手动主要用于合并前提前试用；用户要 rc 先报告最近的自动 rc 避免重复手发），顺带修正两处过时的「dev-workflow 第 8 步」引用为第 9 步（验收步骤号早已变更）。frontmatter description 两 skill 均未动（触发语义不变；dev-workflow 549/1024、release 458/1024 实测在限）。
+- **镜像同步**：`claude/skills/dev-workflow/`（SKILL.md + acceptance.md + 新建 assets/auto-rc.yml）、`claude/skills/release/SKILL.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接自动跟随。验证：workflow 模板 YAML 语法实测合法（PyYAML 解析，on/workflow_run/concurrency/if 断言全过）。
+
+### 变更（敏感信息防护体系升级：新建 add skill 预检分流 + gitleaks 工具层双层落地）
+
+- **为什么改**：用户原有防泄漏流程 = 人工肉眼过内容 + `/commit` 时 AI 扫描两层，文件多时人工「扫看过去」效率低且不可靠；且唯一自动防线由 AI 按指令执行（文本规矩非工具强制，存在简化步骤风险），无确定性工具交叉验证、无平台兑底。用户决策：把「人工全量过 + 亲自 add」升级为「工具 + AI 双引擎预检分流——干净文件 AI 自动 add，可疑文件留工作区人工过目（少而精）」。
+- **改了什么**：① 新建 `skills/add/SKILL.md`（~430 字符 description）：`/add` 触发预检分流——候选收集（含删除类直接 add）→ 不入库检测（cache / 二进制 / 大文件）→ gitleaks 工具扫描（缺則降级 AI 正则并标注）→ AI 语义扫描（财务 / 隐私 / 敏感叙述三类，拿不准即按可疑）→ 高风险类型强制人工（新增文档 / 配置 / 记录类）→ 干净文件批量 add，可疑留工作区输出三段式报告（✅已加入 / 👁需过目附理由 / 🚫不建议入库）；授权边界：触发即授权当次 add 预检通过文件，对暂存区只增不改。② 本机 `~/.gitleaks.toml` 全局规则配置（[extend] useDefault = true 保留内置约 200 种密钥规则 + 自定义公网 IPv4 规则含私有段 / 文档段 / 公共 DNS allowlist；服务商词表留注释占位由用户自行补充；不入镜像范围）。③ 本机 `~/.config/git/hooks/pre-commit` + `git config --global core.hooksPath`：commit 前对暂存区再扫一道（含仓库级逃生门 `git config hooks.gitleaks false`、行级豁免 `gitleaks:allow`、gitleaks 缺失时放行防卡死；不入镜像范围）。④ 全局 CLAUDE.md「Git 暂存区禁止 AI 自主增删改」第 2 条修订为「删改禁」，新增第 3 条 add 授权例外（把关方式升级而非取消）。⑤ commit skill 六处「用户已自行 git add」口径改为「经 /add 预检加入或用户手动 add」（description 944→952 字符，行为零变化）。
+- **验证**：gitleaks 三路径实测——自定义规则命中（公网 IP）、内置规则命中（AWS 假 key，证明 extend 生效）、allowlist 正确放行（私有段 / 公共 DNS / 文档示例 key）；hook 四场景实测——脏暂存区拦截（exit 1）、干净放行（exit 0）、行级豁免、仓库级逃生门；RE2 兼容性坑已踩平（Go 正则不支持 lookbehind）。git commit 集成路径未直接测试（git-commit-guard 正确拦截 AI 测试性 commit，属预期行为，待用户真实提交流程自然验证）。
+- **镜像同步**：`claude/skills/add/SKILL.md`（新建）、`claude/skills/commit/SKILL.md`、`claude/CLAUDE.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接自动跟随。
+
+### 变更（skill-creator 新增 description 长度硬关卡：事前预算 + 事后实测脚本双关卡）
+
+- **为什么改**：commit skill 当日新增 9z 步时 description 顶到 1027 字符、超出 Agent Skills 规范 1024 上限（pi 端报 Skill conflicts），且此类超限已发生多次——根因是长流程型 skill 的 description 常驻离上限一步之遥（commit 现 944、agent-reach 901），任何增量修改都可能顶爆，而长度靠肉眼估算从不可靠。按「规矩必须配套工具强制」元规则补机器判定。
+- **改了什么**：① 新建 `scripts/check_description.py`：解析 SKILL.md frontmatter description（单行带/不带引号、`|`/`>` 块标量均支持），按 UTF-16 code unit 计量（`len(s.encode('utf-16-le')) // 2`，与 pi 加载器 JS `string.length` 完全同语义，含 emoji 也不偏），逐文件报 PASS/FAIL/ERR（超限报超多少、达标报余量），exit 0/1 作关卡判定；支持多文件批量巡检；② SKILL.md「Write the SKILL.md」章 description 要点后新增「description length hard gate」条目：改前先跑脚本看现长与余量、写完改完必跑脚本且 exit 0 才算交付，超限时优先把流程机制细节从 description 挪进正文（Progressive Disclosure）而非削弱触发短语；附限制出处（Agent Skills spec / pi `[Skill conflicts]` 警告行为）。验证：全量 15 个 skill 巡检全 PASS（commit 944、agent-reach 901 为仅有的两个贴顶项）；构造用例（超限 FAIL / 块标量解析 / 缺 description ERR）全部符合预期。
+- **镜像同步**：`claude/skills/skill-creator/`（SKILL.md + 脚本）已同步 diff 逐字节一致；`~/.pi/agent/skills/skill-creator/` 与权威源同 inode 硬链接自动跟随。
+
+### 变更（commit skill 新增 9z 步：等待 PR 合并后自动对齐本地 main，/commit 当次闭环不留分叉尾巴）
+
+- **为什么改**：2026-09-22 pi 仓库 /commit 实战——PR 被 CI squash 合并后本地 main 与远端产生「内容相同但哈希不同」的分叉，对齐只能靠下次 /commit 的 0a 步兑底（分叉场景还要人工 rebase），每次都留一步手动尾巴。用户立规：把「等 CI 绿 + auto-merge 合并进 remote main + 合并后自动对齐本地 main」加进 commit skill 末尾，当次闭环。
+- **改了什么**：commit/SKILL.md 共 8 处：① 新增「9z. 等待 PR 合并并对齐本地 main」步（插在第 9 步之后、第 10 步之前；仅第 8 步走了 PR 通道的场景执行；轮询 `gh pr view --json state,mergedAt` 上限 15 分钟，超时不阻塞交 0a 兑底；CI 失败 / PR 被关 / 异常即停均如实报告；合并后对齐分两场景——功能分支场景 `git switch main` → `git merge --ff-only origin/main` → `git branch -D`，main 兑底通道场景 `git branch -f main origin/main` → `git switch main` → `git branch -D <chore分支>`，全部非破坏性命令、绝不自动 rebase；删分支用 -D 的原因：squash 合并后无祖先关系，内容已进 squash commit、不丢信息）；② 第 8 步两处「不等 CI」「对齐方式由用户决定」改为指向 9z；③ 0a 步补与 9z 互补说明；④ 「注意」段、⑤ 「汇报」段两处、⑥ frontmatter description 同步更新。回归检查：与 2026-09-21「远端 main 对齐前置检测 + PR 兑底通道」条目无冲突——0a 保留不变（兑底跨会话 / 9z 超时 / 异常即停场景），9z 纯增量当次闭环，两者互补不替代。
+- **镜像同步**：`claude/skills/commit/SKILL.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills/commit/SKILL.md` 为硬链接自动跟随。**修复**：初版 description 1027 字符超出 pi 端 skill 加载器 1024 上限（加载报 Skill conflicts），当日精简 9z 段（206→123 字符，砍掉场景 A/B 具体命令细节——正文 9z 步全有，description 留行为概要）至 944 字符并重新同步三端。
+
+### 变更（镜像范围口径对齐：全面统一为三部分 skills / CLAUDE.md / docs，清理 rules 时代残留）
+
+- **为什么改**：docs/ 早在 2026-09-12 已纳入镜像为第三部分，但 2026-09-14 的 rules 残留口径清理把「三部分」当成 rules 时代旧说法（skills / rules / CLAUDE.md）统一改成了「两部分」，误伤了 docs 口径，造成多处漂移：本 CHANGELOG 头部、agents-registry 的 Prometheus 行、「capability-sync.md『怎么验证』节数词与括号列举自相矛盾（写两部分却列了三个）」、capability-manager skill 的 SKILL.md 场景 A 步骤与两个 references。用户要求对齐。
+- **改了什么**：① `CHANGELOG.md` 头部列举改三部分；② `claude/docs/agents-registry.md` Prometheus 行「两部分」→「三部分」（权威源 `~/.claude/docs/agents-registry.md` 同步修改，逐字节一致）；③ `claude/docs/capability-sync.md`「怎么验证」数词改三部分（权威源同步）；④ `.claude/skills/capability-manager/SKILL.md`：场景 A 步骤 3 的旧「skills / rules / CLAUDE.md」改「skills / CLAUDE.md / docs」、脚手架步骤「复制通用 skills / rules / settings」去掉已废弃的 rules；⑤ `references/content-lifecycle.md`：通用原则改三部分、判断矩阵补 docs 参考文档行、结尾同步范围列举补 docs；⑥ `references/sync-flow.md`：同步范围改三部分、同步情形 1 / 3 的 cp 命令补 docs、一致性核对与巡检的 diff 命令补 docs、数词全部改三部分。
+
+### 变更（项目定位口径去「Claude Code」限定：智能体团队/舰队已不限于单一 harness）
+
+- **为什么改**：智能体舰队如今不仅建立在 Claude Code 之上，也包含其它 harness（如 pi、DSH），「Claude Code 智能体团队/舰队」的限定词以偏概全，用户要求不再强调 Claude Code。
+- **改了什么**：去掉「Claude Code」限定词，统一改为中性的「智能体团队/舰队」表述，共 6 处：① 本 CHANGELOG 头部项目定位句；② `claude/docs/capability-sync.md`（权威源 `~/.claude/docs/capability-sync.md` 同步修改，全局与镜像保持逐字节一致）；③④ `README_cn.md` 两处 + `README.md` 两处（双语同步）；⑤⑥ `.claude/skills/capability-manager/SKILL.md` 的 description 与正文各一处。
+
+### 变更（icon-design skill 新增文字边界硬校验：事前预算公式 + 事后实测脚本双关卡）
+
+- **为什么改**：codef 项目 `assets/logo.svg` 副标题文字超出画布被裁切（渲染像素检测证实文字像素顶到画布右边缘），且用户反馈该问题「经常出现」。根因：skill 原自检清单三项（外轮廓 / 配色 / 构图）全为**主观项**，没有任何文字宽度的量化关卡；而 `<text>` 实际渲染宽度是逐字符 advance width 之和、随字体字号变化，凭直觉给 x 坐标与 font-size 经常偏差 20% 以上，且文字超出 viewBox 被直接裁切、看 SVG 源码发现不了——必须实测。按「规矩必须配套工具强制」元规则补机器判定。
+- **改了什么**：① SKILL.md 新增「六、文字边界硬校验（含 `<text>` 的 SVG 必做）」：事前预算公式（英文比例字体平均字符宽 ≈ 0.55 em、全角 ≈ 1.0 em，`起点 x + 预估宽度 ≤ 画布宽 × 95%`，超了优先缩短文字其次降字号）+ 事后实测硬性关卡（跑校验脚本 exit 0 才算过，肉眼与源码检查不算数）+ 口径说明（5% 边距是防裁切硬底线，与构图留白 10%–15% 审美要求独立并行）；② 自检清单由三项扩为四项，第 ④ 项指向实测脚本；③ 骨架要点行提示文字必须过边界校验；④ 原「六、为什么」顺延为第七章；⑤ 新建 `scripts/check-text-bounds.py`（渲染完整 SVG 与「移除全部 `<text>`」两版图像逐像素相减得纯文字包围盒，校验落在 5% 边距安全区内；依赖 `rsvg-convert` + Pillow；支持 `--margin-pct` / `--scale` 参数）。校验器自身已双向验证：对 codef 旧 logo（长副标题）FAIL、修复后 PASS。
+- **镜像同步**：`claude/skills/icon-design/` 已同步 diff 逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（dev-workflow skill 修订：commit 一律由用户亲自执行，AI 不申请授权不代行）
+
+- **为什么改**：2026-09-22 用户裁定——commit 动作由用户亲自完成（自行 `git add` 后触发 `/commit` skill，commit + push + PR auto-merge 一条龙），AI 不再申请 commit 授权、不代行；AI 职责收敛为「交付报告列明应 `git add` 的路径与改动摘要 + 确保 `/commit` skill 覆盖所需功能（缺口先补 skill）」。dev-workflow 原表述（2026-09-21 用户立规「commit 须用户明确授权后执行、当轮授权后 AI 带 `# AI_AUTHORIZED_COMMIT` 标记执行」）与新裁定冲突。
+- **改了什么**（2026-09-22）：全局权威源 `~/.claude/skills/dev-workflow/` 修订并同步镜像 `claude/skills/dev-workflow/`：SKILL.md 五处（杂事通道 `git add` 主语明确为用户；第 3 步测试 Agent 出题交接改为「交付自检后报告用户列明 add 路径，commit 由用户执行」；第 7 步 CI 红修复循环改走用户 `/commit`；流程内授权说明改为「commit 一律由用户亲自执行」；「git / gh 授权边界」段整体改写——`git commit` 从「须用户明确授权后 AI 执行」收敛为「AI 一律不代为执行，用户自行 `git add` + `/commit`，暂存区由用户亲自把关、skill 只提交暂存区内容」）；`references/test-cases.md` 两处（出题动线与 Hopper 主通道描述同步）。pi 端 `~/.pi/agent/skills/` 副本与权威源同文件，自动一致。
+
+## 2026-09-21
+
+### 变更（commit skill 第 10 步新增工具强制：git status 收尾必须真实执行，pi 端 git-status-guard 扩展兑底）
+
+- **为什么改**：当日 pi 会话 /commit 汇报收尾时 AI 没有实际执行 `git status`，凭上下文手工拼了一段假输出贴进代码块——既猜错工作区状态（实际 working tree clean，拼的是有未暂存改动），还拼出真实 git 不会输出的 `git cast -A` 提示语，被用户自己执行 git status 后发现不一致。用户裁决：按「规矩必须配套工具强制」元规则补工具强制，防「忘执行 / 贴错 / 编造」三种失守。
+- **改了什么**：① 新建 pi 端扩展 `~/.pi/agent/extensions/git-status-guard.ts`：强制锚点为带 `# AI_AUTHORIZED_COMMIT` 标记的 `git commit`（与 git-commit-guard 授权判定同源），三层防线——commit 的工具结果追加提醒（收尾必须实际执行 `git status` 并原样贴出）；assistant 最终消息里的 `>> git status` 代码块与扩展实测输出逐字比对（规范化换行与行尾空白），不符即替换为真实输出并加警示行（编造 / 贴过期输出 / 贴 `--short` 变体都会被纠正）；run 结束（agent_settled）仍无 status 代码块时实测 git status 直接 notify 用户曝光。状态生命周期 agent_start 重置、tool_call 置位、settled 清除；判定与执行全程防御性 catch 不阻塞会话；敏感扫描 / cache 检测命中即终止的场景无 commit 无锚点、仍靠文本纪律。冒烟测试 8 场景通过（编造替换 / 真实放行 / 行尾空白差异规范化后放行 / 漏贴兑底 notify / 非授权全链路不触发），pi print 模式真环境加载无错；② commit/SKILL.md 第 10 步增补「工具强制」说明（代码块内容必须来自真实执行、不得凭推断拼造，含事故记录），「注意」段加对应条目；CC 端 Stop hook 配套待补，文本已注明。
+- **镜像同步**：`claude/skills/commit/SKILL.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills/commit/SKILL.md` 为硬链接自动跟随；pi 端扩展不在 Prometheus 镜像范围。
+
+### 变更（commit skill 两项流程新增：远端 main 对齐前置检测 + main 禁推时自动走 PR 兜底通道）
+
+- **为什么改**：当日 pi 仓库 /commit 实战暴露两个流程缺口——① 本地 main 落后 origin/main（PR 被 CI squash 合并后没跟上）时直接走到 push 必撞 non-fast-forward，push 被拒后只能人工指引建分支，每次都要用户手动补一步；② remote main 已锁定直推（分支保护），skill 原行为是「如实报告 + 指引 PR 通道」，但指引后的建分支 / push / 建 PR / auto-merge 全套动作要用户重新驱动，体验断裂。用户立规补两条：流程最前面加远端对齐检测、最后面加 main 禁推时自动走分支 PR + CI 自动合并通道。
+- **改了什么**：① 新增第 0a 步「远端 main 对齐检测」（原第 0 步分支感知顺延为 0b）：`git fetch origin` 后用 `git rev-list --count main..origin/main` / `origin/main..main` 判领先关系——远端领先且本地不领先（纯落后）直接拉取对齐（main 上 `git pull --ff-only origin main`，其它分支上 `git fetch origin main:main` 快进 main 引用不动工作区）；两边分叉或拉取失败等矛盾 → 暂停询问用户（流程内决策点，非敏感扫描类终止，答复后可继续不须重新 /commit），不自行改写历史；② 第 8 步 main push 被分支保护拒绝或 non-fast-forward 拒绝时，不再只作指引，自动执行 PR 兜底通道：`git switch -c chore/<事项>` 带上本地 main 领先提交 → push 分支 → `gh pr create` → `gh pr merge --squash --auto --delete-branch` 启用 auto-merge（CI 绿自动合并）；本地 main 与远端对齐方式仍由用户决定（AI 不执行 reset / force）；③ description / 导语 / 「核心定位」/ 0 步 main 分流 / 「注意」/ 「汇报」段同步对齐新行为（汇报段加 PR 兜底场景的报告项：拦截原因 / 分支名 / PR URL / auto-merge 状态 / 本地 main 对齐提醒）。
+- **镜像同步**：`claude/skills/commit/SKILL.md` 已同步 diff 逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（全局 TODO 新规：TODO 与 GitHub Issue 不得重复，转移到 Issue 的条目必须归档）
+
+- **为什么改**：dev-workflow 已定 GitHub Issue 为需求端（问题随手开 Issue、fixes #N 合并自动关闭），同一待办事项容易同时挂在项目 TODO.md 与 Issue 两处，状态会漂移（一边关了另一边还挂着）；用户立规：两边不得重复，TODO 条目转移到 Issue 后必须归档。
+- **改了什么**：全局 CLAUDE.md「待办（TODO）管理」章节新增一条「TODO 与 GitHub Issue 不得重复（同一事项单一在途源）」：同一事项只允许在一个地方在途；为某条待办建了对应 Issue（或决定改由 Issue 追踪）后，该条目移入 TODO-archive.md、标 `✅**已转移**` + 指向 Issue（如 `（已转移至 Issue #42）`），不留在 TODO.md；反向同理——已在 Issue 追踪的事项不再写进 TODO.md，建 Issue 前查 TODO.md、记 TODO 前查 Issue 列表。归档动作沿用现有「移出 TODO 一律进归档」闭环，未新增其它机制。
+- **镜像同步**：`claude/CLAUDE.md` 已同步 diff 逐字节一致；顺带修复该镜像落后全局的既有分叉（「待办无可选项」句此前只改了全局未同步镜像，本次 cp 整体覆盖一并对齐）；`~/.pi/agent/CLAUDE.md` 为软链接指向全局文件、自动生效，无需同步。
+
+### 变更（commit 授权收紧：不论分支/worktree/流程一律须用户明确授权，hook 硬拦截配套）
+
+- **为什么改**：pi 会话中开发 Agent 依 dev-workflow 旧表述「流程内授权功能分支 commit」未经用户确认直接执行了 `git commit`，与全局铁律「commit 唯一授权入口 `/commit`」直接冲突；用户裁决：铁律优先，commit 不论哪个分支、哪个 worktree、哪条流程都必须用户明确授权，并按「规矩必须配套工具强制」元规则补 hook 硬约束。
+- **改了什么**：① 全局 CLAUDE.md 铁律第 1 条修订——明确授权仅两种形式（用户主动发起 `/commit`，或用户当轮消息明确授权 commit；AI 列命令后用户点头不算），配套 `# AI_AUTHORIZED_COMMIT` 授权标记机制（仅上述两场景使用）；② dev-workflow/SKILL.md「git / gh 授权边界」将 `git commit` 移出授权清单（含测试 Agent 出题后与 CI 红修复循环的 commit），第 3 步、第 7 步及 references/test-cases.md 同步对齐；③ commit/SKILL.md 串联命令模板 `git commit -m "<msg>" && git push` 尾部带 `# AI_AUTHORIZED_COMMIT` 标记 + 标记语义说明（`/commit` 触发即明确授权）；④ hook 两份：`~/.claude/hooks/pre-tool-use-guard.sh` 新增规则 3（无标记 `git commit` 一律 deny），新建 `~/.pi/agent/extensions/git-commit-guard.ts`（pi 端，与 CC 端判定对齐：`git commit` / `git -C <path> commit` / 选项带参数形态全覆盖，`git log --grep=commit`、`git checkout`、`git commitfoo` 等不误伤，含字样即拦属明确取舍宁误拦不漏拦；正则单测 13 组 + CC 端实测 8 组通过，TS 语法检查通过）。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/skills/dev-workflow`、`claude/skills/commit` 已同步 diff 逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随；CC 端 hook 与 pi 端 extension 不在 Prometheus 镜像范围。CC 端 hook 每次调用新进程即时生效；pi 端 extension 新会话加载生效。
+
+### 变更（全局注册表超集映射表加行：Wright 新增子项目 agent-team-playbook-src）
+
+- **为什么改**：用户为 The Agent Team Playbook 付费产品建专门私有仓库做版本管理（tag + gh release 附分语言 zip），作为 ProductProducerAgent（Wright）的子项目登记。
+- **改了什么**：`agents-registry.md` 超集映射表在 Wright → GitComic 行后加一行：Wright → agent-team-playbook-src（产品私有源仓库；与公开落地页仓 agent-team-playbook 区分）。
+- **镜像同步**：`claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致。
+
+### 变更（同日三次修订：Issue 作需求端，测试开发分离 + 测试先行，hook 护测试文件全量）
+
+- **为什么改**：同日用户三次修订 dev-workflow 需求端与测试权属——① GitHub Issue 作为需求端（平时遇到问题随手开 Issue、有空再解决，主流开源模式；Issue open/closed 替代 test-cases 的 pending/passed 状态机，fixes #N 合并自动关闭，归档动作整体消失）；② 测试开发分离 + 测试统一先行（用户推演：小改动不写测试则回归防护网有缺口、后补测试会写成快照式断言、同会话自己写隔离太薄——测试文件对开发物理可见可改，纪律墙不硬）；③ 测试 Agent（Hopper）主通道出题（读 Issue 在功能分支写测试、自跑见红、commit；独立会话降为无测试 Agent 环境的代行——先行时序下实现尚不存在，出题上下文天然无实现）；④ 开发对测试文件全量只读可运行（hook 从只护 test-cases/ 扩展到测试目录段 + 测试文件名全量）。
+- **改了什么**：① dev-workflow/SKILL.md 十一步重写（第 1 步门禁改为 Issue + 远端门禁就位；新第 3 步测试先行——测试 Agent 出题先红、开发才开工；第 4 步纪律改为测试文件全量只读；第 5 步对齐后改查 Issue 与测试 commit 变更；第 6 步口径简化为全绿；第 7 步 PR 带 fixes #N；第 8 步收尾无归档；核心逻辑与角色分立重写：用例定义权归测试 Agent、实现权归开发、合并裁决权归 CI、发布裁决权归用户）；② references/test-cases.md 重写（Issue 需求端与状态机、先红后绿时序及「分支内先行、不先进 main」论证、三源出题、hook 全量保护、存量 test-cases/ 迁移指引、Hopper 外部权威源镜像机制随目录体系取消）；③ references/acceptance.md 与 merge-discipline.md 对应更新（修复循环改为「开 Issue → 测试 Agent 先写失败测试 → fix 分支」，需求变更走 Issue 更新通道）；④ commit/SKILL.md 清理归档分支措辞、PR body 加 fixes #N；⑤ hook 两份同步扩展：`~/.claude/hooks/test-cases-guard.py`（四端共用）与 `~/.pi/agent/extensions/test-cases-guard.ts` 判定逻辑逐条对齐——保护对象扩展为测试目录独立段（test / tests / __tests__ / __snapshots__ / spec / e2e）+ 测试文件名（*.test.* / *.spec.* / test_*.py / *_test.py / *_test.go / conftest.py / *.snap）+ 存量 test-cases/，整段 / 全名匹配不误伤 latest / contest / testcase，重定向目标判定泛化，Bash 预筛扩展；Python 版 23 组判定用例全部通过（应拦 11 路径 + 11 命令，放行 8 路径 + 12 命令），TS 版语法转译与模块加载验证通过（pi 端新会话生效）。
+- **镜像同步**：`claude/skills/` 五文件已同步 diff 一致；`~/.pi/agent/skills/` 为硬链接自动跟随；pi extension（`~/.pi/agent/extensions/test-cases-guard.ts`）为 pi 端专属、不在 Prometheus 镜像范围。
+
+### 变更（同日二次修订：合并去人工门禁，验收过程化，人工门禁落点移到正式发版）
+
+- **为什么改**：同日用户二次修订 dev-workflow 门禁分工——「CI 绿即 auto-merge 合并」的合并环节去掉用户验收条件（合并由 CI 独裁，不等人工）；用户验收是过程而非瞬时门禁：复杂项目 CI 较慢，等待窗口正好先从功能分支预发布，用户体验预发布版本就是在验收，需要一段时间；试用满意、且功能已合并进 main 后才正式发版——人工门禁从「合并前」移到「发版前」，发现问题走修复循环（fix 分支 + PR + CI + 新 rc），发版推迟到满意为止。
+- **改了什么**：① dev-workflow/SKILL.md 十步重排（第 6 步 push+建 PR+enable auto-merge 一体化，合并即 CI 绿自动执行；新第 7 步合并后收尾；新第 8 步使用验收（过程：预发布试用、修复循环、需求变更通道）；新第 9 步正式发版（/bump + /release 由用户触发，触发即验收通过的表达）；删「验收后冻结 PR head」纪律；授权边界改为 auto-merge 标准动作；核心逻辑改为「main 必须永远绿，正式发布的版本必须是用户使用验收过的」）；② merge-discipline.md：门禁分工改为「合并裁决权归机器（分支保护 + CI 独裁）、发布裁决权归用户（试用满意才发版）」，删验收冻结段、新增合并后修复循环段，门禁精确含义分两层表述；③ acceptance.md 重写为「预发布试用与发版验收」（验收为何过程化、预发布主通道 + 本地测试包轻量选项、修复循环、main 与发布语义闭环：main = CI 绿集合、正式发布 = 用户试用过的 main 快照、预发布是桥）；④ test-cases.md：归档安全性依据改为「CI 机器裁决完成即归档，试用发现问题开新用例组新编号、旧组不复活」；⑤ commit/SKILL.md：建 PR 后统一顺手 enable auto-merge（gh pr merge --squash --auto --delete-branch），不手动 merge，汇报节提醒改为「发版前确认用户已预发布试用满意且 PR 均已合并」；⑥ release/SKILL.md：预发布 tag 落点扩展（合并前功能分支 / 合并后 main 两阶段均可，体验即验收），试用后处置（问题 → 修复循环递增 rc；满意 → 正式发版）；⑦ bump/SKILL.md：第 6 步改为确认 auto-merge（commit skill 建 PR 时已顺手 enable，未启用则补）。
+- **镜像同步**：`claude/skills/` 七文件已同步，diff 与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（dev-workflow 改回远端主流模式：main 分支保护 + PR + CI 门禁 + 预发布，四 skill 联动改版）
+
+- **为什么改**：用户 2026-09-21 裁定，开发流程回归主流形态——remote main 分支锁定直推（分支保护）、一切经 PR、CI 通过才能合并进 main、回归防护网放 CI 里；正式发布必须在功能合并进 main 之后，合并前可从功能分支预发布。取代 2026-09-07 的本地裁决版（无 PR 无 CI、main 可直推、本地快进合并）。旧版把裁决全部压在本地（本地全量测试 + 本地超集校验 + 快进合并），「绿」与「可合并」无结构绑定，依赖纪律而非平台机制；新版把机器门禁移到远端 CI + 分支保护 required checks，合并条件由 GitHub 结构性强制。
+- **改了什么**（全局 `~/.claude/skills/` 四个 skill + 根 CLAUDE.md）：
+  1. **dev-workflow/SKILL.md 全面改写**：十步新流程（定性 → 开工门禁（用例组 + 远端门禁就位）→ worktree + 功能分支 → 开发纪律 → 对齐 origin/main → 本地全量测试（预检）→ push + 建 PR 远端 CI 裁决（权威）→ 用户验收（人工门禁，可选预发布安装来源，验收后冻结 PR head）→ 合并 PR（CI 绿 + 验收过，squash + 可 auto-merge）→ 收尾（归档小 PR、删分支、清 worktree））。杂事不再「main 直改直推」，同样经 chore 分支 + PR + CI；第 1 步新增远端门禁就位检查（分支保护配置 + ci.yml 最小规范，含首次启用顺序「先 ci.yml 进 main、再开保护设 required」防死锁）；git/gh 授权边界扩展（push 功能分支 / gh pr create / gh pr merge / 预发布 tag + --prerelease 属流程内授权）。
+  2. **references/merge-discipline.md 重写**：超集校验 + 快进合并论证 → 三重门（分支保护结构性门 / 远端 CI 机器门 / 用户验收人工门）+ 验收冻结（验收后不 push 新 commit）+ squash 树等价（merge 后 main 的树 == PR head 的树，物理基础从本地快进换成平台 merge 语义）+ up-to-date / update-branch 并行循环 + 复验口径。
+  3. **references/test-cases.md**：新增「CI 集成」一节（ci.yml 最小规范：pull_request + push main 触发、单测 + test-cases 全量 + 类型检查、required checks、存量仓库恢复启用、CI 红处置）；同步机制落地改为「同步分支 + PR」；归档改为「归档分支 + 小 PR + CI 绿 auto-merge」；强度边界段更新（CI 恢复后的增益：回归网持续生效 + 干净环境独立复核，防 hack 仍靠人工验收 + Hopper）。
+  4. **references/acceptance.md**：验收安装来源两选项（本地测试包 / 预发布 Release）；验收期间 main 变动改为 up-to-date 自动挡 + 复验口径；main 语义闭环更新（main = CI 绿 + 功能类验收过的集合；预发布是 main 外的前瞻快照）。
+  5. **commit/SKILL.md**：分支感知三通道（main 仅无保护仓库可直推，被保护拒绝时如实报告 + 指引建分支走 PR；功能 / 杂事 / bump 分支 push 后顺手建 PR 若无；不 merge）；汇报节同步更新；description 改写。
+  6. **bump/SKILL.md 重写**：main 直改直推 → 建 `chore/bump-v<版本>` 分支改齐版本号 → /commit（push + 建 PR）→ enable auto-merge（CI 绿自动 squash 合并进 main）；三段式发版表格更新（② 段从「/commit 直推」变为「CI 绿 auto-merge」）。
+  7. **release/SKILL.md**：新增「预发布通道」一节（功能分支打 `v<目标版本>-rc.N` / `-beta.N` tag 发 --prerelease Release，不 bump 版本文件，供合并 main 前验收 + 早期尝鲜；迭代递增 N，旧预发布保留）；第 0 步改「路径分流 + 对齐 remote main」（正式版只从 main、功能须已合并；预发布走专属通道跳过版本就绪校验）；「注意」节补预发布必带 --prerelease。
+  8. **全局 CLAUDE.md**：「/commit 例外」段的 /commit 定义补一句「在非 main 分支上 push 后顺手建 PR（remote main 已锁定直推，2026-09-21 起）」。
+- **镜像同步**：`claude/skills/` 四 skill + `claude/CLAUDE.md` 已同步，diff 与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随（CLAUDE.md 为符号链接）。
+
+## 2026-09-20
+
+### 变更
+
+- **agents-registry.md 同步：ghostty 行改为独立分叉表述**（`claude/docs/agents-registry.md`）。为什么改：全局权威源同步更新——xhqing/ghostty 已于 2026-09-20 断开与原上游 ghostty-org/ghostty 的 fork 关系（GitHub 独立仓库状态），此后自主演进；原「个人 fork、跟上游版本 rebase 维护」表述过期。改了什么：ghostty 行改为「独立分叉仓库……断开 fork 关系、自主演进，v1.3.1 基线 + 贴图补丁」（源变更记 FullStackEngineerAgent CHANGELOG）。
+
+- **agents-registry.md 同步：Atlas 职责行列举更新、映射表补 cmux-launcher 与 ghostty 两行**（`claude/docs/agents-registry.md`）。为什么改：全局权威源同步更新——cmux-launcher 纳入时漏改注册表（历史欠账，本次补齐）；ghostty（Ghostty 终端个人维护 fork，Cmd+V 粘贴剪贴板图片为临时文件路径补丁）正式成为 Atlas 第六个子项目；Atlas 职责行的项目列举已过时，改为概括式并指向映射表（源变更记 FullStackEngineerAgent CHANGELOG）。
+
+## 2026-09-19
+
+### 变更
+
+- **agents-registry.md 的 pi 行改为独立分叉表述**（`claude/docs/agents-registry.md`）。为什么改：全局权威源同步更新——xhqing/pi 已于 2026-09-19 在 GitHub 断开与 earendil-works/pi 的 fork 关系，此后自主演进；原「个人 fork、跟上游同步并做个人维护」表述过期，会误导后续会话去做上游同步。改了什么：pi 行改为「独立分叉仓库……断开 fork 关系，自主维护演进」（源变更记 FullStackEngineerAgent CHANGELOG）。
+
+### 变更（release skill 新增「产物惯例核查」防裸发）
+
+- **为什么改**：2026-09-19 在 pi fork 发 v0.86.0 时，release skill 的产物探测（`*.vsix` / `dist/*` / `build/*` / `target/*.zip`）对「产物由 CI 或专用脚本构建、发布前本地不存在」的项目零命中（pi 的产物是 CI 构建的各平台二进制包），探测为空后安静走了无产物发布分支，GitHub Release 裸发无任何 assets、事后人工构建补挂。根因两层：① 探测模式偏 VSCode 扩展，对 CI 中心化项目形态覆盖不到；② 探测为空时无「本项目按惯例应有产物」的对照告警。另外 fork 仓库 CI 链不可用（GitHub 对 fork 默认抑制 workflow 运行、发布类 secrets 缺失），产物只能本地构建，本地核查必须补位。
+- **改了什么**：全局 `~/.claude/skills/release/SKILL.md` 第 7 步新增「产物惯例核查（本地探测为空时必做）」：探测为空时核查三个信号（tag 触发的产物构建 workflow / fork 场景 upstream 同名 Release 挂有 assets / 本仓库历史 Release 挂过 assets），任一命中即暂停指引先构建再上传（优先仓库自带构建脚本 + 冒烟验证 + `gh release upload`），三信号皆不命中才照旧无产物发布；同时注明本地直接建正式 Release 与 CI「draft → 转正」编排的互斥关系。探测列表补入 `*.tgz`。「注意」节同步增补对应提醒。镜像同步：`claude/skills/release/SKILL.md` 已同步，diff 与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（dev-workflow description 修正适用前提歧义：无 test-cases 体系不是绕过的理由）
+
+- **为什么改**：2026-09-19 在 pi 项目（无 `test-cases/` 验收用例体系）要求解决 Issue #1（cursorStyle 核心功能），开发会话未触发 dev-workflow，直接在 main 上开发并提交。排查定位到 description 开头「存在测试用例的软件开发项目的核心功能开发循环」被误读为项目现状前置筛选条件（项目尚无用例体系 → 前提不满足 → 不触发）。这与流程自身逻辑矛盾：第 1 步开工门禁本来就设计了「无用例组 → 阻塞并引导建立」的从零建系路径，若从未建过用例体系的项目永远不触发，该路径永远无法执行。溯源自 2026-09-07 用户裁定「只有存在测试用例的软件开发项目才走 dev-workflow」，政策实质是「纯杂事不走、核心开发走」，本次修正消除歧义、贴合政策原意，不改变政策本身。
+- **改了什么**：全局 `~/.claude/skills/dev-workflow/SKILL.md` description 两处：① 开头定语「存在测试用例的软件开发项目」改为「软件开发项目」（适用范围按项目性质而非项目现状判定）；② 触发段新增「项目尚无 test-cases 验收用例体系不是绕过本流程的理由——此时同样必须使用，第 1 步开工门禁会阻塞并引导先建用例组」。正文未动（第 0 步、第 1 步逻辑本就自洽）。镜像同步：`claude/skills/dev-workflow/SKILL.md` 已同步，diff 与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。关联：pi 项目根 `CLAUDE.md` 的 Development Rules 同日新增本地增补小节，明确该项目核心开发同样走 dev-workflow（pi 为 fork 仓库、无根 CHANGELOG，不另记）。
+
+- **为什么改**：用户新建 GitComic 子项目（Git 漫画书产品线仓库，位于 `~/Developer/GitComic`）并由 ProductProducerAgent（Wright）负责；按「新增 / 变更子项目时以映射表为准」规则，在全局注册表映射表登记。
+- **改了什么**（2026-09-19）：全局 `~/.claude/docs/agents-registry.md` 超集映射表新增一行：ProductProducerAgent（Wright）→ GitComic（Git 漫画书产品线仓库：试读 PDF + 引流图卡，en/zh 双语，后续全本迭代在该仓进行；制作资产与交付物在本机被忽略的 artifacts/）。镜像同步：`claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致。
+
+### 变更（超集映射表新增 pi 子项目行）
+
+- **为什么改**：用户将 pi（Pi agent harness 的个人 fork，fork 自 earendil-works/pi，位于 `~/Developer/pi`）变更为 FullStackEngineerAgent（Atlas）负责的子项目；按「新增 / 变更子项目时以映射表为准」规则，在全局注册表映射表登记。
+- **改了什么**（2026-09-19）：全局 `~/.claude/docs/agents-registry.md` 超集映射表新增一行：FullStackEngineerAgent（Atlas）→ pi（Pi agent harness 的个人 fork，TypeScript monorepo：coding agent CLI / agent 运行时 / 统一多供应商 LLM API / TUI 组件库，跟上游同步并做个人维护）。镜像同步：`claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致。
+
+### 变更（全局默认输出语言改回中文）
+
+- **为什么改**：2026-09-18 应用户要求由中文改为英文默认；现用户再次调整，改回中文为默认输出语言。
+- **改了什么**（2026-09-19）：全局 `~/.claude/CLAUDE.md`「Language」节第一条改为「默认使用**中文（简体中文）**回答用户」；例外为用户明确要求其他语言（用英语提问视为陪练场景，按「用户英语陪练」用英语回答）或上下文明显需要其他语言；普通话行文、排版、中文标点三条改为「约束中文输出——默认输出中文，故常态适用」。镜像同步：`claude/CLAUDE.md` 已同步，diff 与全局逐字节一致。
+
+### 变更（新增「最终结论前先输出『==============』框线」输出规矩）
+
+- **为什么改**：用户要求回复的最终结论与执行过程内容明确区分——过程内容之后、结论之前先单独一行输出「==============」框线，让用户一眼定位结论，不用在过程叙述里翻找。
+- **改了什么**（2026-09-19）：全局 `~/.claude/CLAUDE.md`「输出风格」节新增条目（作为首条）：回复既有执行过程内容（读文件、跑命令、中间分析、逐项检测结果等）又有最终结论时，先输出完整过程内容，然后单独一行输出框线「==============」（14 个等号），紧接着输出最终结论；只有结论、没有过程内容的简短回复不硬加框线；框线行单独成行、上下留空行（避免被 Markdown 渲染成标题线）。镜像同步：`claude/CLAUDE.md` 已同步，diff 与全局逐字节一致。
+
+## 2026-09-18
+
+### 变更（全局默认输出语言改为英文）
+
+- **为什么改**：用户要求把全局规则的默认输出语言设为英文（原为简体中文）。
+- **改了什么**（2026-09-18）：全局 `~/.claude/CLAUDE.md` 「Language」节第一条改为「默认使用**英文（English）**回答用户」，例外不变（用户明确要求其他语言、或上下文明显需要其他语言时照用），并注明普通话行文、排版、中文标点三条仅在输出中文时适用。镜像同步：`claude/CLAUDE.md` 已同步，diff 与全局逐字节一致。
+
+### 变更（新增「用户英语陪练」规则：意图不明先问、语言问题及时纠）
+
+- **为什么改**：用户英语不算好但正在主动学习，会尽量用英语交流；需要配套规则保证：意图看不清时不瞎猜，同时随手纠错帮助提升。
+- **改了什么**（2026-09-18）：全局 `~/.claude/CLAUDE.md` 「Language」节新增一条「用户英语陪练」：① 意图不确定就先问，不要凭猜测动手；② 发现用户用词、搭配、语法问题当场指出并给出更地道的说法（原句 → 建议写法），纠错简短友好、不喧宾夺主。镜像同步：`claude/CLAUDE.md` 已同步，diff 与全局逐字节一致。
+
+## 2026-09-16
+
+### 变更（QSAgent 体系概念修正：删「公开门面 / 私有本体」表述，QuantStrategistAgent 确立为 Agent 项目、Intraday / Swing / gridtrader 为其子项目）
+
+- **为什么改**：用户裁定——只有以 Agent 结尾命名的仓库才是真 Agent 项目，「私有本体 / 公开门面」这套两分概念作废。原注册表把 Intraday（原 QuantStrategistAgent 改名而来）当 Agent 项目、仅挂 gridtrader 一个子项目，Swing 与 Intraday 的归属悬空，体系口径与用户口径（QuantStrategistAgent 是 Markowitz 的 Agent 项目）不一致。
+- **改了什么**（2026-09-16）：① 全局 `~/.claude/docs/agents-registry.md` 超集映射表：删「Intraday（Markowitz 量化私有本体，原名……）| gridtrader」行，改为「QuantStrategistAgent（Markowitz）→ Intraday / Swing / gridtrader」三行；② 全局 `~/.claude/CLAUDE.md` QSAgent 缩写定义同步改为「主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader」。镜像同步：`claude/CLAUDE.md` 与 `claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致。
+
+## 2026-09-14
+
+### 变更（清除已废弃 `~/.claude/rules/` 目录的过期描述：README 中英 + capability-manager skill 全链）
+
+- **为什么改**：全局 `~/.claude/rules/` 目录已废弃删除（全局规则现只存在于 CLAUDE.md，见全局 CLAUDE.md「新增全局规则直接写入全局 CLAUDE.md 对应章节」），但本仓库多处文档仍把它当现存功能描述：README 中英的结构表、capability-manager skill 的同步操作指引与 references 流程（甚至教「在 `~/.claude/rules/` 建文件 + CLAUDE.md 加 @ 引用」的完整操作）——不删会误导后续同步操作指向不存在的目录。镜像目录本身已与全局一致（两侧 `rules/` 均已不存在），本次仅文档修正。
+- **改了什么**（2026-09-14）：① `README.md` / `README_cn.md`——正文列举给 rules 标注载体（in `CLAUDE.md`）、结构表删 `~/.claude/rules/` 行、`CLAUDE.md` 行描述补 working rules；② `.claude/skills/capability-manager/SKILL.md`——同步操作指引删 `~/.claude/rules/` 路径，注明全局规则在 CLAUDE.md 章节内；③ `references/content-lifecycle.md`——同步范围「三部分」改「两部分（skills / CLAUDE.md）」、判断矩阵删 rules/ 行、整章删除「改 rules/」操作流程；④ `references/sync-flow.md`——同步范围改两部分并注明目录已废弃、cp / diff / 核对清单删 rules 项；⑤ 本 CHANGELOG 头部描述同步改「两部分」。注：本次只改本项目自有文件（README + 项目级 skill），不动 `claude/` 镜像内容（全局侧对应文件无 `~/.claude/rules/` 现存性描述，无需同步）。
+
+## 2026-09-13
+
+### 变更（分发层终结：删除「全局 ↔ 各项目 anysearch 副本」同步规则，只保留单一出口）
+
+- **为什么改**：单一出口模式落地后，各 agent 项目已陆续清除通用 skill 副本（2026-09-13 核验：`~/Developer/*/.claude/skills/` 下无任何 anysearch 副本），但全局 CLAUDE.md 指针节、capability-sync 文档、new-agent-scaffold 边界条款里仍保留「维护各项目 anysearch 副本」「既有项目副本按需维护」的分发层规则，指向已不存在的副本，用户指出过时并授权清理。现行规则收敛为：只有 Prometheus 镜像全局并开源，其余项目零分发。
+- **改了什么**：① 全局 `~/.claude/CLAUDE.md` 指针节删「维护各项目 anysearch 副本」职责，补「Prometheus 是通用能力开源的单一出口」表述；② `~/.claude/docs/capability-sync.md`——标题「跨项目同步」→「镜像同步」、「何时读」删副本维护项、删「与下方各 skill 同步小节的关系」条、删「anysearch skill 同步（全局为权威副本）」整节（留一行去向说明指向 git 历史）；③ `~/.claude/docs/agents-registry.md` Prometheus 行「新建项目不再分发副本，既有项目副本按需维护」→「只有本项目镜像全局，其余 agent 项目不再分发副本」；④ `~/.claude/docs/new-agent-scaffold.md` 边界条款由「既有项目不做强制回退清理、副本按 capability-sync 同步小节维护」改为「单一出口已全量落地、副本已全部清除、分发层终结」；⑤ 本项目 README 中英两版目录表全局 skill 举例删去已不存在的 find-skill。镜像同步：`claude/CLAUDE.md` 与 `claude/docs/` 三文档已同步，diff 与全局逐字节一致。
+
+## 2026-09-12
+
+### 变更（test-cases-guard 补挂 pi 端 + 需求组编号规则）
+
+- **为什么改**：① 上一条 dev-workflow 减重落地后发现 pi 端未挂载 test-cases-guard（工具强制只覆盖 CC / ZCode / CodeBuddy / Trae 四端，pi 会话里用例目录写保护只靠文本纪律），用户要求补挂；② 用户要求需求组带编号（#123 风格），给跨会话沟通与 CHANGELOG 引用提供稳定锚点。
+- **改了什么**：① 新建 `~/.pi/agent/extensions/test-cases-guard.ts`——pi 的拦截机制与 CC 不同（进程内 tool_call 事件、非外部 PreToolUse 脚本），故将 Python 版判定逻辑逐条移植为 TS extension（拦截范围、授权标记、拆段判定一致），`pi -p` 实测三项通过（无标记写操作被拦、纯读放行、`# TEST_CASES_WRITE_OK` 放行）；② dev-workflow 需求组目录命名升级为 `<编号>-<需求名>`（如 123-login-timeout）：编号项目内全局递增、永不复用（新号 = pending + passed 最大编号 + 1，与 TODO 编号同构），沟通用 `#编号` 指代，目录名不带 #（shell 与正则判定友好），出用例方定号——SKILL.md 三处占位符、test-cases.md 目录结构与三通道、acceptance.md 一处同步更新；③ test-cases.md hook 节挂载清单收录 pi 端（五端）；④ Python 版 DENY_REASON 文案同步（豁免用途补「独立会话出用例、用户授权的归档挪动」，与新流程对齐）。镜像同步：`claude/skills/dev-workflow/` 四文件已同步，diff 与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（dev-workflow 测试环节减重：出用例改独立会话主通道、Hopper 转可选强化、归档授权化）
+
+- **为什么改**：dev-workflow 原设计每次核心开发都必须经测试 Agent（Hopper）供用例 + 验收后 Hopper 归档，用户反馈对日常开发太重——用户当人肉中继传需求、等供用例、验收后再传归档，跨 Agent 往返成本大于日常开发的收益。与用户对齐后确认：重的根源是载体（专门 Agent 的协作环节）而非分权结构（用例与实现隔离，防「自己出题自己答」与「改用例迁就实现」），故保结构换载体，三个减重方案全部采纳。
+- **改了什么**：全局 `~/.claude/skills/dev-workflow/`：① SKILL.md 三权分立总述改写——用例定义权泛化为「出用例方」（任何上下文里没有实现代码的独立出题者：日常独立会话、重要项目可选 Hopper），实质是上下文隔离而非人格化专门 Agent；② 第 1 步开工门禁：无用例时请用户以独立会话出用例（新开会话只喂需求文本与必要背景、带 `# TEST_CASES_WRITE_OK` 标记写入 pending），并新增「用例规模与需求体量匹配」分级（小需求轻量用例组、大功能完整用例组）；③ 第 8 步收尾：归档从「Hopper 验收归档」改为「用户授权 + 开发 Agent 带标记 `git mv` pending → passed」（hook 豁免通道原已存在，本次是规矩追上工具），重要功能可选 Hopper 独立归档验收；④ references/test-cases.md：「权威源与镜像」节改写为「用例来源与权威源」（独立会话日常主通道 / Hopper 可选强化 / 用户手写三通道，Hopper 镜像规则收为子节，「同步机制」节标注为 Hopper 通道），删「过渡期口径」节（概念随独立会话转正而取消），归档节改写（授权化通道 + diff 校验标注仅适用有外部权威源的项目），hook 强度边界补「日常靠第 6 步用户实物验收兜底」；⑤ acceptance.md / merge-discipline.md 的 Hopper 指名表述改泛称。hook 脚本 `test-cases-guard.py` 本身未动（豁免标记通道已有，无需改）。镜像同步：`claude/skills/dev-workflow/` 四文件已同步覆盖，diff 验证与全局逐字节一致；`~/.pi/agent/skills/` 为硬链接自动跟随。
+
+### 变更（超集映射表新增 Atlas → ghostty-launcher 行，2026-09-12 晚）
+
+- **为什么改**：用户新建 ghostty-launcher（VSCode 状态栏一键唤起外部 Ghostty 终端的扩展）并交由 Atlas（FullStackEngineerAgent）管理，按「Agent 项目与子项目的 `.claude/` 超集关系」规则，新增子项目须同步全局映射表。
+- **改了什么**：全局 `~/.claude/docs/agents-registry.md` 超集关系映射表 FullStackEngineerAgent（Atlas）名下新增 ghostty-launcher 行，并按全局为权威同步覆盖本项目 `claude/docs/agents-registry.md` 镜像，`diff` 核对逐字节一致。
+
+### 变更（全局 find-skill 提及清理：skill 已删，文档与 commit skill 联动去提及）
+
+- **为什么改**：用户已删除全局 find-skill skill（实际使用中从未用到），但全局 CLAUDE.md、capability-sync.md、new-agent-scaffold.md、commit SKILL.md 仍多处提及（含一整节 find-skill 同步规则），全部失效，2026-09-12 清理。
+- **改了什么**：①全局 `~/.claude/CLAUDE.md`「团队结构参考」指针「anysearch / find-skill 副本」→「anysearch 副本」；②`capability-sync.md`：删「## find-skill skill 同步」整节，「何时读」与「小节关系」两处表述去 find-skill，敏感信息举例由 find-skill 的 `.env` / `cache/` 换为 `settings.local.json`；③`new-agent-scaffold.md`：通用 skill 举例、边界小节表述、`.gitignore` 必含清单（删「`find-skill/.env` 与 `cache/`」）去 find-skill（第 11 行历史叙述保留——陈述的是过去事实，不指向现存物）；④commit SKILL.md cache 检测举例去 find-skill。镜像同步：`claude/` 下四个对应文件已同步，diff 验证逐字节一致。各 agent 项目 CLAUDE.md 的 find-skill 提及联动清理记各自 CHANGELOG。
+
+### 变更（全局 CLAUDE.md 三层分流重构：592→171 行，占比 14%~20%→4%~6%）
+
+- **为什么改**：接上午的零风险瘦身（仅 -3.4%，收益不足），用户点头执行三层分流方案——红线全量在场、低频参考资料拆独立文档、触发式规则并入对应 skill，把每个会话固定占用的上下文真正压下来（红线遵守的信号噪声比同步提升）。
+- **改了什么**：①新建全局 `~/.claude/docs/`（并纳入开源镜像为第三部分）：`agents-registry.md`（注册表+流水线三小组+自动维护规则+超集关系及映射表）、`new-agent-scaffold.md`（通用能力单一出口+脚手架全套+徽章规范+双语 README 同步细则）、`capability-sync.md`（底层通用能力开源+anysearch/find-skill 同步）；②全局 CLAUDE.md 重写为 171 行：红线全保留（Git 三条、敏感信息、TODO/CHANGELOG/版本纪律、工作规则压缩版），新增「团队结构参考」指针节（四类场景→对应文档）；③Logo 双条规则并入 icon-design skill（新增「五、Logo 专项规范」节）；④Windows SSH 规范细则并入 win-ai-monitor skill（「SSH 连接」节新增「操作规范」小节，全局留 3 行红线）；⑤杀 VSC / 远程窗口压缩为钩子已拦的红线短条；⑥commit skill 四处注册表引用改指 `~/.claude/docs/agents-registry.md`；⑦capability-manager skill 与本项目 `.claude/CLAUDE.md` 的「三部分」过时说法（rules 已删）修正为「skills / CLAUDE.md / docs」。镜像同步：claude/CLAUDE.md、新增 claude/docs/、icon-design / win-ai-monitor / commit 三 skill（`~/.pi/agent/skills/` 为硬链接自动跟随）。效果：估算 token 27,408~39,485 → 7,900~11,400（占 200K 窗口 13.7%~19.7% → 约 4%~6%）。
+- **并行改动找回**：重写底稿取自本会话开头快照，覆盖了同日两个并行会话的未提交改动，已按 CHANGELOG 记录与 Kit 项目子项目清单精确补回——①缩写表 DTAgent = DayTradingAgent（13:47 条目）；②超集映射表 Kit → blog 行（15:36 条目）。多会话并行改同一权威文件时此风险仍在，提醒：并行会话改全局后应尽快 commit 落库。
+
+### 变更（超集映射表新增 Kit → blog 行，2026-09-12 15:36）
+
+- **为什么改**：用户 2026-09-12 把 blog 仓库（docsify 静态博客）交由 Kit（ExecutiveAssistantAgent）负责，按「Agent 项目与子项目的 `.claude/` 超集关系」规则，新增子项目须同步全局 CLAUDE.md 的超集关系映射表。
+- **改了什么**：全局 `~/.claude/CLAUDE.md` 超集关系映射表 ExecutiveAssistantAgent（Kit）名下新增 blog 行，并按全局为权威同步覆盖本项目 `claude/CLAUDE.md` 镜像，`diff` 核对逐字节一致。
+
+### 变更（全局 CLAUDE.md 缩写表新增 DTAgent = DayTradingAgent，2026-09-12 13:47）
+
+- **为什么改**：用户定义新缩写「DTAgent」代表 DayTradingAgent（Victor 的日内交易盯盘项目），持久约定需落盘到全局缩写表才可靠（否则新会话不记得）。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`「语言」节缩写约定段追加 DTAgent 条目（含大小写不敏感列表同步），并按全局为权威同步覆盖本项目 `claude/CLAUDE.md` 镜像，`diff` 核对逐字节一致。
+
+### 变更（全局 CLAUDE.md 零风险瘦身：删除立规日期与修订过程叙述）
+
+- **为什么改**：全局规则经两个多月积累已 592 行、约 2.7万~3.9 万 token（占 200K 上下文窗口 14%~19%），用户咨询是否值得瘦身，选定「零风险表述压缩」方案——只删立规日期、修订过程叙述等溯源信息，所有规则语义、边界、核心教训全部保留在场，不动任何规则的适用条件。
+- **改了什么**：①35 个章节标题里的「（2026-XX-XX 用户立 / 修订 / 增补……）」历史堆叠全部删除（TODO 节标题堆叠最多，约 90 字符）；②正文内联的「（2026-XX-XX 用户修订：……）」类日期标注删除，语义并入正文；③事故叙述压缩为去日期的短句（敏感信息双事故、CC-BRIDGE 发版误判、GLM 文档优先等），教训核心全部保留；④注册表表格里的改名 / 移交 / 立规历史叙述压缩（Kit、Hopkins、Gatsby、Hopper、Prometheus 行）；⑤修复一处失效引用（`verify-before-report.md` 已随 rules 目录删除，改指本文件「工作规则」节）；⑥「临时产物存放规则」小节混入的半角标点统一为中文标点。结果：100,231 → 96,801 字节（-3.4%），估算 token 占比 13.7%~19.7% → 13.3%~19.1%。用户已知晓本次瘦身幅度有限（正文重复表述少），后续若仍需压到 200 行级别需走三层分流方案（红线在场 + 低频指针化 + 并入 skill），另行决策。本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）；`~/.pi/agent/CLAUDE.md` 为软链接自动跟随。
+
+### 变更（全局 CLAUDE.md 新增「Logo 视觉区分：拟人实体用拟人头像，项目用项目象征 logo」）
+
+- **为什么改**：用户裁定视觉区分原则：门面 QuantStrategistAgent 与私有本体 Intraday 重组后 logo 全同，用户区分两者定位——拟人实体给拟人头像，项目给项目象征意义的 logo（Intraday 已换 ⏱️ 项目象征 logo，见该仓 CHANGELOG），并立为全局规则。
+- **改了什么**：全局 CLAUDE.md 在「Logo / 图标资产文字一律用英文」之后并列新增小节「Logo 视觉区分（2026-09-12 用户立）」：拟人实体（主仓库 / 门面）用拟人头像模板，子项目（研究本体 / 组件 / 工具）用项目象征图形（象征元素取项目主题、配色避开已用组合、副标题与 README 口径一致）；存量撞脸接触时顺手改。本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。
+
+### 变更（全局 CLAUDE.md 新增「Logo / 图标资产文字一律用英文」）
+
+- **为什么改**：用户在 Swing 仓库指出 logo.svg 副标题混入中文（「日K趋势跟随策略」），要求 logo 内不放中文，并立为全局规则。logo 是面向全球读者的视觉标识，中文受众已有 README_cn.md 双语通道；且 SVG 中文依赖查看环境字体回退，渲染不可控（字体缺失显示方块），英文用通用字体族在哪个环境都稳定。
+- **改了什么**：全局 CLAUDE.md 新增小节「Logo / 图标资产文字一律用英文（2026-09-12 用户立）」，适用于所有项目的 logo / 图标类视觉资产文件，插入位置在「中英双语 README 内容自动同步」之后；副标题口径与 README 英文版标题对齐；既有存量按「接触一处改一处」顺手清理。本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。
+
+### 变更（全局 CLAUDE.md：QSAgent 仓库重组体系标注）
+
+- **为什么改**：用户启动 Markowitz 量化项目仓库重组（求职展示与资产保密分层）：私有仓库 QuantStrategistAgent 更名 **Intraday**（日内研究本体），原名让给新建公开门面仓库；Swing 策略另立公开仓库。全局规则里的缩写释义与超集映射表需随仓库重组同步，否则指向旧结构。
+- **改了什么**：①缩写约定 QSAgent 释义更新为体系结构（公开门面 QuantStrategistAgent + 私有本体 Intraday + 公开组件 Swing）；②超集映射表「QuantStrategistAgent（Markowitz）」行改为「Intraday（Markowitz 量化私有本体，原名 QuantStrategistAgent）」并注重组说明。本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。同日新建本地仓库 Swing 与 QuantStrategistAgent（门面）待用户 `/commit` 发布。
+
+### 变更（全局 CLAUDE.md 缩写约定新增 QSAgent）
+
+- **为什么改**：用户裁定 QuantStrategistAgent（Markowitz 的量化策略项目）以后简称为「QSAgent」，方便日常沟通指代，避免每次复述全名。
+- **改了什么**：全局 `~/.claude/CLAUDE.md`（权威源）「缩写约定」新增一条：输入「**QSAgent**」即指 QuantStrategistAgent（2026-09-12 立），大小写不敏感清单同步补入（qsagent 同义）；本项目 `claude/CLAUDE.md` 镜像同步（diff 一致）。
+
+### 变更（全局 CLAUDE.md：五条全局规则全文并入，全局级 @ 引用机制废止）
+
+- **为什么改**：`@` 引用只有 Claude Code 会自动展开，pi / ZCode 等不解析——五条「必须遵守」级规则（SSH 远程操作、文件操作优先级、临时产物、汇报前验证、运行版隔离）在这些 agent 里只剩一句话摘要，全文是否在场全靠 agent 自觉（2026-08-24「非 CC agent 开场逐一读取全文」纪律属软约束，2026-09-12 在 pi 会话实测即被跳过，直到用户问起才补读）。用户裁定：全文并入 CLAUDE.md 本体，一处修改、所有 agent 同时生效。
+- **改了什么**：① 文末「工作规则」节从 @ 引用摘要清单改写为五条规则原文全文（标题降级：`#`→`###`、`##`→`####`）；② 「rules 文件必须在 CLAUDE.md 中 @ 引用」规则条改写为「rules 文件的加载机制」——@ 引用纪律仅适用项目级，全局级新增规则直接写入 CLAUDE.md 对应章节、不放 `~/.claude/rules/`；③ `~/.claude/rules/` 五文件保留为归档、头部加归档说明（不再是加载链路的一环、不再同步维护）；④ 镜像同步：`claude/CLAUDE.md`、`claude/rules/` 覆盖后 diff 一致；⑤ 顺带对齐存量分叉——win-ai-monitor SKILL.md 镜像落后全局 2026-09-04 版（桌面代理机制停用改写），以全局覆盖镜像，并删除镜像侧残留的旧部署脚本 `scripts/`（全局侧 2026-09-04 已清除、镜像当时漏删），skills 两边现仅余 endpoints.json 与 local/config.md 两处本机数据预期差异。
+
+### 变更（全局 rules/ 目录整体删除：并入后的收尾清零）
+
+- **为什么改**：五条全局规则已全文并入 CLAUDE.md「工作规则」节（见上一条），`~/.claude/rules/` 目录在加载链路上零依赖，且历史版本已由本仓库 git 历史完整留痕，本机归档副本属第三份冗余；用户裁定一并删除并清理全部引用表述。
+- **改了什么**：① 删除全局 `~/.claude/rules/`（五文件）与镜像 `claude/rules/` 目录（git 历史保留全部版本可回溯）；② 全局 CLAUDE.md 十处表述更新——「底层通用能力开源」节从三部分改为两部分（skills / CLAUDE.md）、「rules 文件的加载机制」与「工作规则」节的「保留为归档」改为「已删除（历史见 git 历史）」、注册表 Prometheus 行同步、「临时产物存放规则」内两个指向已删文件的 file:// 交叉链接改为同文档指代；③ 更新 8 个存量项目 CLAUDE.md 里「见全局 ~/.claude/rules/」类指路为「见全局 ~/.claude/CLAUDE.md『工作规则』节」（AgentCortex、ApplyOptimizerAgent、CommunityManagerAgent、ExecutiveAssistantAgent、TestEngineerAgent、gridtrader、Intraday、QuantStrategistAgent；后三者的「权威源见 .claude/rules/」同步改为「claude/CLAUDE.md」）；④ 核验：全局与镜像两部分（skills / CLAUDE.md）逐字节一致，pi 软链接自动跟随，各 CLAUDE.md 中 `~/.claude/rules` 引用清零。项目侧改动在各项目仓库待用户自行提交。
 
 ## 2026-09-09
 

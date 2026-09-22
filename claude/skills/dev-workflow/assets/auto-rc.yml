@@ -1,0 +1,105 @@
+# 自动预发布（auto-rc）：main 的 CI 全绿后，自动打 v<目标版本>-rc.N 预发布 tag 并发 GitHub Release。
+# 用户从 Release 页装 rc 试用（dev-workflow 第 9 步使用验收的供料通道），正式发版仍由用户 /bump + /release。
+#
+# 落地前提：ci.yml 已按 dev-workflow 第 1 步就位（同时含 pull_request 与 push(main) 触发——
+# 本 workflow 靠 main 的 push CI run 触发，没有它则不会运行）。
+# 落地两个定制点：
+#   1. 下方 workflows: ["CI"] 必须与本项目 ci.yml 的 name: 字段完全一致（workflow_run 按名字关联）；
+#   2. 「构建产物」一步按项目发布工艺改写（示例见注释），产物统一收集进 dist/。
+# 文件放 .github/workflows/auto-rc.yml、经 PR 进 main 后生效（workflow_run 只认默认分支上的定义）。
+name: auto-rc
+
+on:
+  workflow_run:
+    workflows: ["CI"] # ← 定制点 1：与 ci.yml 的 name 一致
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write # 打 tag + 发 Release
+
+concurrency:
+  group: auto-rc
+  cancel-in-progress: false # 串行执行，防并行合并撞 rc 号
+
+jobs:
+  release-candidate:
+    # 只在 CI 成功时进入：main 的 CI 红 / 被取消不发 rc——main 红时交出的 rc 不可靠
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0 # 全历史：推导 rc 号、生成 notes 都要用 tag 历史
+          fetch-tags: true
+
+      - name: 跳过过时运行
+        id: fresh
+        run: |
+          # concurrency 排队期间 main 又前进 → 本次跳过，由更新的一次 run 发 rc（每个 main 状态只发一个）
+          TRIGGER_SHA="${{ github.event.workflow_run.head_sha }}"
+          if [ "$(git rev-parse origin/main)" != "$TRIGGER_SHA" ]; then
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "main 已前进，跳过本次（更新的一次 run 会发 rc）"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 推导下一个 rc tag
+        if: steps.fresh.outputs.fresh == 'true'
+        id: ver
+        run: |
+          set -eu
+          # 目标版本：CHANGELOG 顶部第一条未发布的语义版本；没有则 VERSION 的 patch + 1
+          TOP="$(grep -m1 -E '^## ' CHANGELOG.md 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)"
+          if [ -n "$TOP" ] && ! git rev-parse -q --verify "refs/tags/v$TOP" >/dev/null; then
+            TARGET="$TOP"
+          else
+            TARGET="$(python3 -c "import re;v=open('VERSION').read().strip().lstrip('v');print(re.sub(r'(\d+)$',lambda m:str(int(m.group(1))+1),v))")"
+          fi
+          # rc 号：同目标版本下已有 rc.* 取最大 +1，从 1 起
+          LAST_N="$(git tag -l "v$TARGET-rc.*" | sed 's/.*-rc\.//' | sort -n | tail -1 || true)"
+          N="$(( ${LAST_N:-0} + 1 ))"
+          echo "tag=v$TARGET-rc.$N" >> "$GITHUB_OUTPUT"
+
+      - name: 构建产物
+        if: steps.fresh.outputs.fresh == 'true'
+        run: |
+          set -eu
+          mkdir -p dist
+          # ← 定制点 2：按项目发布工艺构建，产物复制进 dist/。示例：
+          #   VSCode 扩展：npm ci && npx vsce package --no-git-tag-version --out dist/
+          #   npm 包    ：npm ci && npm pack --pack-destination dist/
+          echo "TODO: 按项目发布工艺替换本步" && exit 1
+
+      - name: 打 tag 并发布预发布 Release
+        if: steps.fresh.outputs.fresh == 'true'
+        run: |
+          set -eu
+          TAG="${{ steps.ver.outputs.tag }}"
+          # notes：自上个正式 tag（不含 rc / beta）以来的提交列表
+          LAST="$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
+          if [ -n "$LAST" ]; then
+            LOG="$(git log --oneline "$LAST..HEAD")"
+            RANGE="自 $LAST 以来"
+          else
+            LOG="$(git log --oneline -30)"
+            RANGE="最近 30 条提交"
+          fi
+          {
+            echo "自动预发布：main 的 CI 全绿后自动生成，供试用验收；正式版仍由发版流程发布。"
+            echo
+            echo "## $RANGE"
+            echo '```'
+            echo "$LOG"
+            echo '```'
+          } > notes.md
+          git tag -a "$TAG" -m "$TAG (auto prerelease)"
+          git push origin "$TAG"
+          gh release create "$TAG" --prerelease \
+            --title "${GITHUB_REPOSITORY#*/} $TAG" \
+            --notes-file notes.md \
+            dist/*

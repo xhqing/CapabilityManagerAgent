@@ -1,15 +1,15 @@
 # 改通用能力内容（场景 A 详细流程）
 
-本文件是 SKILL.md「场景 A」的详细展开。覆盖新增 / 修改 / 下线全局 skill、rule、CLAUDE.md 元规范的全链路步骤（`settings.json` 只改全局、不镜像）。重点讲清「一个改动会牵动哪些位置」，避免漏同步。
+本文件是 SKILL.md「场景 A」的详细展开。覆盖新增 / 修改 / 下线全局 skill、CLAUDE.md 元规范的全链路步骤（`settings.json` 只改全局、不镜像）。重点讲清「一个改动会牵动哪些位置」，避免漏同步。
 
 ## 通用原则：一个内容改动牵动哪些位置
 
-通用能力三部分（skills / rules / CLAUDE.md）改动后，至少要同步**两个位置**（全局权威 + 本项目镜像），**通用 skill 还要分发到各 agent 项目副本**。判断矩阵：
+通用能力三部分（skills / CLAUDE.md / docs，全局规则随 CLAUDE.md 走）改动后，至少要同步**两个位置**（全局权威 + 本项目镜像），**通用 skill 还要分发到各 agent 项目副本**。判断矩阵：
 
 | 改的内容 | 全局 `~/.claude/`（权威） | 本项目 `claude/`（镜像） | 各 agent 项目 `.claude/` |
 |---|---|---|---|
 | CLAUDE.md 元规范 | ✅ 改 | ✅ 镜像 | ❌（各项目有自己的 CLAUDE.md，不通用） |
-| rules/ | ✅ 改 | ✅ 镜像 | ❌（rules 随 CLAUDE.md @ 引用，不单独分发） |
+| docs 参考文档（agents-registry / new-agent-scaffold / capability-sync） | ✅ 改 | ✅ 镜像 | ❌（各项目不装 docs 副本） |
 | 全团队通用 skill | ✅ 改 | ✅ 镜像 | ✅ 分发（anysearch / find-skill 等） |
 | 特定 agent 专属 skill | ❌（不进全局） | ❌（不进镜像） | 只放该项目的 `.claude/skills/`（capability-manager / trade 等） |
 | `settings.json` | ✅ 改 | ❌ 不镜像 | ❌ |
@@ -51,14 +51,6 @@
 3. **镜像本项目 `claude/` + 分发项目**（同新增）。
 4. **diff 验证 + 记 CHANGELOG**。
 
-## 改 rules/（新增 / 修改 / 删除 rule 文件）
-
-关键约束：**rules 文件必须在 CLAUDE.md 中 `@` 引用才会被加载**（CLAUDE.md「rules 文件必须在 CLAUDE.md 中 @ 引用」节）。
-
-- **新增 rule**：① 在 `~/.claude/rules/` 建 `<rule>.md`；② **同步在 `~/.claude/CLAUDE.md` 加一行 `@rules/<rule>.md` + 一句话摘要**（否则等于白写，不会被加载）；③ 镜像到本项目 `claude/`（rule 文件 + 改动后的 CLAUDE.md 都要 cp）；④ diff 验证。
-- **删除 rule**：① 删 `~/.claude/rules/<rule>.md`；② **同步去掉 CLAUDE.md 里对应的 `@` 引用**（否则成 dangling 引用）；③ 镜像 `claude/`；④ diff 验证。
-- **修改 rule 内容**：直接改全局，镜像 `claude/`，diff 验证。
-
 ## 改 CLAUDE.md（元规范）
 
 CLAUDE.md 是 S 级、每次会话都在场的元规范。改它要格外慎重：
@@ -71,7 +63,7 @@ CLAUDE.md 是 S 级、每次会话都在场的元规范。改它要格外慎重�
 
 ## 改 settings.json / commands/
 
-这两部分**不在三部分同步范围**，只在全局 `~/.claude/` 维护、不进本项目 `claude/` 镜像：
+这两者不在同步范围（skills / CLAUDE.md / docs）内，只在全局 `~/.claude/` 维护、不进本项目 `claude/` 镜像：
 
 1. 直接改全局 `~/.claude/settings.json` 或 `~/.claude/commands/`。
 2. 记 CHANGELOG。

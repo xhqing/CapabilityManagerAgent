@@ -14,11 +14,11 @@
 
 # CapabilityManagerAgent
 
-> 🔥 **Prometheus** — the capability steward who guards the common-capability backbone of the entire Claude Code agent team. When a global skill, rule, or config changes, Prometheus propagates the change to every project copy, keeping the whole team in sync.
+> 🔥 **Prometheus** — the capability steward who guards the common-capability backbone of the entire agent team. When a global skill, rule, or config changes, Prometheus propagates the change to every project copy, keeping the whole team in sync.
 
 [简体中文](README_cn.md)
 
-CapabilityManagerAgent manages the **common-capability backbone** of the Claude Code agent team: everything under the user-level `~/.claude/` directory that is **not specific to one agent but shared by all** — global skills, global rules, `settings.json`, and slash commands — plus the cross-project sync that keeps every agent project's `.claude/` copy consistent with the global authoritative copy.
+CapabilityManagerAgent manages the **common-capability backbone** of the agent team: everything under the user-level `~/.claude/` directory that is **not specific to one agent but shared by all** — global skills, global rules (in `CLAUDE.md`), `settings.json`, and slash commands — plus the cross-project sync that keeps every agent project's `.claude/` copy consistent with the global authoritative copy.
 
 ---
 
@@ -38,11 +38,10 @@ The name **Prometheus** ("the one who brings fire") fits the role: guarding the 
 
 | Location | Content |
 |---|---|
-| `~/.claude/skills/` | Global common skills (anysearch, commit, find-skill, image-ocr, release, …) |
-| `~/.claude/rules/` | Global working rules (file-operation-priority, tmp-dir, verify-before-report) |
+| `~/.claude/skills/` | Global common skills (anysearch, commit, image-ocr, release, …) |
 | `~/.claude/settings.json` | Global config (env, availableModels, effortLevel, theme, hooks) |
 | `~/.claude/commands/` | Global slash commands |
-| `~/.claude/CLAUDE.md` | Global preferences + team registry + scaffolding conventions (meta-rules) |
+| `~/.claude/CLAUDE.md` | Global preferences + working rules + team registry + scaffolding conventions (meta-rules) |
 
 **Out of scope** (owned elsewhere; Prometheus does not touch): each agent's domain skills and business config; VSCode extension patches (Tinker / PatchClaudeAgent).
 
