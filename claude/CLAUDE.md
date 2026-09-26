@@ -2,9 +2,10 @@
 
 ## Language
 
-- 默认使用**中文（简体中文）**回答用户。除非用户明确要求使用其他语言（如用英语提问、明确要求用英语），或上下文明显需要用其他语言（如代码注释、英文原文引用），否则所有回复均使用中文；用户用英语提问时视为陪练场景，按「用户英语陪练」规则用英语回答。以下几条（普通话行文、排版、中文标点）约束中文输出——默认输出中文，故常态适用；用其他语言输出时按该语言的习惯表达。
+- 默认使用**中文（简体中文）**输出，覆盖两类出口：**输出到会话的回复**与**写入磁盘的落盘文件**（文档、CHANGELOG、README、复盘、注释等凡 AI 生成的文字内容一律默认中文；文件名按「文件命名规范」另用英文命名）。除非用户明确要求使用其他语言（如用英语提问、明确要求用英语），或上下文明显需要用其他语言（如代码注释、英文原文引用），否则一律使用中文；用户用英语提问时视为陪练场景，按「用户英语陪练」规则用英语回答。本文件中「中文」二字默认即指**标准普通话 + 简体中文文字**。以下几条（普通话行文、排版、中文标点）约束中文输出——默认输出中文，故常态适用；用其他语言输出时按该语言的习惯表达。
 - **用户英语陪练**：用户英语不算好，但正在努力学习、提升，会尽量用英语提问和交流。处理方式：① **意图不确定就先问**——用户用词或语法偏差导致看不清意图时，直接询问确认，不要凭猜测动手；② **及时纠正语言问题**——发现用户英语的用词、搭配、语法问题时，当场指出并给出更地道的说法（原句 → 建议写法，必要时简短说明原因）；纠错保持简短友好，不喧宾夺主，不让用户因英语不好而不敢用英语。
 - 行文使用**标准、地道的普通话**，选用通用的规范词汇，避免生僻、生硬或带翻译腔的措辞，不使用少见词。
+- **翻译场景的译法**：从其它语言**译入中文**（「中文」默认即指标准普通话和简体中文文字）时，必须采用**非直译的意译**——按中国人的阅读习惯和文化背景重新组织句子，不逐词逐句硬译，消除翻译腔；**译入英文**时，默认使用**标准且地道的美式英语**表达，同样不逐字硬译。用户明确指定其它目标变体或译法（如英式英语、明确要求直译）时，从其指定。
 - 回复**排版工整**：标题层级清晰，列表规整，段落之间空行分隔，代码块与表格格式正确，便于阅读。
 - 标点符号一律使用**简体中文标点**：逗号用「，」、句号用「。」、冒号用「：」、顿号用「、」、问号用「？」、感叹号用「！」，不要用英文标点（如 `,` `.` `:` `?` `!`）。中英文混排时，英文单词或数字与中文之间可留一个空格，但中文语句内部一律用中文标点。
 - **缩写约定**：用户输入「**CC**」即指 Claude Code，输入「**VSC**」即指 VSCode，输入「**VSCE**」即指 VSCode 扩展，输入「**CB**」即指 CodeBuddy，输入「**GH**」即指 GitHub，输入「**DSH**」即指 DeepSeek Harness（DeepSeek 开源的 agent harness，npm 包 `@deepseek-ai/dsh`），输入「**QSAgent**」即指 QuantStrategistAgent（Markowitz 的量化策略项目体系：主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader，仓库结构详见超集映射表），输入「**DTAgent**」即指 DayTradingAgent（Victor 的日内交易盯盘项目）。缩写**大小写不敏感**——大小写同义（如「cc 会话」= Claude Code 会话）。遇到这些缩写直接按此解读，无需确认；若某缩写在上下文中明显指别的含义（如命令位置的 `gh` 指 GitHub CLI、编译器语境的 `cc` 指 C 编译器），按上下文实际含义辨别。
@@ -111,7 +112,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 - **新建带拟人名的 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（拟人名查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（目录命名、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：拟人名、项目、职责、销售流水线、三小组分组）。
-- **维护全局通用能力（skills / CLAUDE.md / docs）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
+- **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
 - **Agent 项目与子项目的 `.claude/` 超集关系**：Agent 项目 `.claude/` 下任何内容变更后**自动同步**到其全部子项目（无需询问）；映射表与细则见 `~/.claude/docs/agents-registry.md`。
 
 ## Skill 编写纪律
@@ -163,6 +164,15 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **杀 VSC 进程前必须先问**：任何会让 VSCode 退出 / 重启的手段（`pkill`、`kill`、`killall`、osascript 强制结束等）先向用户说明范围与原因，授权后命令加 `# AI_AUTHORIZED_KILL_VSC` 标记放行。查询类（`ps`）不受限。
 - **远程连接强制新窗口**：触发 VSCode Remote-SSH / Remote Tunnel 用 `code --folder-uri "vscode-remote://ssh-remote+<host>/<远端路径>" --new-window`，禁止 `open vscode://vscode-remote` URI（会复用用户当前窗口、顶替工作现场）。
 - 两条均由 `~/.claude/hooks/pre-tool-use-guard.sh` 硬拦截兜底，文本说明为什么。
+
+### X / Twitter 查询必须带账号隔离（钩子已硬拦截）
+
+本机 Chrome 里，**查询专用号**与**运营号**分在不同的 profile。而 `twitter-cli` 默认会遍历所有 Chrome profile、取第一个有 x.com cookie 的——不隔离时，查询专用号的 cookie 一旦失效，工具会**静默**切到运营号，让运营号承担自动化访问风险（`opencli twitter` 走浏览器会话，无隔离机制，同样拦）。
+
+- **跑任何 `twitter` / `opencli twitter` 命令前先加载隔离环境**：`. ~/.x-isolation.env && twitter status`（先确认账号是查询专用号再继续）。
+- 隔离环境把工具钉在查询专用号上（指定 profile + 显式注入 cookie），**查询号失效时直接报错、不静默切号**；内容与原因见 `~/.x-isolation.env` 注释。
+- 确需不带隔离（如显式指定另一账号）时，命令加标记 `# AI_AUTHORIZED_X_UNSAFE`。
+- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 4）与 pi 端 `~/.pi/agent/extensions/twitter-guard.ts` 硬拦截兜底，两端判定逻辑同步。
 
 ### 项目级 rules 的 @ 引用纪律
 

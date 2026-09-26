@@ -4,18 +4,21 @@
 
 ## 通用原则：一个内容改动牵动哪些位置
 
-通用能力三部分（skills / CLAUDE.md / docs，全局规则随 CLAUDE.md 走）改动后，至少要同步**两个位置**（全局权威 + 本项目镜像），**通用 skill 还要分发到各 agent 项目副本**。判断矩阵：
+通用能力六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展，全局规则随 CLAUDE.md 走）改动后，至少要同步**两个位置**（全局权威 + 本项目镜像），**通用 skill 还要分发到各 agent 项目副本**。判断矩阵：
 
 | 改的内容 | 全局 `~/.claude/`（权威） | 本项目 `claude/`（镜像） | 各 agent 项目 `.claude/` |
 |---|---|---|---|
 | CLAUDE.md 元规范 | ✅ 改 | ✅ 镜像 | ❌（各项目有自己的 CLAUDE.md，不通用） |
 | docs 参考文档（agents-registry / new-agent-scaffold / capability-sync） | ✅ 改 | ✅ 镜像 | ❌（各项目不装 docs 副本） |
 | 全团队通用 skill | ✅ 改 | ✅ 镜像 | ✅ 分发（anysearch / find-skill 等） |
+| hooks 强制守卫脚本（pre-tool-use-guard.sh / test-cases-guard.py） | ✅ 改 | ✅ 镜像 | ❌（各项目不装，仅全局 settings.json 注册生效） |
+| patch 自研辅助机制（patch/skill-custom/ 等） | ✅ 改 | ✅ 镜像 | ❌（属本机机制，各项目不装） |
+| pi 端扩展（`~/.pi/agent/extensions/` 的工具强制 `.ts`） | ✅ 改 | ✅ 镜像（`pi/agent/extensions/`） | ❌（pi 用户级加载，各项目不装） |
 | 特定 agent 专属 skill | ❌（不进全局） | ❌（不进镜像） | 只放该项目的 `.claude/skills/`（capability-manager / trade 等） |
 | `settings.json` | ✅ 改 | ❌ 不镜像 | ❌ |
 | `commands/` | ✅ 改 | ❌ 不镜像 | 视命令通用性 |
 
-**三部分之外**（`settings.json`、`commands/`）只在全局 `~/.claude/` 维护、**不进本项目 `claude/` 镜像**——它们不是开源同步对象。改全局 `settings.json` / `commands/` 时，直接改全局、记 CHANGELOG，不涉及 `claude/` 镜像、不跑 diff。
+**六部分之外**（`settings.json`、`commands/`）只在全局 `~/.claude/` 维护、**不进本项目 `claude/` 镜像**——它们不是开源同步对象。改全局 `settings.json` / `commands/` 时，直接改全局、记 CHANGELOG，不涉及 `claude/` 镜像、不跑 diff。
 
 下面把本项目根记作 `$AUTH`，即 `~/Developer/CapabilityManagerAgent`。
 
@@ -63,7 +66,7 @@ CLAUDE.md 是 S 级、每次会话都在场的元规范。改它要格外慎重�
 
 ## 改 settings.json / commands/
 
-这两者不在同步范围（skills / CLAUDE.md / docs）内，只在全局 `~/.claude/` 维护、不进本项目 `claude/` 镜像：
+这两者不在同步范围（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）内，只在全局 `~/.claude/` 维护、不进本项目 `claude/` 镜像：
 
 1. 直接改全局 `~/.claude/settings.json` 或 `~/.claude/commands/`。
 2. 记 CHANGELOG。

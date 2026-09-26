@@ -4,6 +4,72 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## 2026-09-25
+
+### 变更（anysearch / agent-reach 两 skill 分工切割：消除搜索路由重叠区）
+
+- **为什么改**：用户询问两个 skill 是否存在重复。逐项核查后确认：两者不是互为子集，但重叠四块——通用网页搜索（anysearch `search` ↔ agent-reach 的 Exa）、网页正文提取（anysearch `extract` ↔ Jina Reader）、X / Reddit / LinkedIn 公开检索（anysearch `social_media` 域 ↔ 平台 CLI）、股票行情（anysearch `finance.quote` ↔ 雪球）。更实际的问题是两者 description 都自称搜索首选（agent-reach 写「MUST USE … anything on the internet」，anysearch 只有一句英文、无中文触发词），中文请求「搜一下 X」几乎必被 agent-reach 抢走触发，anysearch 可能白装。用户决策：两个都保留（各自都有独占能力：agent-reach 独占小红书 / B站 / V2EX / YouTube 字幕 / RSS / gh CLI，anysearch 独占垂直域检索 / 批量并行搜索 / 微博知乎微信），按「anysearch 作检索层、agent-reach 作平台层」做分工切割，重叠区统一为首选 / 兜底两条路径。
+- **改了什么**：
+  ① `skills/anysearch/SKILL.md` 的 description 重写（121 → 854 字符，check_description.py 实测 PASS）：补中文触发词（查一下 / 搜一下 / 调研 / 最新消息 / 查行情 / 查财报 / 查论文 / 查专利）、写明垂直域结构化标识符检索规则、划定边界（平台内 / 账号级数据归 agent-reach）。
+  ② 同文件「Social Media Source Workflow」段新增 Freshness note（用户提出「x_latest 混旧帖、能否按最新排序」的调查结论）：实测证实 `x_latest` / `x_top` 是热度 × 时间混合排序、非严格时间序（同一关键词拉 10 条可跨 3 周），且无服务端排序参数（官方文档未列出排序参数，实测传入 `sort=` 未观察到排序变化）；需要最新内容时拉满 `--max_results 10` 后按返回的 `Posted:` 时间自行重排 / 过滤，冷门关键词池内新帖少时回退通用搜索。
+  ③ `skills/agent-reach/SKILL.md` 的 description 收窄（901 → 906 字符，实测 PASS）：触发面从「anything on the internet」收窄为「用户提到平台 / 分享平台链接」，去掉「shares any URL」这类通用网页触发（归 anysearch），新增【分工】段；正文常驻规则第 4 条「Exa 搜索」改「anysearch 搜索」、新增第 6 条「通用检索走 anysearch」，把 Exa / Jina Reader 降级为兜底。
+  ④ 同 skill 的 `references/search.md` / `references/web.md` 顶部各加一行兜底标注（Exa、Jina Reader / web-reader 是 anysearch 不可用时的兜底路径；RSS 仍走本文档）。
+- **实测依据**：anysearch 四类调用全部跑通（普通搜索 1.1s、社交域 X 搜索、金融域结构化行情、网页提取）；agent-reach `doctor --json` 体检——ok = YouTube / B站 / V2EX / RSS / web，warn = GitHub / Twitter / LinkedIn / 雪球 / Exa，off = Reddit / Facebook / Instagram / 小红书 / 小宇宙（后端未装）。
+- **镜像同步**：`claude/skills/anysearch/SKILL.md`、`claude/skills/agent-reach/`（SKILL.md + references/search.md + references/web.md）已同步，diff 逐字节一致（anysearch 的 `.env` 属敏感例外）；`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接自动跟随。
+- **防回归提示（重要）**：两个 skill 均由上游维护（AnySearch 官方、Agent Reach 上游），核查确认**两者都不会自动升级**（无自更新逻辑、无定时任务；agent-reach 的 `check-update` 只查询远端版本、SKILL.md 规则 5 只要求 AI 顺带提醒用户，升级仍须用户一句话触发）；但以下动作会覆盖本地定制——`agent-reach install`、`agent-reach skill --install`、`agent-reach uninstall`（均 force 覆盖式写入）与 anysearch 手动下载覆盖目录；单纯升级 Python 包不碰 skill 文件。附注：update.md 称「doctor 会保留已有 skill」与本机 1.5.0 及上游 main 代码不符——doctor 实际只做体检、不安装 skill，且 `_install_skill` 的「已存在则保留」分支（force=False）无任何调用点、是死代码。升级后按 `MEMO.md` M1 的自检命令确认定制在否，丢了按本条记录重做。
+
+### 新增（skill 定制自动恢复机制：launchd 监听 + 结构化重打，被覆盖后自动补回、无需记忆）
+
+- **为什么改**：用户指出「升级后检查定制」靠记忆不可靠——会发生无感覆盖、事后遗忘，要求做成「升级后自动补上」的机制（参照 PatchClaudeAgent/Tinker 的自愈思路）。前一条已查明两个 skill 不会自动升级，但 `agent-reach install` / `agent-reach skill --install` / `agent-reach uninstall` 与 anysearch 手动覆盖会丢定制。
+- **改了什么**：① 新建本机目录 `~/.claude/local/skill-custom/`（本机私有，不入 git、不入镜像）：`restore.py`（结构化重打引擎）、`snippets/`（7 个定制片段，权威内容源）、`README.md`、`restore.log`、`conflicts/`；② 新建 launchd 服务 `~/Library/LaunchAgents/com.xhq.skill-custom.plist`——WatchPaths 监听 4 个受管文件及其目录（变动即跑，实测延迟约 10 秒）+ 登录时一次 + 每小时兜底；③ 引擎对每个定制点按结构定位（frontmatter 键 / 定制段首行 / 插入锚点）做幂等 upsert：缺失则重插、片段更新则同步目标、锚点丢失则留现场 + 桌面通知不硬写。设计过程：先试 3-way merge（git merge-file），实测发现 version 行随上游发版必变、与紧邻的 description 定制必然冲突，遂改结构化重打（不受 version 变化干扰）。
+- **验证**：端到端实测——4 个受管文件全部回退到上游原版，launchd WatchPaths 自动触发重打回定制版，与镜像逐字节一致；片段更新同步（改 snippet → 目标同步 → 改回 → 复原）通过；幂等（重复运行零动作）；`--check` 全 ok；服务已加载。
+- **边界**：上游大改结构致锚点消失时不硬写、桌面通知、现场存 `conflicts/`（人工处理）；机制只在本机，不进镜像。
+
+### 新增（hooks 纳入开源镜像：`claude/hooks/` 建立，镜像范围升为四部分）
+
+- **为什么改**：用户要求把全局 `~/.claude/hooks/` 的强制守卫脚本也同步到本项目 `claude/hooks/`。此前镜像范围只有三部分（skills / CLAUDE.md / docs），而全局 `hooks/` 已被「规矩必须配套工具强制」元规则作为硬约束的落地点（杀 VSC 进程前必问、远程连接禁用当前窗口、commit 授权标记、X/Twitter 账号隔离、测试文件写保护五条拦截全在其中），却只存在于本机全局、不随开源仓出去——clone 本项目的人看不到这些强制工具的实现。
+- **改了什么**：① 新建 `claude/hooks/`，镜像全局两个脚本 `pre-tool-use-guard.sh`（PreToolUse 规则 1~4）与 `test-cases-guard.py`（dev-workflow 测试文件写保护），内容逐字节一致、执行位保留；**不含**本机产物 `__pycache__/`（字节码缓存）与 `pre-tool-use-guard.sh.bak-20260923`（编辑备份），并把这两类明确写进范围陈述的排除项。② 镜像范围由「三部分」升为「四部分（skills / CLAUDE.md / docs / hooks）」：全局权威侧改四处——`~/.claude/docs/capability-sync.md`（指针节 + 范围节 + 验证节，并写明 hooks 由 `settings.json` 的 `hooks.PreToolUse` 注册）、`~/.claude/docs/agents-registry.md`（Prometheus 行）、`~/.claude/docs/new-agent-scaffold.md`（单一出口段）、`~/.claude/CLAUDE.md`（团队结构参考指针行）；镜像侧 `claude/CLAUDE.md` 与 `claude/docs/` 三文件 `cp` 覆盖、逐字节一致。③ 项目级同步：根 `CLAUDE.md`（四部分表述 + hooks 纳入日期）、`.claude/README.md`（写明通用守卫 hook 的镜像在 `claude/hooks/`、项目级 `.claude/` 不放它，并修正指向已不存在的「底层通用能力开源」节的悬空引用）、capability-manager skill（SKILL.md 6 处：description + 范围/镜像/步骤/引用共 5 处正文；`references/content-lifecycle.md` 4 处，判断矩阵新增 hooks 行；`references/sync-flow.md` 12 处：范围表述、双向同步命令、diff 命令、合法差异表、巡检脚本，hooks 比对统一用 `diff -r -x '__pycache__' -x '*.bak*'` 排本机产物）。
+- **验证**：四部分 diff 全过——`CLAUDE.md` 逐字节一致、`docs` 逐字节一致、`hooks`（排本机产物后）逐字节一致、`skills` 仅剩既有本机敏感例外（anysearch `.env`、backup endpoints、scroll-reverser local、skill-creator `__pycache__`）；capability-manager 的 `check_description.py` 实测 PASS（531/1024）；全仓库搜索无残留的「三部分」范围陈述（全局侧 0 处）。
+- **边界**：hooks 纳入镜像只解决「开源分发」，不改变本机加载方式——CC 端仍由全局 `~/.claude/settings.json` 的 `hooks.PreToolUse` 按绝对路径注册生效；pi 端对应实现是 `~/.pi/agent/extensions/*.ts`，不在镜像范围。
+
+### 新增（`local/skill-custom` 技能定制自动恢复器纳入开源镜像）
+
+- **为什么改**：用户要求把全局 `~/.claude/local/` 的内容同步到本项目 `claude/local/`。全局该目录目前只有一份内容——今天下午新建的 `skill-custom/`（skill 定制自动恢复机制：结构定位重打引擎 + 定制片段 + launchd 触发器），此前被明确记为「本机私有、不进镜像」，本次用户决定改为公开。
+- **改了什么**：① 新建 `claude/local/skill-custom/`，镜像三类内容——`restore.py`（236 行重打引擎）、`snippets/`（7 个定制片段：anysearch / agent-reach 的 description、Freshness note、常驻规则第 4 / 6 条、两处兜底标注）、`README.md`；`diff -r` 逐字节一致。② **不镜像运行产物**：`.lock`（并发锁）、`restore.log` / `launchd.out.log` / `launchd.err.log`（动作日志）、`conflicts/`（锚点丢失现场快照）——随时变动、含本机运行轨迹，属本机产物。③ 全局 `~/.claude/local/skill-custom/README.md` 两处修正：标题的「本机私有」改为「本机机制；代码与片段已开源镜像」，边界段的「本机制只在本机存在，不进 git、不进开源镜像」改为写明镜像去向与本机产物排除项——否则镜像里会出现一句自我否定的说明。
+- **与前序记录的关系（重要）**：本条推翻今天早些时候「新增（skill 定制自动恢复机制…）」条目里的边界结论「机制只在本机，不进镜像」。该结论已被用户本次指令取代，旧条目按历史保留、不再有效；本机制代码与片段的权威源仍是全局 `~/.claude/local/skill-custom/`（改定制先改全局、再镜像）。
+- **待定（等用户拍板，未做）**：① 镜像范围表述——现文档口径仍为「四部分（skills / CLAUDE.md / docs / hooks）」，是否把 `local/` 列为第五部分、以及「整个 `local/`」还是「只点名 `skill-custom/`」纳入镜像，取决于用户对 `local/` 隐私边界的决定（`local/` 是全局的本机私有区，若整体纳入镜像，以后放进去的任何文件都会直接进公开仓库）。② `README.md` / `restore.py` 里的 launchd 标签 `com.xhq.skill-custom` 与 `~/Library/LaunchAgents/…plist` 路径含本机个人标识，是否泛化为占位符（保持原样则为逐字节一致）。
+- **验证**：`diff -r -x '*log' -x '.lock' -x 'conflicts'` 全目录逐字节一致；敏感扫描（token / key / cookie / 账户 / `/Users/xhq` 绝对路径）全目录无命中——脚本统一用 `~` 展开、无硬编码个人路径。
+
+### 变更（`local/` 改名 `patch/`：目录语义从「本机私有」纠正为「自研可公开补丁层」）
+
+- **为什么改**：用户指出 `local` 这个目录名与其真实目的不符——该目录不是「本机私有区」，而是「自研机制的开源实现区」（放进去就是要公开的）。改名消除语义误导，避免以后有人（包括 AI 自己）按「local = 本机私有」的惯例把隐私内容放进去。
+- **改了什么**：① 全局目录 `~/.claude/local/` → `~/.claude/patch/`；② 项目镜像 `claude/local/` → `claude/patch/`（逐字节一致）；③ 引用点全量更新：launchd 配置 `~/Library/LaunchAgents/com.xhq.skill-custom.plist`（ProgramArguments 脚本路径 + StandardOutPath / StandardErrorPath 共 3 处）并重载服务、`~/.claude/patch/skill-custom/README.md` 2 处（tail 路径、镜像去向）、项目根 `MEMO.md` M1（2 处路径 + 更新时间戳）；④ 镜像范围表述由「四部分」升为「五部分（skills / CLAUDE.md / docs / hooks / patch）」，同步更新全局权威侧 4 文件（capability-sync.md 四段、agents-registry.md、new-agent-scaffold.md、CLAUDE.md）与项目侧 5 文件（根 CLAUDE.md、.claude/README.md、capability-manager SKILL.md 6 处、content-lifecycle.md 4 处、sync-flow.md 13 处），hooks / patch 的 diff 命令统一带排除本机产物的 `-x` 参数；⑤ CHANGELOG 历史条目里的 `local/` 路径按「历史不改写」保留（本条即对其的更新说明）。
+- **验证**：① 机制侧——`restore.py --check` 从新路径运行四项全 ok；launchd 服务重载后 `launchctl print` 确认 program / arguments / stdout 均指向新路径，`kickstart` 实测 runs +1、退出码 0；② 五部分 diff 全过（CLAUDE.md / docs / hooks / patch 逐字节一致，skills 仅既有本机敏感例外）；③ 全仓「四部分」残留扫描为空、「claude/local」引用扫描为空（CHANGELOG 历史除外）；④ capability-manager description 实测 PASS（539/1024）。
+- **边界**：改名只动目录与路径引用，不改机制行为；`patch/` 下的运行产物（`*.log`、`.lock`、`conflicts/`）仍不进镜像。另：上一轮遗留的「launchd 标签 `com.xhq.skill-custom` 是否泛化」仍未决，本轮保持原样（逐字节一致优先）。
+
+### 新增（项目根 `TODO.md` 建立：记 capability-manager 参考文档的过时项 T1）
+
+- **为什么改**：本项目此前没有 `TODO.md`（只有 `MEMO.md`），而本轮核对镜像时发现 `.claude/skills/capability-manager/references/sync-flow.md` 有两处与现状不符，属「待办」而非本轮能定的事（涉及口径选择）。按全局 CLAUDE.md「待办一律写入项目根 TODO.md、禁止写到其它地方」的规矩，建该文件并把发现问题记为 T1。
+- **改了什么**：新建项目根 `TODO.md`（活跃待办清单；头部写明条目格式、编号规则、四级紧急度与归档去向）；T1 记入 🟠 橙色节——① 文档举例仍用已下线的 `find-skill`（全局 `~/.claude/skills/` 已无该 skill，现存合法差异为 anysearch `.env`、backup `endpoints.json`、scroll-reverser `local/config.md`、skill-creator `scripts/__pycache__` 四项）；② sync-flow.md 的「全局 → 各 agent 项目副本（分发）」章节及对应巡检，与权威文档 `~/.claude/docs/capability-sync.md`「分发层已终结」矛盾（2026-09-25 实测各 agent 项目 `.claude/skills/` 只剩专属 skill，无通用 skill 副本）。
+- **验证**：`TODO.md` 已建、内容已回读确认；各 agent 项目 `.claude/skills/` 实测清单已记入 T1 作依据。
+
+### 新增（pi 端扩展纳入开源镜像：`pi/agent/extensions/` 建立，镜像范围升为六部分）
+
+- **为什么改**：用户要求把全局 `~/.pi/agent/extensions/` 的内容同步到本项目 `pi/agent/extensions/`。pi 端的四个工具强制扩展（git-commit-guard / git-status-guard / test-cases-guard / twitter-guard，与 `hooks/` 是同一套工具强制的 pi 侧实现）此前只存在本机、不随开源仓出去。
+- **改了什么**：① 新建 `pi/agent/extensions/`，镜像四个 `.ts`（git-commit-guard 1.8K、git-status-guard 6.4K、test-cases-guard 4.9K、twitter-guard 3.0K），`diff -r` 逐字节一致；敏感扫描无命中（无绝对路径、无凭证值、无个人标识；`TWITTER_AUTH_TOKEN` 等只是环境变量名，`token` 字样指命令行词元）。② 镜像范围由「五部分」升为「六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）」，权威源变为两个：`~/.claude/`（前五部分）+ `~/.pi/agent/extensions/`（pi 扩展）；同步更新全局权威侧 4 文件（capability-sync.md 4 处、agents-registry.md、new-agent-scaffold.md、CLAUDE.md 指针行）→ 镜像侧 `claude/CLAUDE.md` 与 `claude/docs/` 逐字节一致；项目侧 5 文件（根 CLAUDE.md、`.claude/README.md`、capability-manager SKILL.md 6 处、content-lifecycle.md 4 处含判断矩阵新增 pi 扩展行、sync-flow.md 13 处含权威源表、双向同步命令、diff、巡检）。
+- **与前序记录的关系（重要）**：本条推翻此前多处「pi 端扩展不在 Prometheus 镜像范围」的结论（2026-09-23 twitter-guard 条目、2026-09-22 git-status-guard 条目，以及本日 hooks 条目边界段的「pi 端对应实现是 `~/.pi/agent/extensions/*.ts`，不在镜像范围」）。旧条目按历史保留、不再有效。
+- **路径说明**：镜像目录为 `pi/agent/extensions/`（不带点，与 `claude/` 镜像目录同惯例）；pi 实际加载的是用户级 `~/.pi/agent/extensions/`，项目内 `.pi/` 目录（`skills` 软链接）是另一回事，两者不混。
+- **验证**：`diff -r ~/.pi/agent/extensions pi/agent/extensions` 逐字节一致；六部分巡检全过（skills 仅既有本机敏感例外）；全仓「五部分」扫描仅剩「前五部分」等正确表述（无过时范围口径）；capability-manager description 实测 PASS（573/1024）；sync-flow.md 代码围栏 16 个配对。
+- **边界**：pi 扩展无本机产物（4 个 `.ts` 全部参与比对）；pi 端生效仍是用户级加载（新会话生效），镜像只解决开源分发，不改加载方式。
+
+## 2026-09-23
+
+### 新增（全局规则「X / Twitter 查询必须带账号隔离」+ 两端钩子硬拦截）
+
+- **为什么改**：用户在 GrowthMarketerAgent 会话里发现——`twitter-cli` 的取值顺序是「环境变量 → 浏览器 cookie」，且**浏览器侧会遍历所有 Chrome profile**（`Default` → `glob("Profile *")`，取第一个有 x.com cookie 的）。本机查询专用号在 Default、运营号在 Profile 1，因此存在一条静默风险路径：查询号的 cookie 一旦失效，工具会**自动落到运营号**，让正在运营发帖的号承担自动化访问风险；且 `get_cookies()` 在环境变量验证失败时也会回退扫浏览器，同样可能落到运营号。用户此前的「另一个 Chrome 账号/profile 登运营号」挡不住该扫描。用户要求：这条规矩很常用，只写项目 CLAUDE.md 不够，**要用全局 hook 工具强制**（配套全局「规矩必须配套工具强制」元规则）。
+- **改了什么**：① 全局 `~/.claude/CLAUDE.md` 工作规则节新增「X / Twitter 查询必须带账号隔离（钩子已硬拦截）」——要求跑任何 `twitter` / `opencli twitter` 命令前先 `. ~/.x-isolation.env && twitter status` 确认账号；确需不带隔离时加标记 `# AI_AUTHORIZED_X_UNSAFE`。② CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` 新增**规则 4**：拦截未带隔离的 twitter CLI 调用（子命令白名单 + 命令位兜底两段判定，避免 `grep twitter file.txt`、`which twitter`、`~/.twitter-cli/` 路径等误报）与 `opencli twitter`（浏览器会话通道、无隔离机制）；放行条件为命令含 `x-isolation.env` / `TWITTER_CHROME_PROFILE` / `TWITTER_AUTH_TOKEN` / `AI_AUTHORIZED_X_UNSAFE`。③ 新建 pi 端 `~/.pi/agent/extensions/twitter-guard.ts`，判定逻辑与 CC 规则 4 **逐条对齐**（同一套正则、同一放行标记）；14 条用例两端实测结果完全一致（拦截 6 / 放行 8，含误报用例全过）。④ 本机 `~/.x-isolation.env`（0600，不在镜像范围）：设 `TWITTER_CHROME_PROFILE=Default` + 从 `~/.agent-reach/config.yaml` 提取查询号 cookie 注入环境变量，把工具钉在查询号上（失效即报错、不静默切号）；`~/.zshenv` source 之（用户终端全局生效，agent 的 bash 工具为非交互式 shell 不读 `.zshenv`，需显式 source——该约束已写入规则文本）。
+- **镜像同步**：`claude/CLAUDE.md` 已用全局版本覆盖同步、diff 逐字节一致（本次同步同时带上了镜像此前落后的「Language」节——全局早已扩写「输出到会话的回复 + 写入磁盘的落盘文件」两类出口，镜像停在旧版，属分叉回正）；`claude/docs/` diff 无差异。**钩子与 pi 扩展不在镜像范围**（capability-sync 三部分为 skills / CLAUDE.md / docs），故本机文件不入开源仓库。
+
 ## 2026-09-22
 
 ### 变更（add skill 过目粒度修订：人工过目以内容 change block 为单位，文件类型不再触发强制过目）

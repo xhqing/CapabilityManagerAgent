@@ -1,6 +1,17 @@
 ---
 name: anysearch
-description: Real-time search engine supporting web search, vertical domain search, parallel batch search, and URL content extraction.
+description: >
+  MUST USE when the user needs real-time information from the open web: general web
+  search, 18 vertical domains (finance / academic / legal / security / code / travel /
+  health / social_media …), parallel batch search, and full-page extraction. Triggers on
+  查一下 / 搜一下 / 调研 / 找资料 / 最新消息 / 查行情 / 查财报 / 查论文 / 查专利 / fact-check,
+  and on any request whose answer depends on current data. For structured identifiers
+  (Stock: / CVE: / DOI: / IATA: / patent) discover the sub_domain first and search the
+  vertical domain instead of the general web. Public social-media discovery (X / Reddit /
+  LinkedIn / 微博 / 知乎 / 微信) also runs here, no login needed.
+  NOT for: platform-native / account-scoped data (exact posts, replies, followers,
+  小红书 / B站 / V2EX / YouTube 字幕) — use agent-reach for platform access; NOT for
+  writing / analysis / translation of content you already have.
 version: 2.1.0
 authors:
   - AnySearch Team
@@ -69,6 +80,15 @@ For public social-media research, treat `social_media` as a vertical domain:
 <cmd> get_sub_domains --domain social_media
 <cmd> search "product launch response on X and Reddit" --domain social_media --sub_domain <returned-sub-domain> --max_results 5
 ```
+
+**Freshness note:** the `x_latest` / `x_top` types return a heat × recency mix — results
+are NOT in strict time order and can span weeks, so an older high-engagement post may
+outrank a newer one. There is no documented server-side sort parameter (passing `sort=` produced no observable
+change in local tests).
+When the newest items matter, request the full `--max_results 10` and re-sort / filter the
+returned items by their `Posted:` timestamp yourself (e.g. keep the last 24–72 hours).
+For niche keywords the pool may contain few fresh posts; fall back to a general search
+then.
 
 Use AnySearch for public discovery, cross-source context, and page extraction. If the user needs account-scoped X/Twitter evidence such as exact tweets, tweet replies, profile lookup, follower export, media URLs, monitors, webhooks, or approved post/reply workflows, hand off to a dedicated authenticated tool after user approval. In OpenClaw, TweetClaw (`@xquik/tweetclaw`) can provide that follow-up source packet while AnySearch remains the broad web and vertical search layer.
 
