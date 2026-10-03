@@ -1,15 +1,18 @@
 ---
 name: "release"
-description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix）。当用户输入 release / 打tag发布 / 发版 时触发。用户主动触发即授权完整流程（git tag -a + git push tag + gh release create），标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。正式发布（默认）只从 main 打 tag——正式版必须在功能合并进 main 之后（remote main 锁定、经 PR + CI 合并，2026-09-21 起）；另支持预发布通道（用户明确要求 prerelease / 预发布 / 发 rc / beta 时）：从功能分支打带 -rc.N / -beta.N 后缀的 tag 发 --prerelease 标记的 Release，不 bump 版本文件，供合并 main 前的验收与早期尝鲜。"
+description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix）。触发来源两种：① 用户输入 release / 打tag发布 / 发版；② commit skill 第 10 步自动衔接（2026-10-02 用户立：/commit 完整成功且工作区 / 暂存区干净、在 main 与远端同步、自最新 tag 有新提交时——版本就绪直接进入本流程；未就绪则先自动走 /bump → /add → /commit 链条补齐版本、就绪后进入本流程完成发版）。两种来源均授权完整流程（git tag -a + git push tag + gh release create）、标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。正式发布（默认）只从 main 打 tag——正式版必须在功能合并进 main 之后（remote main 锁定、经 PR + CI 合并，2026-09-21 起）；另支持预发布通道（用户明确要求 prerelease / 预发布 / 发 rc / beta 时）：从功能分支打带 -rc.N / -beta.N 后缀的 tag 发 --prerelease 标记的 Release，不 bump 版本文件，供合并 main 前的验收与早期尝鲜。"
 ---
 
 # Auto Tag & GitHub Release
 
-当用户输入 `release`（或「打 tag 发布」「发版」）时，读取当前项目版本号与 CHANGELOG，**依次执行 `git tag -a` → `git push origin <tag>` → `gh release create`**，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes，并尝试附加构建产物如 vsix）。
+当用户输入 `release`（或「打 tag 发布」「发版」）时，**或由 commit skill 第 10 步自动衔接时**（2026-10-02 用户立，见下方「授权语义」），读取当前项目版本号与 CHANGELOG，**依次执行 `git tag -a` → `git push origin <tag>` → `gh release create`**，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes，并尝试附加构建产物如 vsix）。
 
 ## 授权语义（对应「下次不问」）
 
-- 用户主动输入 `/release` 即**明确授权**当次的 `git tag -a` + `git push origin <tag>` + `gh release create`，**直接执行完整流程，无需逐次列命令等确认**。与 `/commit` 同属「用户主动触发的 git 写操作类 skill」，不适用全局「git 写操作逐次确认」规则——用户发 `/release` 就是要一键发布，再问一遍是多余的反 confirm。
+- **触发来源两种（2026-10-02 修订）**：
+  1. **用户主动输入** `/release`（或「打 tag 发布」「发版」）——即**明确授权**当次的 `git tag -a` + `git push origin <tag>` + `gh release create`，**直接执行完整流程，无需逐次列命令等确认**。
+  2. **commit skill 流程末尾（第 10 步）的自动衔接**——`/commit` 完整成功且满足「在 main 与远端同步 + 工作区 / 暂存区干净 + 自最新 tag 有新提交」时：版本就绪（`VERSION` 未发布 + CHANGELOG 顶部一致）→ commit skill 直接进入本流程；版本未就绪 → commit skill 先自动走 `/bump` → `/add` → `/commit` 链条补齐版本（2026-10-02 同日修订，不提示、不询问），就绪后再进入本流程。该来源的授权依据：用户立「commit 成功后自动衔接触发发版、未就绪自动 bump → add 补齐后继续」规则时的预授权（详见 commit skill 第 10 步与全局 `~/.claude/CLAUDE.md`「Git 写操作必须先征得同意」段）——与来源 1 等效，**直接执行完整流程、无需二次确认**。
+- 本 skill 与 `/commit` 同属「触发即授权的 git 写操作类 skill」，不适用全局「git 写操作逐次确认」规则——发布就是要一键完成，再问一遍是多余的反 confirm。**自动衔接来源下执行流程一步不省**（第 0 步起的全部校验与下方安全阀照常生效）。
 - **例外**：下列异常情况**必须暂停询问**用户后再继续（这不属于「标准流程的确认」，而是异常安全阀）：
   - 该 tag **本地或远程已存在**（尤其指向非 HEAD 的错误 commit 时——需用户确认是否 force push 修正，绝不自行 force push）；
   - 工作区有**未提交改动**（需用户确认先 commit 还是中止）；
@@ -56,7 +59,7 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - **与正式发布的分界**：正式版 tag 只打在 main 上（第 0 步强校验 HEAD === origin/main）——**正式发布必须在功能合并进 main 之后、且以用户试用满意为前提**（dev-workflow 2026-09-21：合并由 CI 独裁、验收是过程——用户体验预发布版本就是在验收，试用满意才正式发版）；预发布 tag 打在当前分支 HEAD 上——**合并前从功能分支打**（前瞻快照，CI 慢的窗口期就开始试用）、**合并后从 main 打**（带修复的持续试用，正式发版前的最后确认），两个阶段都服务「体验即验收」。
 - **版本号**：目标版本 + 预发布后缀——`v<目标版本>-rc.N`（接近定稿）或 `v<目标版本>-beta.N`（功能成型）。目标版本 = CHANGELOG 顶部待发布条目版本（若有），否则从当前 VERSION 按待发布改动性质 +1（新增功能 → minor；修复 / 文档 → patch）；N 从 1 起，`git tag -l 'v<目标版本>-rc.*'` 与 `gh release list` 查已有序号后递增。**不 bump 版本文件**：VERSION / package.json / CHANGELOG 都不动（正式发版时经 `/bump` 统一改），预发布只存在于 tag 与 Release 层面——与「功能分支不碰版本号」纪律一致。
 - **流程差异**（相对正式发布各步）：第 0 步按分流处理（不要求对齐 main，改为确认当前分支与 HEAD 即预发布目标）；第 2 步工作区干净检查照常；第 3 步 tag 存在检查照常；第 4 步 CHANGELOG 无对应条目 → notes 用 `--generate-notes` 或与用户确认的简短英文描述（不强求 CHANGELOG 条目，预发布内容未定稿属正常）；第 5-6 步打 annotated tag（message 用 notes 首行）+ 推送照常；第 7 步 `gh release create <tag> --prerelease --title "<项目名> <版本号>" ...`（必带 `--prerelease` 标记）；产物从当前分支构建上传，产物惯例核查照旧适用。
-- **试用后处置**：试用中发现问题 → 修复合并（fix 分支 + PR + CI auto-merge）后递增 N 发新预发布（rc.1 → rc.2），旧的保留不动；试用满意 → 用户触发正式发版（`/bump` + `/release`），预发布 Release 保留即可（正式版发布后自然被取代），不删除。
+- **试用后处置**：试用中发现问题 → 修复合并（fix 分支 + PR + CI auto-merge）后递增 N 发新预发布（rc.1 → rc.2），旧的保留不动；试用满意 → 用户触发 `/bump`（改齐版本号后自动衔接 `/add` → `/commit` → `/release` 完成正式发版，2026-10-02 起），预发布 Release 保留即可（正式版发布后自然被取代），不删除。
 - **版本一致性交互**：预发布 tag 的后缀版本号与 VERSION 不一致属「有意区分」（全局版本一致性规则允许判断后缀），commit skill 9k 不据此改文件；9j 版本滞后检测查的是正式版 tag（`gh release view v<VERSION>`），预发布 tag 不同名、不误报。
 
 ## 执行流程

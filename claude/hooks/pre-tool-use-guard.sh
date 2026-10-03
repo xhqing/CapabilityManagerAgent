@@ -38,10 +38,10 @@ if echo "$cmd" | grep -qE 'open[[:space:]]+(-na[[:space:]]+[^&|;]*)?["'"'"']?vsc
 fi
 
 # --- 规则 3：git commit 未授权拦截（2026-09-21 用户立规：commit 不论分支/worktree/流程须明确授权）---
-# 授权标记 AI_AUTHORIZED_COMMIT 仅两种场景使用：/commit skill 的串联命令、用户当轮明确授权后；其余不得擅自加
+# 授权标记 AI_AUTHORIZED_COMMIT 仅三种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）；其余不得擅自加
 if echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*commit([^[:alnum:]_]|$)'; then
   if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_COMMIT'; then
-    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅两种形式：用户主动触发 /commit，或用户当轮消息明确授权 commit。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
+    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅三种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
   fi
 fi
 
@@ -55,6 +55,26 @@ if echo "$cmd" | grep -qE "(^|[[:space:];&|(])twitter([[:space:]]+-[^[:space:]]+
    || echo "$cmd" | grep -qE '(^|[[:space:];&|(])opencli[[:space:]]+twitter([[:space:]]|$)'; then
   if ! echo "$cmd" | grep -qE 'x-isolation\.env|TWITTER_CHROME_PROFILE|TWITTER_AUTH_TOKEN|AI_AUTHORIZED_X_UNSAFE'; then
     deny_msg "规则拦截：X/Twitter 查询必须先加载账号隔离（2026-09-23 立规，防工具静默切到运营号）。正确写法：. ~/.x-isolation.env && twitter status（先确认账号是查询专用号再继续）。隔离内容与原因见 ~/.x-isolation.env 注释。确需不带隔离时，命令加标记 # AI_AUTHORIZED_X_UNSAFE。"
+  fi
+fi
+
+# --- 规则 5：VERSION 与群公告版本号必须一致（2026-10-02 用户立，硬性规定、工具强制）---
+# 项目根 VERSION 与 docs/community/announcement.txt 的「版本：」行是同一套编号；
+# 不一致时 commit / tag 一律拦截。三层同源：本规则、pi 端 version-guard.ts、
+# 全局 git pre-commit hook（~/.config/git/hooks/pre-commit）；规则变更三处同步改。
+# fail-closed：两侧文件都在而任一侧版本号解析不出（文件空 / 「版本：」行缺失）也拦。
+if echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*(commit|tag)([^[:alnum:]_]|$)'; then
+  if ! echo "$cmd" | grep -q 'VERSION_MISMATCH_OK'; then
+    vc_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    vc_ver="$vc_root/VERSION"
+    vc_ann="$vc_root/docs/community/announcement.txt"
+    if [ -n "$vc_root" ] && [ -f "$vc_ver" ] && [ -f "$vc_ann" ]; then
+      vc_a=$(tr -d '[:space:]' < "$vc_ver" | sed -E 's/^[vV]//')
+      vc_b=$(grep -m1 -E '^[[:space:]]*版本[[:space:]]*[:：]' "$vc_ann" | sed -E 's/.*[:：][[:space:]]*[vV]?([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+      if [ "$vc_a" != "$vc_b" ]; then
+        deny_msg "规则拦截：VERSION（${vc_a:-无法解析}）与群公告版本号（${vc_b:-无法解析}）不一致（2026-10-02 用户立的硬性规定：两者必须一致，bump 一个必须同步 bump 另一个）。先把两边改成同一个版本号再提交 / 打 tag；确需临时不一致时，命令加标记 # VERSION_MISMATCH_OK（用户授权后使用）。同源守卫：pi 端 version-guard.ts、全局 git pre-commit hook。"
+      fi
+    fi
   fi
 fi
 

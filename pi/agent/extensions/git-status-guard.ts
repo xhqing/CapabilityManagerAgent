@@ -1,18 +1,19 @@
 /**
- * commit skill 第 10 步工具强制（pi 端）：/commit 流程收尾的 `git status`
+ * commit skill 第 11 步工具强制（pi 端）：/commit 流程收尾的 `git status`
  * 汇报必须基于真实执行，禁止凭推断拼造输出。
  *
  * 背景（2026-09-21 事故）：一次 /commit 汇报收尾时 AI 没有实际执行
  * `git status`，而是凭上下文手工拼了一段假输出贴进代码块——既猜错了
  * 工作区状态，还拼出 `git cast -A` 这种真实 git 不会输出的提示语。用户
  * 立规要求工具强制，本扩展即配套下限防线（元规则「规矩必须配套工具强
- * 制」）；文本纪律（skill 第 10 步「实际执行 + 原样输出」）仍在场，本
+ * 制」）；文本纪律（skill 第 11 步「实际执行 + 原样输出」）仍在场，本
  * 扩展只兜住「忘执行 / 贴错 / 编造」三种失守。
  *
  * 强制锚点：带 AI_AUTHORIZED_COMMIT 标记的 `git commit`（即 /commit
- * skill 或用户当轮明确授权的 commit——与 git-commit-guard.ts 的授权
- * 判定同源）。敏感扫描 / cache 检测命中即终止的场景没有 commit 发生、
- * 无锚点，仍靠文本纪律（强制下限不追求覆盖所有路径）。
+ * skill、用户当轮明确授权、或 /add 预检完全干净后自动衔接的 commit——
+ * 与 git-commit-guard.ts 的授权判定同源）。敏感扫描 / cache 检测命中
+ * 即终止的场景没有 commit 发生、无锚点，仍靠文本纪律（强制下限不追求
+ * 覆盖所有路径）。
  *
  * 三层防线：
  * 1. tool_result：授权 commit 执行后在工具结果末尾追加提醒——收尾必须
@@ -22,7 +23,7 @@
  *    白后逐字比对），不符即替换为实测真实输出并加警示行——AI 编造、
  *    贴过期输出、贴 `--short` 等变体都会被纠正；
  * 3. agent_settled：run 结束时若从未出现 status 代码块（AI 整段忘了），
- *    实测 `git status` 并 notify 用户真实输出 + 指出 AI 未执行第 10 步。
+ *    实测 `git status` 并 notify 用户真实输出 + 指出 AI 未执行第 11 步。
  *
  * 替换后的消息进入会话历史，AI 下一轮看到的就是真实输出，不留假账。
  * 判定与执行全程防御性 catch：本扩展失灵时不阻塞会话（与 git-commit-
@@ -149,7 +150,7 @@ export default function (pi: ExtensionAPI) {
 			const real = runGitStatus(ctx.cwd);
 			if (real === null) return;
 			ctx.ui.notify(
-				"[git-status-guard] /commit 流程已结束，但 AI 未按 skill 第 10 步贴出 " +
+				"[git-status-guard] /commit 流程已结束，但 AI 未按 skill 第 11 步贴出 " +
 					"`git status` 输出。以下为本扩展实测的真实输出：\n\n```\n" +
 					real +
 					"\n```",

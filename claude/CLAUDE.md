@@ -45,16 +45,16 @@
 
 - **未经用户明确同意，禁止执行任何会改动仓库的 git 命令**：`git add`、`git commit`、`git push`、`git rm`、`git mv`、`git reset`、`git revert`、`git rebase`、`git merge`、`git cherry-pick`、`git tag` 等。**每次执行前必须先列出：具体命令 + 影响的仓库 + 改动摘要，等用户点头再执行**——即便用户给了「开源到 GitHub」「提交一下」之类大方向指令也不能据此直接动手；授权不跨次复用，每次都重新确认。
 - **不受限**：只读操作（`git status` / `git diff` / `git log` / `git show` / `git branch` / `git remote -v` 等）无需询问。
-- **例外：用户主动触发的 `/commit`、`/release` 即明确授权**，直接执行完整流程、无需再列命令确认（再问是多余的反 confirm）——`/commit` = 当次 `git commit` + `git push`（不执行 `git add`，只提交用户已自行 git add 暂存的内容；在非 main 分支上 push 后顺手建 PR——remote main 已锁定直推、一切经 PR + CI 合并，2026-09-21 起，详见 commit skill）；`/release` = 当次 `git tag -a` + 推 tag + `gh release create` + **构建并上传构建产物**（构建需绕过工具限制时直接用打包工艺解决——临时中转 README、打包期间移走 `.claude/`、补 `--baseContentUrl` 等，不因「要不要产物」打断流程；tag 已存在、Release 已存在、工作区脏、CHANGELOG 缺条目等异常安全阀仍暂停询问）。逐次确认规则针对的是 AI 自主发起的 git 写操作，不适用于用户主动触发的这两个 skill。
+- **例外：用户主动触发的 `/commit`、`/bump`、`/release`、以及 `/add` 预检完全干净后的自动衔接即明确授权**，直接执行完整流程、无需再列命令确认（再问是多余的反 confirm）——`/commit` = 当次 `git commit` + `git push`（不执行 `git add`，只提交用户已自行 git add 暂存的内容；在非 main 分支上 push 后顺手建 PR——remote main 已锁定直推、一切经 PR + CI 合并，2026-09-21 起，详见 commit skill）；`/add` = 预检两段扫描（可疑内容块留工作区）+ 干净文件入暂存区（2026-09-22 起，见 add skill；触发来源含用户输入与 bump skill 改完版本号文件后的自动衔接——2026-10-02 起），**预检完全干净时授权自动延伸**：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」→ 直接衔接 commit skill 完整流程（`git commit` + `git push`，2026-10-01 用户立，减少二次介入；其第 10 步检测到未 bump 时会自动走 `/bump` → `/add` → `/commit` → `/release` 发版链，2026-10-02 起；有需人工过目 / 不建议入库的文件时停在 add 阶段、不衔接）；`/bump` = 当次版本号 bump 改动 + **自动衔接 `/add` → `/commit` → `/release` 整条发版链**（2026-10-02 起；用户主动输入 `/bump` 或 commit skill 第 10 步自动衔接即预授权整条链，链条各环节安全阀——add 的人工过目清单、commit 的敏感扫描 / cache 检测、release 的异常暂停——照常生效）；`/release` = 当次 `git tag -a` + 推 tag + `gh release create` + **构建并上传构建产物**（构建需绕过工具限制时直接用打包工艺解决——临时中转 README、打包期间移走 `.claude/`、补 `--baseContentUrl` 等，不因「要不要产物」打断流程；tag 已存在、Release 已存在、工作区脏、CHANGELOG 缺条目等异常安全阀仍暂停询问）；**触发来源两种**（2026-10-02 修订）：用户主动输入，或 **commit skill 流程末尾（第 10 步）的自动衔接**——`/commit` 完整成功且满足「在 main 与远端同步 + 工作区 / 暂存区干净 + 自最新 tag 有新提交」时：版本就绪 → 自动进入发版流程；未就绪 → 自动先走 `/bump` → `/add` → `/commit` 链条补齐版本（不提示、不询问——用户 2026-10-02「不要提示我 bump」），就绪后自动发版；该自动衔接属用户立规时的预授权链路、无需二次确认，详见 commit skill 第 10 步。逐次确认规则针对的是 AI 自主发起的 git 写操作，不适用于用户主动触发的这些 skill。
 - **新建项目 `git init` 免确认**：新建项目默认直接 `git init` 本地初始化（不建远程仓库、不 push）；其后的 add / commit / push / 建远程 / 打 tag 仍需先确认或由 `/commit`、`/release` 触发。
 
 ## Git 暂存区禁止 AI 自主增删改（硬性规定）
 
 AI 对 git 暂存区（staging area / index）**自主能做的只有只读查询**（`git status`、`git diff --cached`、`git log`、`git ls-files`、`git stash list` 等）。此外两层铁律：
 
-1. **commit 需用户明确授权（2026-09-21 修订：不论哪个分支、哪个 worktree、哪条流程，commit 动作一律须用户明确授权）**，明确授权仅两种形式：① 用户主动发起 `/commit`；② 用户当轮消息明确授权 commit（如明确说「授权 commit」「这个 commit 可以提交」——AI 主动列命令后用户点头不算明确授权）。口头泛指令「提交一下」「commit 吧」同样不算，不得执行。已配套工具强制：git-commit-guard（CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` / pi 端 `~/.pi/agent/extensions/git-commit-guard.ts`）对无 `# AI_AUTHORIZED_COMMIT` 标记的 `git commit` 一律 deny；标记只在上述两种明确授权场景使用（`/commit` skill 的串联命令、用户当轮明确授权后），其余场景一律不带。commit 后暂存区清空是固有行为，不算对暂存区的增删改。
+1. **commit 需用户明确授权（2026-09-21 修订：不论哪个分支、哪个 worktree、哪条流程，commit 动作一律须用户明确授权）**，明确授权仅三种形式：① 用户主动发起 `/commit`；② 用户当轮消息明确授权 commit（如明确说「授权 commit」「这个 commit 可以提交」——AI 主动列命令后用户点头不算明确授权）；③ `/add` 预检完全干净后的自动衔接（2026-10-01 用户立：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，当次 `/add` 的授权自动延伸到 `git commit` + `git push`，由 add skill 直接进入 commit skill 完整流程——含其第 10 步的自动发版链（未 bump 时自动 `/bump` → `/add` → `/commit` → `/release`），2026-10-02 起；`/add` 的来源含用户输入与 bump skill 自动衔接）。口头泛指令「提交一下」「commit 吧」同样不算，不得执行。已配套工具强制：git-commit-guard（CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` / pi 端 `~/.pi/agent/extensions/git-commit-guard.ts`）对无 `# AI_AUTHORIZED_COMMIT` 标记的 `git commit` 一律 deny；标记只在上述三种明确授权场景使用（`/commit` skill 的串联命令、用户当轮明确授权后、`/add` 预检完全干净后的自动衔接命令），其余场景一律不带。commit 后暂存区清空是固有行为，不算对暂存区的增删改。
 2. **对暂存区的删、改（含移动）一律禁止，无论是否授权**：删 = `git rm --cached` / `git reset HEAD <file>` / `git restore --staged <file>` / 影响暂存区的 reset（`--hard` / `--mixed` / 默认）；改 / 移动 = `git mv` 及任何会改变暂存区现有内容的命令。即便用户授权了某次 git 操作，只要它改动暂存区已有内容仍禁止——暂存区已有内容完全由用户把关。
-3. **git add（暂存区「增」）经 add skill 授权例外放行（2026-09-22 修订，原为「无论是否授权一律禁止」）**：用户触发 `/add`（或当轮明确要求 add）= 授权当次执行 add skill 的预检分流——gitleaks 工具扫描 + AI 语义扫描双层预检，干净的文件由 AI 执行 `git add` 加入暂存区，可疑 / 高风险文件留在工作区输出人工过目清单；用户口头确认「没问题，add」= 当轮授权 add 对应文件。授权范围仅限「预检通过的干净文件 + 用户确认过的文件」，且 add skill 对暂存区已有内容**只增不改**（不动第 2 条红线）。背景：原「暂存区完全由用户亲自 git add 把关」升级为「工具确定性扫描 + AI 语义扫描双引擎预检 + 可疑项人工确认」，把关方式升级而非取消。
+3. **git add（暂存区「增」）经 add skill 授权例外放行（2026-09-22 修订，原为「无论是否授权一律禁止」）**：用户触发 `/add`（或当轮明确要求 add）= 授权当次执行 add skill 的预检分流——gitleaks 工具扫描 + AI 语义扫描双层预检，干净的文件由 AI 执行 `git add` 加入暂存区，可疑 / 高风险文件留在工作区输出人工过目清单；bump skill 改完版本号文件后的自动衔接同此授权（2026-10-02 起）；用户口头确认「没问题，add」= 当轮授权 add 对应文件。授权范围仅限「预检通过的干净文件 + 用户确认过的文件」，且 add skill 对暂存区已有内容**只增不改**（不动第 2 条红线）。背景：原「暂存区完全由用户亲自 git add 把关」升级为「工具确定性扫描 + AI 语义扫描双引擎预检 + 可疑项人工确认」，把关方式升级而非取消。
 
 边界：工作区普通文件操作（`mv`、`rm`、编辑文件，不经 git）不受本条限制；`git reset --soft` 不动暂存区，但仍属改历史类、受「Git 写操作先征得同意」约束。
 
@@ -73,12 +73,14 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## commit skill 的触发与终止
 
-- **只能由用户当前 `/commit` 指令触发**：只看当前消息、不看历史（历史消息里的 `/commit` 不触发续跑或重跑）；当前消息字面含 `/commit` 仍要先理解意图——讨论 / 举例 / 引用不算，只有「用户当下明确要执行提交」才走流程。
-- **命中即彻底终止，不暂停续跑**：流程中一旦命中敏感内容扫描或 cache 检测，立即终止（不 commit / push），不存在「暂停 → 续跑」；要再次提交须用户重新输入 `/commit` 从头走完整流程。
+- **触发来源两种（2026-10-01 修订）**：① 用户当前 `/commit` 指令——只看当前消息、不看历史（历史消息里的 `/commit` 不触发续跑或重跑）；当前消息字面含 `/commit` 仍要先理解意图——讨论 / 举例 / 引用不算，只有「用户当下明确要执行提交」才走流程；② add skill 预检完全干净后的自动衔接（2026-10-01 用户立）——本次 `/add` 预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，由 add skill 直接进入本流程。除这两种来源外不得触发（不自发、不续跑、不自动进入）。
+- **命中即彻底终止，不暂停续跑**：流程中一旦命中敏感内容扫描或 cache 检测，立即终止（不 commit / push），不存在「暂停 → 续跑」；要再次提交须重新触发（用户重新输入 `/commit`，或重新 `/add` 并预检完全干净）从头走完整流程。
 
 ## 版本信息一致性（VERSION 文件为唯一权威）
 
 项目根 `VERSION` 文件是整个项目版本号的**唯一权威来源**，所有涉及版本信息的文件（`package.json` 的 `version`、CHANGELOG、README 徽章与正文、`package.nls.json`、构建产物命名等）必须与它**核心数字一致**（major.minor.patch 逐一相同）。前缀差异允许（`v1.2.3`、`Version 1.2.3`、`"version": "1.2.3"` 与 `1.2.3` 一致）；后缀（`-beta`、`-rc.1` 等）不自动豁免，需判断是否有意区分。手动改版本号先改 `VERSION` 再同步其它引用处，避免基线漂移。`VERSION` 与 `CHANGELOG.md` 是项目标配（任何项目都必须有，缺失由 commit skill 第 9m 步自动新建）。/commit 流程做一致性检测，不一致即彻底终止。
+
+**项目若还有自带版本号的对外发布物**（如群公告 `docs/community/announcement.txt`），其版本号必须与 `VERSION` **完全一致**——同一套编号，bump 一个必须同步 bump 另一个（2026-10-02 立）。这条由工具强制：全局 git pre-commit hook + pi 端 `version-guard.ts` + CC 端 `pre-tool-use-guard.sh` 规则 5 三层拦截 commit / tag（仅当仓库同时存在 `VERSION` 与 `docs/community/announcement.txt` 时生效，其它项目零影响）；逃生门与详细判定见守卫说明。
 
 ## 版本发布状态必须实测 GitHub Release
 
@@ -182,3 +184,13 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 ### 中英双语 README 内容自动同步
 
 项目同时存在中英双版 README（英文 `README.md` + 中文 `README_cn.md`）时，改动任何一版的**内容**（措辞、列举项、口径、数字、结构）必须在**同一轮改动里同步另一版**，不问「要不要同步」（同步是内容改动的固有部分）。中文版为权威方向；英文按英文习惯表达、不必逐字直译，但语义内容必须对齐（信息点、列举项、口径、数字不能少、不能多、不能变）。细则见 `~/.claude/docs/new-agent-scaffold.md`。
+
+### 会话间协作（agent-call：跨会话联系其他 agent）
+
+需要其他 agent（另一条 pi 会话）配合时，用 `agent_call` 工具直接联系对方，不要人工传话、不要让用户中转。要点：
+
+- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的项目仓库路径，如 `~/Developer/FullStackEngineerAgent`）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
+- **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
+- **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
+- **联系不上不硬等**：`ask` 超时或唤醒失败时，如实向用户报告「暂时联系不上 XX」，不无限重试、不静默卡住；可改用 `send` 留言、或等对方上线后再联系。
+- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.claude/docs/agents-registry.md` 的注册表一致），对方才能按名字找到你；已在运行的会话可用 `/alias <名字>` 补设。

@@ -4,6 +4,121 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## 2026-10-02
+
+### 变更（发版自动链扩展：未就绪自动 /bump → /add，全链自动化）
+
+- **为什么做**：用户 2026-10-02 追加要求——「不要提示我 /bump：如果检测出来需要先 /bump 则自动触发 /bump，bump 之后自动触发 /add」。上一版（同日前述条目）实现为「版本未就绪时不触发 release、**提示**先 /bump」；用户要求把 bump 环节也自动化，使 commit 流程在检测到「有新提交但版本未就绪」时直接补齐版本并一路发版，全程不提示、不询问。
+- **改了什么**：
+  ① `skills/commit/SKILL.md`：第 10 步「版本就绪检查」由「未就绪 → 不触发 + 提示」改为「未就绪 → **自动进入 `/bump` 完整流程** → bump 第 5 步自动衔接 `/add` → 预检干净时继续自动衔接 `/commit`（bump 提交经 PR + CI 合并、9z 对齐 main）→ 回到第 10 步（版本已就绪）→ `/release` 完成发版」；新增**防循环条款**（若本次 commit 本身是 bump 链条产物而仍未就绪，停止报告、不再触发第二次 bump）。description、前言段、核心定位段、9j（正文与第 4 点）、「严禁编辑项目文件」例外清单（七类 → 八类，新增第 ⑧ 类：bump 链条中版本号文件改动由 `/bump` 环节按其职责执行）、汇报段同步。
+  ② `skills/bump/SKILL.md`：第 5 步由「指引用户 `git add` + `/commit`」改为「**自动衔接 `/add`**（候选集 = 第 4 步改动文件清单）→ 预检完全干净时继续自动衔接 commit skill → 自动发版」；保留「只 bump、不要提交」逃生口（输出旧式手动指引）；职责边界表、第 6/7 步、description、边界段同步。
+  ③ `skills/add/SKILL.md`：触发来源与 git add 授权补「bump skill 改完版本号文件后的自动衔接（2026-10-02 起）」；第 0 步候选集补「bump 传入的改动文件清单」；第 7 步报告组织、与其他 skill 衔接段同步（新增 bump 衔接说明）。
+  ④ `skills/release/SKILL.md`：description、授权语义来源②、预发布「试用后处置」段同步为「未就绪 → 先自动走 /bump → /add → /commit 链条补齐、就绪后进入本流程」。
+  ⑤ `skills/dev-workflow/SKILL.md`：发版口径更新为全自动链（`/bump` → `/add` → `/commit` → `/release`；入口两种：用户主动 `/bump`、或 commit 流程检测到未 bump 自动触发）；核心逻辑段、第 10 步、正式发版段、授权段四处同步。
+  ⑥ 全局 `CLAUDE.md`：授权例外段新增 `/bump` 描述（用户主动 / commit 自动衔接 = 预授权整条链）、`/add` 与 `/release` 描述更新为自动 bump 链条；暂存区授权形式③、git add 例外段补 bump 来源。
+- **设计要点与回归风险**：全自动链使「功能合并后对 main 的 `/commit` / `/add` 链条会连带自动完成 bump 与正式发版」——这改变了 dev-workflow 原「正式发布由用户验收后触发（`/bump` + `/release` 人工门禁）」的落点，已在 dev-workflow 中如实标注（「试用要在发版链被触发前完成；如需收紧门禁需修订该段与 commit skill 第 10 步」），并向用户汇报此影响。防循环条款保证链条不无限递归；`git-commit-guard` / `pre-tool-use-guard` 判定逻辑未变（授权场景③的语义仍为「/add 预检完全干净后的自动衔接」，/add 的来源不影响该条件）。
+- **镜像同步**：`claude/skills/commit|release|add|bump|dev-workflow/SKILL.md`、`claude/CLAUDE.md` 已同步；六部分 diff 核对除本机私有文件（anysearch/.env、backup/endpoints/endpoints.json、scroll-reverser/local/config.md）与 `__pycache__` 本机产物外逐字节一致。
+
+### 变更（commit skill：流程末尾自动衔接 /release 发版）
+
+- **为什么做**：用户 2026-10-02 立规——「全局 commit skill 最后 commit 成功之后加一个判断：如果工作区干净且暂存区也干净、且有新功能或新修复需要发版，则直接自动触发 /release skill 开启发版流程」。原状：正式发版需用户手动 `/release`（三段式 `/bump` → `/commit` → `/release` 的最后一段），bump 之后的发版动作还要用户再介入一次。
+- **改了什么**：
+  ① `skills/commit/SKILL.md`：新增**第 10 步「自动衔接发版检测」**（原第 10 步 `git status` 收尾顺延为第 11 步）——前置条件：本次 commit + push 成功（PR 通道须 9z 已合并对齐）、在 main 且与远端同步、**工作区与暂存区干净**（`git status --porcelain` 为空）、存在 VERSION 且 gh 就绪；判定：① 自最新 tag 有新提交（无 tag 即首次发版），② 版本就绪（VERSION 未发布 + CHANGELOG 顶部一致）——两者全满足则直接进入 `/release` 完整流程，未就绪则按 9j 口径提示先 `/bump`（bump 后的 `/commit` 自动发版）。description、核心定位段、9z 引用、注意段、汇报段、9j 指引同步更新。
+  ② `skills/release/SKILL.md`：授权语义改为**触发来源两种**（用户主动输入 / commit skill 第 10 步自动衔接——预授权链路、无需二次确认；自动衔接下执行流程一步不省）；description 与预发布「试用后处置」段同步。
+  ③ `skills/add/SKILL.md`：预检完全干净自动衔接 commit 的链条明确**延伸到自动发版**——满足发版条件时继续自动衔接 `/release`（授权边界第 3 条、第 7 步列举、报告组织、衔接段、description 五处同步）。
+  ④ `skills/dev-workflow/SKILL.md`：验收门禁口径更新——「`/bump` 由用户主动触发即验收通过的表达；bump 后的 `/commit` 自动衔接 `/release` 完成发版」，核心逻辑段、第 10 步、验收段、授权段四处同步。
+  ⑤ `skills/bump/SKILL.md`：description、三段式表格、第 7 步汇报同步「无需手动 `/release`，commit skill 第 10 步自动衔接」。
+  ⑥ 全局 `CLAUDE.md` 三处：`/release` 授权例外段补「触发来源两种 + 自动衔接预授权」；`/add` 授权自动延伸段补「满足条件时继续自动衔接触发 `/release`」；暂存区授权形式③同步。
+  ⑦ `pi/agent/extensions/git-status-guard.ts`：注释与 notify 文本里的「commit skill 第 10 步」（指 git status 收尾）随步骤编号改为「第 11 步」（判定逻辑不变）。
+- **设计要点**：**「版本就绪」作为触发条件是刻意的**——未 bump 时触发 `/release` 会撞上 release 第 3 步「tag 已存在」的异常暂停（报 tag 冲突、要用户从「force push / 补发 / 保持现状」里选），而真正待办是 `/bump`；release 第 0 步的版本就绪校验只管「VERSION 与 CHANGELOG 是否一致」，拦不住「一致地停在已发布版本上」的情形。把 bump 提示留在 9j / 第 10 步更准确（未就绪 → 提示 `/bump` → bump 后 `/commit` 自动发版）。与 dev-workflow 验收门禁的交互：主路径变为「用户验收满意 → `/bump`（用户主动 = 验收通过的表达）→ `/commit` → 自动发版」，发版动作自动化不改变「正式发布以用户试用满意为前提」——未 bump 不会自动发版（回归风险已评估、口径已同步）。
+- **镜像同步**：`claude/skills/commit|release|add|bump|dev-workflow/SKILL.md`、`claude/CLAUDE.md`、`pi/agent/extensions/git-status-guard.ts` 已同步；六部分 diff 核对除本机私有文件（anysearch/.env、backup/endpoints/endpoints.json、scroll-reverser/local/config.md）与 `__pycache__` 本机产物外逐字节一致。
+
+### 新增（skill：wechat-mac-ops —— 微信 Mac 客户端操作；当日迁出到项目，见下方更正）
+
+> **归属更正（2026-10-02，同日）**：本 skill 起初按「通用能力」建在全局 `~/.claude/skills/` 并镜像到本项目；同日晚些时候用户裁定「这是 Gatsby 的专属 skill，放 CommunityManagerAgent 本项目，不放全局」，已迁到 `~/Developer/CommunityManagerAgent/.claude/skills/wechat-mac-ops/`（配 `.pi/skills → ../.claude/skills` 软链，CC 与 pi 都能发现），**全局目录与本项目 `claude/skills/` 镜像已删除**——因此本项目 `claude/skills/` 清单里**没有** `wechat-mac-ops`，这不是遗漏。本条目保留作沿革记录（下文的「镜像同步」一句已失效，以本注为准）。
+
+- **为什么做**：2026-10-02 用户要求把当天操作微信群的经验沉淀成 skill、避免下次踩坑。当天在微信客户端完成三件事——改群名（AI+X 实战经验交流群）、编辑并发布群公告（v1.2.0）、在群里发一条自我介绍消息——全程只有命令行＋剪贴板可用，踩了几个真坑（弹窗坐标换算不对、click 工具被无障碍路径吞掉、type_text 无效、误触关闭丢编辑）。
+- **做了什么**：新增 skill `wechat-mac-ops`（`~/.claude/skills/wechat-mac-ops/`）：
+  - `SKILL.md`（103 行）：三个任务的分步流程（改群名 / 改群公告 / 群内发言）＋ 统一机制（三条命令行 + 截图坐标约定）＋ 收尾纪律（恢复剪贴板、清理含隐私的截图、汇报影响面）＋ 坑清单
+  - `references/computer-use.md`：open-computer-use 的工作机制（截图像素 → 窗口点 → 全局点的换算、点击的三条路径 AX / postToPid / 全局指针兜底、环境变量、权限与隐私）
+  - `references/wechat-ui.md`：微信 Mac 4.x 界面地图（窗口清单、主窗口与群公告窗口的控件位置、三个确认弹窗的按钮语义、会惊动群里的三种操作）
+  - `scripts/`：`ocu.sh`（截图 + 元素树）、`tap.sh`（拖拽式真实点击）、`clic.sh`（真点击）、`wxgeom.py`（窗口几何 / 坐标换算 / 鼠标指针回读）
+- **验证**：description 长度检查通过（340/1024，skill-creator 的 `check_description.py`）；四个脚本在本机实跑通过——窗口几何与本机实测值一致（主窗口 X=18 Y=30 W=817 H=696）、坐标换算结果与当天实际操作值对得上、截图落盘正常。
+- **镜像同步**：`claude/skills/wechat-mac-ops/` 已同步，`diff -r` 逐字节一致。
+
+### 新增（版本一致性守卫：VERSION ↔ 群公告版本号，三层工具强制）
+
+- **为什么做**：用户 2026-10-02 立规（CommunityManagerAgent 项目规则）——「`VERSION` 里面的版本号应该和 `announcement.txt` 的版本号一致。这个是硬性规定，工具强制」。背景：该项目此前是「两套体系」（群公告版本独立于项目 `VERSION`、不比对，2026-08-27 裁定），实际长期背离（`VERSION` 停在 0.1.0、公告已到 v1.2.0），而公告通道又是该项目唯一的对外发布通道，版本号分开维护无收益、易漂移。
+- **做了什么（三层同源，规则变更时三处同步改）**：
+  ① 新增 pi 扩展 `version-guard.ts`（`~/.pi/agent/extensions/`）：拦截 `git commit` / `git tag`（含 `git -C <path>` 与开头 `cd <dir> &&` 形态），检出仓库根 `VERSION` 与 `docs/community/announcement.txt` 的「版本：」行不一致即 deny；版本号按 major.minor.patch 比对（`v` 前缀差异视为一致）；fail-closed（两侧文件都在而任一侧解析不出同样拦）；逃生标记 `VERSION_MISMATCH_OK`（用户授权后使用）。仅当仓库同时存在两个文件时生效，其它项目零影响。
+  ② `~/.claude/hooks/pre-tool-use-guard.sh` 新增规则 5（CC / CodeBuddy 等端，判定与逃生标记同 ①）。
+  ③ 全局 git pre-commit hook（`~/.config/git/hooks/pre-commit`）增加同一检查——该 hook 在本机 `~/.config/git/hooks/`、**不属开源镜像范围**（与 gitleaks hook 同），clone 者需自行按同规则配置；逃生门 `git config hooks.version-consistency false`。
+- **全局规则同步**：全局 `CLAUDE.md`「版本信息一致性」节新增一段——项目若还有自带版本号的对外发布物（如群公告 `announcement.txt`），其版本号必须与 `VERSION` **完全一致**（bump 一个必须同步 bump 另一个），并注明三层工具强制与生效范围。
+- **实测验证**：git hook（拦截 / 放行 / 逃生门配置）、CC 规则 5（不一致 deny、逃生标记放行、一致放行、无关仓库放行、缺「版本：」行 fail-closed）、pi 扩展 9 用例（`git commit` / `git tag` / 逃生标记 / 一致 / 非 commit 命令 / 非 git 仓库 / `git -C` 形态 / `cd &&` 形态 / cd 后非 commit）全部通过。
+- **镜像同步**：`pi/agent/extensions/version-guard.ts`、`claude/hooks/pre-tool-use-guard.sh`、`claude/CLAUDE.md`、`claude/docs/capability-sync.md`（pi 扩展清单 4 → 5）已同步；六部分 diff 核对（排除本机产物）逐字节一致。
+
+## 2026-10-01
+
+### 新增（跨会话协作：agent-call 扩展 + 全局协作规则）
+
+- **为什么做**：用户需要「agent 之间自己传话、不让用户当传话筒」，且对方会话未开启时不能让任务阻塞。经调研选定 pi 生态方案：pi-intercom（会话互通能力）+ 自研 agent-call 扩展（自动唤醒 + 调用）。2026-10-01 用户确认：形态用 pi 扩展、命名 `agent-call.ts`、协作触发规则放全局规则文件。
+- **做了什么**：
+  ① 新增 pi 扩展 `agent-call.ts`（`~/.pi/agent/extensions/`）：提供 `agent_wake`（确保目标会话在线——不在线则在目标项目目录用 tmux 启动 `pi -n <名字>` 并等待注册）与 `agent_call`（唤醒 + 发送；`mode=send` 走 pi-intercom 扩展 Outbox 事件通道、消息以本会话身份发出；`mode=ask` 走 pi-intercom CLI 阻塞等待回复并自动附加发送者签名）两个工具。依赖 pi-intercom 与 tmux；`PI_INTERCOM_CLI` / `PI_AGENT_BIN` 环境变量可覆盖路径，代码不含任何私有信息。
+  ② 全局 `CLAUDE.md` 新增「会话间协作（agent-call）」小节：自动唤醒（调用时尽快带上目标项目目录）、两种模式（send/ask）、消息自带背景、联系不上不硬等、会话命名约定（`pi -n <agent名字>`）。
+  ③ 实测验证（本机三个测试 pi 会话）：会话发现、send 身份（接收方消息头显示「From caller」）、自动唤醒（关闭目标会话后 `agent_call` 自动拉起新会话、注册、投递并拿到回复）全部通过。
+- **镜像同步**：`pi/agent/extensions/agent-call.ts` 与 `claude/CLAUDE.md` 已同步；六部分 diff 核对（除本机私有文件与本机产物）逐字节一致。
+
+### 变更（add / commit 自动衔接机制：/add 预检完全干净后直接进入 commit skill，减少用户二次介入）
+
+- **为什么改**：用户 2026-10-01 立规——「如果没有需要人工审核的文件和不建议入库的文件则可以直接调用全局的 commit skill，这样可以减少我的介入，增加自动化程度」。原状（2026-09-22 起）：/add 完成预检分流后必须由用户再输入 /commit 才能提交；预检完全干净（无人工过目、无不建议入库）时那次 /commit 没有新增任何把关价值，白白多一次介入。
+- **改了什么**：
+  ① `skills/add/SKILL.md`：description 补自动衔接说明（含触发条件与 2026-10-01 出处）；「授权边界」第 3 条由「不 commit、不 push」改为「预检完全干净时自动衔接 commit skill（全局 CLAUDE.md 授权形式③）」；新增**第 7 步「自动衔接 commit skill」**——判定条件三条全部满足才衔接（至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个；「白名单跳过」不构成阻断，用户此前已确认可公开）、满足则直接进入 commit skill 完整流程一步不省（含其全部检测与终止 / 暂停规则，`git commit` 照常带 `# AI_AUTHORIZED_COMMIT` 标记）、逃生口（用户当轮明确说「只 add、不要提交」时不衔接）、报告组织（add 三段式报告 + commit 完整汇报连成一链，含 `>> git status` 收尾）；第 6 步报告指引句按「自动衔接 / 未衔接」两场景拆分；「与其他 skill 的衔接」段与定位段同步。
+  ② `skills/commit/SKILL.md`：description 与「核心定位」触发判定改为**来源两种**（① 用户当前消息 /commit；② add skill 预检完全干净后的自动衔接，2026-10-01 用户立）；「两步用 && 串联」段的授权来源、`# AI_AUTHORIZED_COMMIT` 标记场景说明、汇报段「重新触发」措辞同步。
+  ③ 全局 `CLAUDE.md` 三处同步（见镜像同步）：「Git 写操作必须先征得同意」例外段增 `/add` 自动衔接；「Git 暂存区禁止 AI 自主增删改」第 1 条明确授权由两种形式扩为**三种形式**（③ = /add 预检完全干净后的自动衔接）；「commit skill 的触发与终止」改为**触发来源两种**。
+  ④ `hooks/pre-tool-use-guard.sh` 与 `pi/agent/extensions/git-commit-guard.ts`：授权标记 AI_AUTHORIZED_COMMIT 的使用场景说明由两种扩为三种（判定逻辑不变，仍以标记存在与否为准）；`pi/agent/extensions/git-status-guard.ts` 注释同步（强制锚点来源扩为三种）。
+- **设计要点**：「/add 授权自动延伸」的边界——只在下述条件全满足时生效：本次预检**至少 1 个文件入暂存区**（无预检成果可提交的零入库场景不衔接）+ 需人工过目 0 个 + 不建议入库 0 个；有任一不满足则停在 add 报告阶段不衔接（保留原有人工把关）；命中的安全规则（commit skill 敏感扫描 / cache 检测、git-commit-guard 标记）全部原样保留，自动衔接不是跳过防线、只是省掉重复的触发动作。
+- **镜像同步**：`claude/skills/add/SKILL.md`、`claude/skills/commit/SKILL.md`、`claude/CLAUDE.md`、`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/git-commit-guard.ts`、`pi/agent/extensions/git-status-guard.ts` 已同步，六部分 diff 核对除本机私有文件（anysearch/.env、backup/endpoints/endpoints.json、scroll-reverser/local/config.md）与 `__pycache__` 外逐字节一致；`~/.pi/agent/skills` 与 `~/.claude/skills` 为同 inode 硬链接，自动跟随。
+
+## 2026-09-30
+
+### 变更（dev-workflow 修订：测试产物不单独提交、不单独开 PR——修正「测试先交付即提交」的流程缺陷）
+
+- **为什么改**：用户 2026-09-30 裁定——测试先行的产物不能先提交、更不能先开 PR。此前 skill 第 3 步让测试 Agent「报告应 `git add` 的路径、commit 由用户亲自执行」，而 `/commit` 在非 main 分支上必然 push 分支 + 建 PR + enable auto-merge，「测试先交付即提交」实际等于「测试单独开一个 PR」；PR 描述又按惯例带 `fixes #N`，合并那一刻 GitHub 的自动关闭关键词会把 Issue 提前关成 completed。2026-09-29 实测事故：ghostty-launcher 的测试 PR #2（只含测试、CI 红）合并，1 秒后 Issue #1 被自动关成 completed，而实现还只在分支上；main 也因此出现「测试已进、实现未进」的半程状态、CI 全量必红，破了 main 永远绿的底线。正确动线：测试写在功能分支工作区放着**不提交**，开发完成、本地全量测试转绿后由用户一次性 `git add`（测试 + 实现 + CHANGELOG）+ `/commit`——测试与实现在**同一次提交、同一个 PR** 里进 main。
+- **改了什么**：
+  ① `skills/dev-workflow/SKILL.md`：第 3 步新增专门段落「测试产物不单独提交、不单独开 PR（2026-09-30 用户定，硬规矩）」——写清为什么（含事故实证）、正确移交方式（报告测试文件清单 / 测试命令 / 自跑见红证据即结束交付，测试以未提交的工作区改动留在分支上）、唯一例外（合并 `origin/main` 时未提交的测试文件撞上游改动被 git 拒，可先本地提交一次但不 push / 不开 PR）；第 3 步任务下发与交付口径、第 5 步「测试有没有变」（按工作区文件比对而非 commit）、第 7 步标题与 PR 条目（PR 只在开发完成 + 本地全量绿后创建一次，内容 = 测试 + 实现，禁止为测试单独开 PR）、流程总览第 8 项、沿革、授权边界段同步。
+  ② `skills/dev-workflow/references/test-cases.md`：「先红后绿的时序」三条重写（测试不提交、与实现同一次提交同一 PR、测试先行不是「先提交先开 PR」的先行）；Hopper 主通道条目同步。
+  ③ `skills/commit/SKILL.md` 第 1 步新增「测试文件独占暂存区的暂停询问」配套工具强制——暂存区全部是测试文件、无任何功能代码 / 配置改动时先停下，说明风险（`fixes #N` 提前关 Issue + main 半程状态）并建议等实现一起提交，用户明确确认是有意的纯测试提交后才继续（**暂停型决策点**，同第 0a 步语义，不是敏感扫描 / cache 那种「命中即终止」）。
+- **镜像同步**：`claude/skills/dev-workflow/`（`SKILL.md` + `references/test-cases.md`）与 `claude/skills/commit/SKILL.md` 已同步，`diff -rq` 除本机私有文件（anysearch/.env、backup/endpoints/endpoints.json、scroll-reverser/local/config.md）与 `__pycache__` 外逐字节一致。
+- **配套改动（不在本仓库镜像范围）**：测试 Agent 项目 TestEngineerAgent 的 `CLAUDE.md` 出题动线第 4 步、工作原则、约束段与双语 README 第 2 步同步修订（测试产物留在工作区、不提请用户提交），记该项目自己 CHANGELOG。
+
+## 2026-09-29
+
+### 变更（commit / add 缓存检测补例外：`.commit-cache.md` 不算 cache、不拦）
+
+- **为什么改**：`.commit-cache.md` 名字含 cache，会被 commit skill 第 3 步 / add skill 第 1 步的「名字含 cache」检测字面命中——实际它是 commit skill 自己的状态文件（标配标记 + 敏感扫描白名单），本就应入库、且在扩展出白名单段后更需要正常随提交入库；不修则下一次 `/commit` 会把暂存中的它误判为运行时缓存、自动写进 `.gitignore` 并终止流程。
+- **改了什么**：① `skills/commit/SKILL.md` 第 3 步、② `skills/add/SKILL.md` 第 1 步各补一句例外——「项目根 `.commit-cache.md` 是 commit skill 的状态文件（本就应入库、非运行时缓存），不算 cache、不拦」。
+- **触发场景**：2026-09-29 该文件（含白名单段）进 `/add` 预检时实际遇到该判定分叉，按语义判为放行、规则仍存字面歧义，据此把例外写进规则消除歧义。
+- **镜像同步**：`claude/skills/commit/SKILL.md`、`claude/skills/add/SKILL.md` 已同步，diff 逐字节一致。
+
+### 变更（commit / add 新增「敏感扫描白名单」机制：用户确认可公开的命中项不再重复拦截）
+
+- **为什么改**：2026-09-29 实战——`/commit` 敏感扫描命中了两个身份标识类内容块，用户确认「可公开、加入 commit 白名单，下次不再检测」；但按原机制命中即终止、重跑还会再拦，已被用户确认的内容反复打断流程。据此把「一次性人工确认」固化为可复用的白名单机制。
+- **改了什么**：
+  ① `skills/commit/SKILL.md`：第 2 步敏感扫描新增「先读白名单」——读项目根 `.commit-cache.md` 的「敏感扫描白名单」段，命中条目描述范围的内容跳过、不再拦截（汇报里列一行「白名单跳过」，不静默省略）；白名单只覆盖条目描述范围、范围外或拿不准照常拦截；凭证类实值命中不适用白名单。结果处理「发现敏感内容」分支补：用户明确确认「可公开」后可把对应条目追加进白名单（例外②）——本次仍终止、不续跑，白名单对下一次起效。例外②措辞扩为「写入缓存标记或敏感扫描白名单条目」（正文两处同步）。汇报要求补一行「白名单跳过」。
+  ② `skills/add/SKILL.md`：第 3 步 AI 语义扫描新增同一白名单读取（命中条目范围的内容块不进人工过目清单、报告列一行；gitleaks 命中不豁免）——否则 `/add` 会对同一批已确认内容重复拦截；第 6 步报告模板加「白名单跳过」可选行。
+  ③ `.commit-cache.md` 格式段（commit skill 内）：新增白名单段的格式说明、写入门槛与五条边界（用户明确确认才追加 / 只覆盖描述范围 / 拿不准按不在 / 凭证不豁免 / 可删条目撤销），完整模板补「敏感扫描白名单」段。
+- **镜像同步**：`claude/skills/commit/SKILL.md`、`claude/skills/add/SKILL.md` 已同步，diff 逐字节一致（`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接，自动跟随）。
+- **首次应用**：GrowthMarketerAgent `.commit-cache.md` 当日登记两条白名单条目（X 账号标识类 / 个人账号身份细节类，用户确认可公开）；项目侧登记结果记该项目 CHANGELOG。
+
+### 变更（dev-workflow：测试任务的跨 agent 下发改为写入 Hopper 项目 TODO.md 并报编号）
+
+- **为什么改**：2026-09-29 用户裁定——开发流程需要测试 Agent（Hopper）出题时，不再由用户人工转达（原第 3 步写「开发 Agent 向用户报告：请在测试 Agent 会话出测试——给它 worktree 路径 + Issue 链接」），改为**开发 Agent 直接把出题任务写入 Hopper 项目（TestEngineerAgent）根 `TODO.md` 并报告编号**（如「已写为 Hopper 的 T6」），用户在 Hopper 会话按 TODO 接活。首个真实用例：ghostty-launcher Issue #1（面板 New Window 偶发无反应、需测试先行，2026-09-29）。
+- **改了什么**：
+  ① `skills/dev-workflow/SKILL.md`：第 3 步第 1 条重写为「任务下发」——写入 Hopper 项目根 `TODO.md`（按该文件既有格式与全局 TODO 规范：编号顺延 = 扫该项目 `TODO.md` + `TODO-archive.md` 取最大编号 + 1、按紧急度入节、写 `（记录：YYYY-MM-DD HH:MM）` 时间戳；正文写清背景 + Issue 链接 + worktree 路径与分支名 + 要做什么 + 关联；同时在 Hopper 项目 CHANGELOG 记一条），写完向用户报告编号；「沿革」段补记 2026-09-29 修订。
+  ② `skills/dev-workflow/references/test-cases.md`：「测试的三个来源」第 1 条（测试 Agent 主通道）同步改为 TODO 下发写法。
+- **镜像同步**：`claude/skills/dev-workflow/SKILL.md`、`claude/skills/dev-workflow/references/test-cases.md` 已同步，`diff -r` 逐字节一致（`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接，自动跟随）；description 长度自检 PASS（549/1024，未改 frontmatter）。
+- **关联记录**：TestEngineerAgent（Hopper）`TODO.md` 新增 T6 + 该项目 `CHANGELOG.md` 同日条目。
+
 ## 2026-09-25
 
 ### 变更（anysearch / agent-reach 两 skill 分工切割：消除搜索路由重叠区）
@@ -61,6 +176,13 @@
 - **路径说明**：镜像目录为 `pi/agent/extensions/`（不带点，与 `claude/` 镜像目录同惯例）；pi 实际加载的是用户级 `~/.pi/agent/extensions/`，项目内 `.pi/` 目录（`skills` 软链接）是另一回事，两者不混。
 - **验证**：`diff -r ~/.pi/agent/extensions pi/agent/extensions` 逐字节一致；六部分巡检全过（skills 仅既有本机敏感例外）；全仓「五部分」扫描仅剩「前五部分」等正确表述（无过时范围口径）；capability-manager description 实测 PASS（573/1024）；sync-flow.md 代码围栏 16 个配对。
 - **边界**：pi 扩展无本机产物（4 个 `.ts` 全部参与比对）；pi 端生效仍是用户级加载（新会话生效），镜像只解决开源分发，不改加载方式。
+
+### 变更（add skill 修正 gitleaks 调用方式：多路径会导致扫描范围失控）
+
+- **为什么改**：2026-09-25 实测发现 `gitleaks dir` 的用法是 `gitleaks dir [flags] [path]`、**只接受单个路径**；把多个候选路径拼在一条命令里时扫描范围会失控（实测扫了约 70MB，把指定路径之外的目录也带了进来），既慢、又会让无关命中混进结果。原 add skill 第 2 步命令写作 `gitleaks dir <候选文件所在目录或文件清单>`，「文件清单」的措辞会诱导多路径用法——同日 GrowthMarketerAgent 的 /add 流程中已实际踩到。
+- **改了什么**（2026-09-25）：`skills/add/SKILL.md` 第 2 步——命令示例改为单路径形式（`gitleaks dir <候选文件或目录>`）；说明行重写为「一次只传一个路径（gitleaks dir 只接受单个 [path]；多路径拼在一条命令里会让扫描范围失控——实测会扫描远超指定路径的内容，既慢、又可能混入无关命中）；候选多时逐个跑」。
+- **验证**：同一批候选文件改为逐个单路径复扫，全部零命中；多参数对照实测确认范围失控（70MB 扫描量、tmp/ 探针文件的命中混入结果）。
+- **镜像同步**：`claude/skills/add/SKILL.md` 已同步、diff 逐字节一致（`~/.pi/agent/skills` 为指向 `~/.claude/skills` 的符号链接自动跟随）。
 
 ## 2026-09-23
 
