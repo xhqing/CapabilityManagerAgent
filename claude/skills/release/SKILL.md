@@ -1,6 +1,6 @@
 ---
 name: "release"
-description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix）。触发来源两种：① 用户输入 release / 打tag发布 / 发版；② commit skill 第 10 步自动衔接（2026-10-02 用户立：/commit 完整成功且工作区 / 暂存区干净、在 main 与远端同步、自最新 tag 有新提交时——版本就绪直接进入本流程；未就绪则先自动走 /bump → /add → /commit 链条补齐版本、就绪后进入本流程完成发版）。两种来源均授权完整流程（git tag -a + git push tag + gh release create）、标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。正式发布（默认）只从 main 打 tag——正式版必须在功能合并进 main 之后（remote main 锁定、经 PR + CI 合并，2026-09-21 起）；另支持预发布通道（用户明确要求 prerelease / 预发布 / 发 rc / beta 时）：从功能分支打带 -rc.N / -beta.N 后缀的 tag 发 --prerelease 标记的 Release，不 bump 版本文件，供合并 main 前的验收与早期尝鲜。"
+description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释的 git tag、推送到远程、创建 GitHub Release（含 Release notes 与构建产物如 vsix；notes / tag message 发布前走敏感信息自检，命中即暂停）。触发来源两种：① 用户输入 release / 打tag发布 / 发版；② commit skill 第 10 步自动衔接（2026-10-02 用户立：/commit 完整成功且工作区 / 暂存区干净、在 main 与远端同步、自最新 tag 有新提交时——版本就绪直接进入本流程；未就绪则先自动走 /bump → /add → /commit 链条补齐版本、就绪后进入本流程完成发版）。两种来源均授权完整流程（git tag -a + git push tag + gh release create）、标准情况无需逐次确认；遇 tag 已存在等异常暂停询问；发布成功后删除本次构建的本地产物。正式发布（默认）只从 main 打 tag——正式版必须在功能合并进 main 之后（remote main 锁定、经 PR + CI 合并，2026-09-21 起）；另支持预发布通道（用户明确要求 prerelease / 预发布 / 发 rc / beta 时）：从功能分支打带 -rc.N / -beta.N 后缀的 tag 发 --prerelease 标记的 Release，不 bump 版本文件，供合并 main 前的验收与早期尝鲜。"
 ---
 
 # Auto Tag & GitHub Release
@@ -18,7 +18,8 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
   - 工作区有**未提交改动**（需用户确认先 commit 还是中止）；
   - CHANGELOG 中**找不到该版本条目**（需用户确认 notes 来源）；
   - GitHub **已有同名 Release**（需用户确认编辑还是保持不动）；
-  - 版本号异常（如低于当前最新 tag）。
+  - 版本号异常（如低于当前最新 tag）；
+  - **公开文本敏感自检命中**（notes / tag message 含疑似敏感内容——需用户改写文本或明确确认可公开，详见第 4 步；全部发布路径均适用）。
 
 ## 核心定位：一次完成「打 tag + 推送 + 发 Release」
 
@@ -58,7 +59,7 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - **触发**：用户明确说「预发布 / prerelease / 发个 rc / beta 版」；或 dev-workflow 第 9 步使用验收选择手动预发布安装来源（配 auto-rc workflow 的项目：合并进 main 后的 rc 由 workflow 自动发，手动预发布主要用于合并前提前试用与未配 workflow 的项目——用户要 rc 而项目有 auto-rc 时先报告最近的自动 rc，避免重复手发）。正式发布（默认路径）不涉及本节。
 - **与正式发布的分界**：正式版 tag 只打在 main 上（第 0 步强校验 HEAD === origin/main）——**正式发布必须在功能合并进 main 之后、且以用户试用满意为前提**（dev-workflow 2026-09-21：合并由 CI 独裁、验收是过程——用户体验预发布版本就是在验收，试用满意才正式发版）；预发布 tag 打在当前分支 HEAD 上——**合并前从功能分支打**（前瞻快照，CI 慢的窗口期就开始试用）、**合并后从 main 打**（带修复的持续试用，正式发版前的最后确认），两个阶段都服务「体验即验收」。
 - **版本号**：目标版本 + 预发布后缀——`v<目标版本>-rc.N`（接近定稿）或 `v<目标版本>-beta.N`（功能成型）。目标版本 = CHANGELOG 顶部待发布条目版本（若有），否则从当前 VERSION 按待发布改动性质 +1（新增功能 → minor；修复 / 文档 → patch）；N 从 1 起，`git tag -l 'v<目标版本>-rc.*'` 与 `gh release list` 查已有序号后递增。**不 bump 版本文件**：VERSION / package.json / CHANGELOG 都不动（正式发版时经 `/bump` 统一改），预发布只存在于 tag 与 Release 层面——与「功能分支不碰版本号」纪律一致。
-- **流程差异**（相对正式发布各步）：第 0 步按分流处理（不要求对齐 main，改为确认当前分支与 HEAD 即预发布目标）；第 2 步工作区干净检查照常；第 3 步 tag 存在检查照常；第 4 步 CHANGELOG 无对应条目 → notes 用 `--generate-notes` 或与用户确认的简短英文描述（不强求 CHANGELOG 条目，预发布内容未定稿属正常）；第 5-6 步打 annotated tag（message 用 notes 首行）+ 推送照常；第 7 步 `gh release create <tag> --prerelease --title "<项目名> <版本号>" ...`（必带 `--prerelease` 标记）；产物从当前分支构建上传，产物惯例核查照旧适用。
+- **流程差异**（相对正式发布各步）：第 0 步按分流处理（不要求对齐 main，改为确认当前分支与 HEAD 即预发布目标）；第 2 步工作区干净检查照常；第 3 步 tag 存在检查照常；第 4 步 CHANGELOG 无对应条目 → notes 用 `--generate-notes` 或与用户确认的简短英文描述（不强求 CHANGELOG 条目，预发布内容未定稿属正常）；**无论 notes 来源为何，均须过第 4 步的公开文本敏感自检**；第 5-6 步打 annotated tag（message 用 notes 首行）+ 推送照常；第 7 步 `gh release create <tag> --prerelease --title "<项目名> <版本号>" ...`（必带 `--prerelease` 标记）；产物从当前分支构建上传，产物惯例核查照旧适用。
 - **试用后处置**：试用中发现问题 → 修复合并（fix 分支 + PR + CI auto-merge）后递增 N 发新预发布（rc.1 → rc.2），旧的保留不动；试用满意 → 用户触发 `/bump`（改齐版本号后自动衔接 `/add` → `/commit` → `/release` 完成正式发版，2026-10-02 起），预发布 Release 保留即可（正式版发布后自然被取代），不删除。
 - **版本一致性交互**：预发布 tag 的后缀版本号与 VERSION 不一致属「有意区分」（全局版本一致性规则允许判断后缀），commit skill 9k 不据此改文件；9j 版本滞后检测查的是正式版 tag（`gh release view v<VERSION>`），预发布 tag 不同名、不误报。
 
@@ -90,24 +91,33 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
      - GitHub 是否已有对应 Release（`gh release view <tag>`）。
      并给出处理选项（force push 修正指向 / 补发或更新 Release / 保持现状），等用户选择。**不自行 force push 或删除。**
 
-4. **读取 CHANGELOG 该版本条目**
+4. **读取 CHANGELOG 该版本条目、翻译并自检公开文本**
    - 在 `CHANGELOG.md`（或 `CHANGES.md` / `HISTORY.md` 等）中定位 `## [<version>]` 或 `## [<tag>]` 段落，提取到下一个 `## [` 之前的内容。
    - 第一行（标题 / 概述）与其余内容分别用作 **notes 正文首行**与 **body / notes**——概述句不作 Release title，title 按「Release 标题」一节取「`<项目名> <版本号>`」格式。
    - **语言**：条目若含中文（或中英混排），按上方「发布语言：GitHub Release 内容统一全英文」一节**翻译成地道英文**后再用于 notes（翻译后即用、不回写源文件）；后续 tag message、Release notes 均以此英文版本为准。
    - 找不到 CHANGELOG 或该版本条目 → **暂停**，问用户 notes 来源（手写 / `--generate-notes` 自动生成 / 简短描述）。
+   - **公开文本敏感自检（打 tag 前必做，2026-10-03 增补）**：notes 与 tag message 定稿后、**任何公开动作（打 tag / 推 tag / 建 Release）之前**，对最终对外文本做一次敏感信息检测——这是 Release 内容的最后一道防线。理由：Release 一旦发布即面向全球公开（Release 页面、通知、RSS 均会分发），曝光面大于仓库文件本身；而手写 notes、`--generate-notes` 文本、翻译现场生成的新文字都不在 `/add` / `/commit` 的扫描链覆盖内，必须在这里兜住。
+     - **检测对象**：Release notes 文本与 tag message 文本；两者同源（tag message = notes 首行 + body）时合并为一份自检，有差异时分别扫。title 由项目名 + 版本号构成、无独立风险，不专门检测。
+     - **检测方式**（工具 + 语义两层，口径与 `/add` 预检一致）：
+       1. 把待发布文本写入临时文件（如 `tmp/release-notes-check.txt`，用后清理），跑 `gitleaks dir <文件> --config ~/.gitleaks.toml --no-banner -v`——命中即列出 RuleID 与行号；gitleaks 缺失或执行失败 → 降级为 AI 正则扫描（私钥头、token 特征串、公网 IPv4 等）并在汇报中标注「工具层未生效」。
+       2. AI 语义自检：逐段检查三类无固定格式的敏感内容——财务状况（收入目标、本金、资产、负债、存款等）、个人隐私标识（账户号、证件号、真实联系方式、真实 IP / SSH 连接串、密钥实值）、敏感叙述（身份 + 网络出口 + 绕行手段的故事线、合规拒单报文原文、服务商节点代号）；**拿不准的按可疑处理**。
+       3. 先读项目根 `.commit-cache.md` 的「敏感扫描白名单」段（不存在则跳过）：用户此前明确确认可公开的条目按描述范围跳过，汇报里列一行「白名单跳过」（不静默省略）；范围外照常扫；凭证类实值命中不适用白名单。
+     - **`--generate-notes` 来源**：其文本由 GitHub 在创建 Release 时才现场生成——为保持「自检早于公开」的不变量，改用 `gh api repos/<owner>/<repo>/releases/generate-notes -X POST -f tag_name=<tag> -f target_commitish=<sha> --jq .body > tmp/release-notes-check.txt` 先预生成文本 → 自检 → 创建时用 `--notes-file` 传入同一文本（不用 `--generate-notes`）。
+     - **命中处理**：**暂停本次发布**（不 tag、不推、不建 Release），报告命中文本、位置（RuleID / 行号 / 片段）与处理建议（改写为中性表述；确认可公开的按白名单格式追加进 `.commit-cache.md`）；用户处理后**重新触发 `/release`** 走完整流程——白名单条目当次追加、下次流程起效（与 `/commit` 的机制一致）。自检通过（含白名单跳过）的，在最终汇报中注明。
+     - **完成后的放行标记（工具强制）**：自检通过后，后续公开命令必须在命令末尾加注释标记 `# AI_SENSITIVE_CHECKED`（第 5-7 步及异常分支的 `git tag -a`、`git push origin <tag>`、`gh release create`、`gh release edit` 都适用）——public-text-guard（pi 端 `~/.pi/agent/extensions/public-text-guard.ts` + CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` 规则 6）对未带此标记的「打 annotated tag / 推送 tag / 创建或编辑 Release」一律 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。标记语义 = 「将公开的文本已检查」，只能在自检通过（或确认文本无敏感）后添加，不得为绕过拦截擅自添加。
 
 5. **打 annotated tag**
-   - `git tag -a <tag> -m "<notes 首行>" -m "<body>"`（notes 首行 = 概述句英译，与 body 分两个 `-m`；body 多行直接用换行）。
+   - `git tag -a <tag> -m "<notes 首行>" -m "<body>" # AI_SENSITIVE_CHECKED`（notes 首行 = 概述句英译，与 body 分两个 `-m`；body 多行直接用换行；标记见第 4 步「完成后的放行标记」）。
    - message 末尾**不加** `Co-Authored-By`（tag 非提交，无需署名）。
 
 6. **推送 tag**
-   - `git push origin <tag>`。
+   - `git push origin <tag> # AI_SENSITIVE_CHECKED`。
    - 若被拒（远程已存在）→ 回到第 3 步异常处理（**不自行 `--force`**）。
 
 7. **创建 GitHub Release**
    - 先 `gh release view <tag>` 确认是否已有 Release：
-     - 无 → `gh release create <tag> --title "<项目名> <版本号>" --notes "<notes>"`（title 格式见「Release 标题」一节）。
-     - 已有 → **暂停**，问用户是否编辑（`gh release edit`）或保持不动。
+     - 无 → `gh release create <tag> --title "<项目名> <版本号>" --notes "<notes>" # AI_SENSITIVE_CHECKED`（title 格式见「Release 标题」一节；标记见第 4 步「完成后的放行标记」）。
+     - 已有 → **暂停**，问用户是否编辑（`gh release edit <tag> # AI_SENSITIVE_CHECKED`）或保持不动。
    - **构建产物上传**：探测常见产物路径（`*.vsix`、`*.tgz`、`dist/*`、`build/*`、`target/*.zip` 等）。若有，作为 asset 附加：`gh release create <tag> ... <asset-paths>` 或 `gh release upload <tag> <asset-paths>`。
      - 若产物需先构建（如 `npm run package` 生成 vsix），**暂停**提示用户先构建，或征得同意后执行构建命令再上传。
    - **产物惯例核查（本地探测为空时必做，2026-09-19 立）**：本地未检出产物 ≠ 可以无产物发布。探测为空时，先核查「本项目发布惯例是否带产物」，以下三个信号任一命中即视为本版应有产物：
@@ -136,6 +146,7 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - GitHub Release 对外内容（Release title / notes、tag message）统一全英文；CHANGELOG 是中文时翻译后使用，不回写源文件。
 - Release title 统一「`<项目名> <版本号>`」格式（如 `zcode-cli 3.8.1-27`）；概述句只作 notes / tag message 正文首行，不作 title。
 - 遇 tag 已存在、工作区脏、CHANGELOG 缺条目、Release 已存在等异常，**暂停询问**，不自行 force push / 删除 / 覆盖。
+- **公开文本发布前必过敏感自检**（第 4 步）：notes / tag message 定稿后先检测再发布，命中即暂停本次发布、处理后重新走完整流程；手写 notes 与 `--generate-notes` 来源不在 `/add` / `/commit` 扫描链内，尤其不能跳过。**由 public-text-guard 工具强制**（pi 端 `public-text-guard.ts` + CC 端 `pre-tool-use-guard.sh` 规则 6，2026-10-03 立）：未带 `# AI_SENSITIVE_CHECKED` 标记的打 tag / 推 tag / `gh release create|edit` 一律被 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。
 - 预发布必带 `--prerelease` 标记（不带标记会把功能分支版本当作正式版暴露给 latest 指针）；预发布不 bump 版本文件，正式发版时统一 `/bump`。
 - 构建产物上传前确认产物存在；需构建时先暂停征得同意；**本地探测为空时必做产物惯例核查（见第 7 步）**——命中「tag 触发的产物构建 workflow / 上游或本仓库历史 Release 挂过 assets」任一信号即视为本版应有产物，暂停指引先构建再上传，不得安静无产物发布。
 - 临时 notes 文件放 `tmp/` 并清理，不污染项目。
@@ -144,4 +155,4 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 
 ## 汇报
 
-报告发布结果：版本号、tag 名、tag 指向的 commit（= HEAD）、推送是否成功、GitHub Release URL、Release title、上传的 asset 清单（若有）、已清理的本地构建产物（若有）；若因异常暂停，则列出异常详情与可选项。
+报告发布结果：版本号、tag 名、tag 指向的 commit（= HEAD）、推送是否成功、GitHub Release URL、Release title、上传的 asset 清单（若有）、已清理的本地构建产物（若有）、公开文本敏感自检结果（通过 / 白名单跳过条目摘要，若有）；若因异常暂停（含敏感自检命中），则列出异常详情与可选项。

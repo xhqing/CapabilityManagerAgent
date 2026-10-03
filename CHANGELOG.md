@@ -6,7 +6,43 @@
 
 ## [1.1.0] - 2026-10-03
 
-自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR。
+自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-03
+
+### 变更（release skill：公开文本发布前敏感自检）
+
+- **为什么做**：release skill 对外公开的文字内容（Release notes、annotated tag message）此前没有独立的敏感信息检测环节——既有的三道防线（add 预检、commit 暂存区扫描、gitleaks pre-commit hook）全发生在「文件进仓库」环节；而 release 对外文本有三个路径不在扫描链内：① CHANGELOG 缺条目时的手写 notes；② `--generate-notes` 现场生成的文本；③ 翻译现场生成的新文字（信息源自已扫过的 CHANGELOG，但属现场生成、无复核环节）。Release 一旦发布即面向全球公开（Release 页面、通知、RSS 分发），曝光面大于仓库文件本身，需要补一道发布前最后防线。
+- **改了什么**：`skills/release/SKILL.md` 第 4 步新增「**公开文本敏感自检（打 tag 前必做）**」子段——
+  ① **时机**：notes 与 tag message 定稿后、任何公开动作（打 tag / 推 tag / 建 Release）之前；
+  ② **对象**：notes 文本与 tag message 文本（同源时合并扫一份、有差异分别扫；title 由项目名 + 版本号构成、不专门检测）；
+  ③ **方式**：工具 + 语义两层（口径与 /add 预检一致）——待发布文本写入 `tmp/` 临时文件跑 gitleaks（缺失 / 失败降级 AI 正则扫描并标注），AI 逐段检查三类敏感内容（财务状况 / 个人隐私标识 / 敏感叙述，拿不准按可疑处理），白名单联动 `.commit-cache.md`（范围外照常扫、凭证实值不适用白名单）；
+  ④ **`--generate-notes` 来源**：改用 `gh api .../releases/generate-notes` 预生成文本 → 自检 → `--notes-file` 传入（保持「自检早于公开」不变量）；
+  ⑤ **命中处理**：暂停本次发布（不 tag、不推、不建 Release）、报告命中内容与处理建议，用户处理后重新触发 `/release`（白名单条目当次追加、下次起效，与 /commit 机制一致）；自检通过（含白名单跳过）在汇报中注明。
+  同步更新：授权语义异常清单新增第 6 条（公开文本敏感自检命中）、预发布通道「流程差异」句补「无论 notes 来源为何均须过自检」、注意节与汇报节、description（656/1024 字符）。
+- **镜像同步**：`claude/skills/release/SKILL.md` 已同步（pi 端与全局为同一硬链接文件，编辑即两端生效）；其余五部分未动。
+
+### 新增（release-guard：发布公开动作敏感自检硬拦截）
+
+- **为什么做**：按「规矩必须配套工具强制」元规则，为同日新增的 release skill「公开文本敏感自检」配套硬拦截——此前自检只靠文本纪律，若执行者跳过自检直接打 tag / 发 Release，未检查的文本（tag message / Release notes）即公开且事后无拦截点。
+- **改了什么**：
+  ① 新增 pi 端扩展 `pi/agent/extensions/release-guard.ts`（tool_call 拦截）：命令未带标记 `AI_SENSITIVE_CHECKED` 时，对三类公开发布动作一律 deny——打 annotated tag（`-a`/`--annotate`/`-m`/`--message`/`-F`/`--file`）、推送 tag（`--tags`/`--follow-tags`/`refs/tags/`/refspec 形如版本号）、`gh release create|edit`；查询类（`git tag -l`、`git push` 普通分支、`gh release view/list`）与本地删除类（`git tag -d`）不拦。
+  ② `~/.claude/hooks/pre-tool-use-guard.sh` 新增**规则 6**（CC / CodeBuddy 等端，与 pi 端判定逻辑对齐、两端同步改）；`release-guard.ts` 与其余 guard 同构（防御性 catch、不阻塞会话）。
+  ③ `skills/release/SKILL.md`：第 4 步自检子段补「完成后的放行标记（工具强制）」条目，第 5-7 步命令示例带 `# AI_SENSITIVE_CHECKED` 标记，注意节补 release-guard 说明（description 656/1024 不变）。
+- **测试**：两端同组 29 用例对照测试（tag 创建 9、tag 推送 8、gh release 6、标记放行 3、无关命令 3），CC 端 29/29、pi 端 29/29、逐条结果一致。
+- **镜像同步**：`claude/skills/release/SKILL.md`、`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/release-guard.ts` 已同步；其余部分未动。
+
+### 变更（public-text-guard：范围扩展至 PR / Issue 公开文本；commit / dev-workflow skill 配套）
+
+- **为什么做**：PR title / body、Issue 文本、commit message 与 Release notes 一样是「会发出去的公开文字」，但此前不在任何扫描链内——文件内容有三道防线（add 预检 / commit 扫描 / gitleaks hook），这些**现场生成的文本**是空白；PR body 还是 AI 基于 diff 的自由概括，最容易从对话上下文带出敏感信息（100% 真实事故类型：敏感信息进 git 历史只能 filter-repo 重写）。用户 2026-10-03 要求补齐三项（skill 纪律 + PR / Issue 工具拦截 + commit message 纪律）。
+- **改了什么**：
+  ① pi 端扩展 `release-guard.ts` **更名为 `public-text-guard.ts`** 并扩展范围——新增 `gh pr create|edit`、`gh issue create|edit` 两类拦截（原覆盖打 tagged tag / 推 tag / Release 创建编辑不变）；更名原因：职责已从「发布链」扩到「一切公开文本」。判定逻辑与 CC 端保持一致。
+  ② `~/.claude/hooks/pre-tool-use-guard.sh` 规则 6 同步扩展（加 PR / Issue 正则；注释与 deny 消息更新为 public-text-guard）。
+  ③ `skills/commit/SKILL.md`：新增「公开文本敏感自检（commit message / PR / Issue）」节（时机、两层检测方式、工具强制说明）；第 6 步（生成 commit message 后自检）、第 8 步两处 `gh pr create`（带 `# AI_SENSITIVE_CHECKED` 标记 + 建前自检）同步；description 更新（997/1024）。
+  ④ `skills/dev-workflow/SKILL.md`：第 7 步 PR 命令带标记 + 「建 PR 前先过公开文本自检」bullet；第 1 步 `gh issue create` 补「公开前自检、带标记」；授权边界段两条创建命令补标记要求；description 更新。
+  ⑤ `skills/release/SKILL.md`：守卫引用全面更名（release-guard → public-text-guard）+ 补「同时覆盖 PR / Issue」指向。
+- **测试**：两端同组 40 用例对照测试（新增 PR / Issue 用例 14 条），CC 端 40/40、pi 端 40/40、逐条一致；实机验证（无头 pi 加载扩展）：无标记 `gh pr create` 被拦截未执行、带标记 `gh issue create` 放行执行（测试环境无 remote、gh 自身报错，与守卫无关）。
+- **镜像同步**：`claude/skills/commit|dev-workflow|release/SKILL.md`、`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/public-text-guard.ts`（旧 `release-guard.ts` 删除）已同步；其余部分未动。
 
 ## 2026-10-02
 

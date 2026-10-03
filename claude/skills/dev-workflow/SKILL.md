@@ -1,6 +1,6 @@
 ---
 name: dev-workflow
-description: 软件开发项目的核心功能开发循环（远端 main 分支保护 + 功能分支 + PR + CI 门禁；2026-09-21 三次修订定稿：GitHub Issue 作需求端（fixes #N 合并自动关闭）、测试开发分离 + 测试先行（测试 Agent 主通道出题，先红后绿，开发对测试文件全量只读可运行、hook 强制禁止增删改）、CI 绿即 auto-merge 合并（合并由 CI 独裁）、用户验收是过程（试用预发布版本，体验即验收）、试用满意才正式发版）。当用户在软件开发项目上要开发新功能、修 bug、修改核心功能代码，或提到开发工作流、dev-workflow、开分支、建分支、worktree、全量测试、测试用例、测试先行、TDD、PR、CI、Issue、合并回 main、预发布时必须使用——即便项目本身是软件项目，也要先判断这次需求是不是核心开发（判断标准见第 0 步）；项目尚无 Issue 需求记录或尚无测试不是绕过本流程的理由——此时同样必须使用，相应门禁会阻塞并引导补齐。杂事（文档、README、版本号 bump（/bump）、配置调整等不触碰核心功能代码运行行为的改动）不走本流程的测试门禁，但 main 已锁定直推，杂事同样经轻量分支 + PR + CI 进 main。
+description: 软件开发项目的核心功能开发循环（远端 main 分支保护 + 功能分支 + PR + CI 门禁；2026-09-21 三次修订定稿：GitHub Issue 作需求端（fixes #N 合并自动关闭）、测试开发分离 + 测试先行（测试 Agent 主通道出题，先红后绿，开发对测试文件全量只读可运行、hook 强制禁止增删改）、CI 绿即 auto-merge 合并（合并由 CI 独裁）、用户验收是过程（试用预发布版本，体验即验收）、试用满意才正式发版）。当用户在软件开发项目上要开发新功能、修 bug、修改核心功能代码，或提到开发工作流、dev-workflow、开分支、建分支、worktree、全量测试、测试用例、测试先行、TDD、PR、CI、Issue、合并回 main、预发布时必须使用——即便项目本身是软件项目，也要先判断这次需求是不是核心开发（判断标准见第 0 步）；项目尚无 Issue 需求记录或尚无测试不是绕过本流程的理由——此时同样必须使用，相应门禁会阻塞并引导补齐。杂事（文档、README、版本号 bump（/bump）、配置调整等不触碰核心功能代码运行行为的改动）不走本流程的测试门禁，但 main 已锁定直推，杂事同样经轻量分支 + PR + CI 进 main。（PR / Issue 文本公开前走敏感自检、public-text-guard 工具强制，2026-10-03 增）
 ---
 
 # 开发工作流：远端 main 保护 + 测试先行 + PR + CI 门禁（核心开发专用）
@@ -33,7 +33,7 @@ description: 软件开发项目的核心功能开发循环（远端 main 分支�
 
 两项都检查（Issue 以远端为准：`gh issue view <N>`）：
 
-1. **Issue 就位**：本次需求有 open 的 GitHub Issue，正文写清**复现步骤 / 预期行为**（bug 给复现，功能给预期）——它同时是需求文档、验收标准、测试的雏形。没有 Issue → 阻塞，请用户开 Issue（`gh issue create`，可由会话代为执行、内容以用户口径为准——需求端的话语权在用户，开发不代定验收标准）。Issue 含糊（复现缺失、预期不明）→ 先在 Issue 评论里与用户澄清补全，再继续。**测试规模与需求体量匹配**：小 bug 一条聚焦断言，大功能成组用例——测试 Agent 出题时把握。
+1. **Issue 就位**：本次需求有 open 的 GitHub Issue，正文写清**复现步骤 / 预期行为**（bug 给复现，功能给预期）——它同时是需求文档、验收标准、测试的雏形。没有 Issue → 阻塞，请用户开 Issue（`gh issue create`，可由会话代为执行、内容以用户口径为准——需求端的话语权在用户，开发不代定验收标准；Issue 文本公开前先过公开文本自检、命令带 `# AI_SENSITIVE_CHECKED` 标记，2026-10-03 增补）。Issue 含糊（复现缺失、预期不明）→ 先在 Issue 评论里与用户澄清补全，再继续。**测试规模与需求体量匹配**：小 bug 一条聚焦断言，大功能成组用例——测试 Agent 出题时把握。
 2. **远端门禁就位**（一次性基础设施，就位后后续开发不再检查）：
    - **main 分支保护已开启**：禁止直推（含管理员，不开 bypass）、必须经 PR、CI 状态检查设为 required、合并前要求分支最新（up-to-date）、只允许 squash 合并。未开启 → 列配置清单请用户开启，或经用户同意用 `gh api` 配置（rulesets / branch protection API）；**首次启用顺序：先让 ci.yml 经 PR 进 main，再开保护并把 checks 设 required**——反序会死锁（required check 从无成功记录，任何 PR 永远不满足）。完整配置与顺序论证见 `references/merge-discipline.md`。
    - **CI workflow 就位**：`.github/workflows/ci.yml` 触发器含 `pull_request`（目标 main）与 `push`（main），执行内容覆盖「项目全量测试 + 类型检查」（测试在项目正式测试位置，全量测试天然含它们）。缺失或不达标 → 阻塞，按 `references/test-cases.md` 的「CI 集成」一节补齐。项目没有 CI 不是绕过的理由，正如没有 Issue 不是绕过的理由。
@@ -109,11 +109,12 @@ git fetch origin && git merge origin/main
 git push -u origin <分支名>
 gh pr create --base main --title "<标题>" --body "fixes #<N>
 
-<摘要>"
+<摘要>" # AI_SENSITIVE_CHECKED
 gh pr merge <分支名> --squash --auto --delete-branch    # enable auto-merge
 ```
 
 - PR 描述带 `fixes #<N>`——**合并时 GitHub 自动关闭对应 Issue**（测试与实现同 PR 进 main，Issue 状态机随之闭环，无需任何归档动作）。**PR 只在开发完成、本地全量测试全绿之后创建一次，内容 = 测试 + 实现**；**禁止为测试单独开 PR**（测试先上 PR 会让 `fixes #<N>` 把 Issue 提前关掉、main 出现半程状态——原因与事故实证见第 3 步「测试产物不单独提交、不单独开 PR」）。
+- **建 PR 前先过公开文本自检**（2026-10-03 增补）：title / body 定稿后按 commit skill「公开文本敏感自检」节检测（gitleaks + AI 三类语义检查），命中改写后重新自检；`gh pr create` 须带 `# AI_SENSITIVE_CHECKED` 标记——public-text-guard 硬拦截，未带标记一律 deny。
 - PR 建立即触发远端 CI（`pull_request` 触发），在 GitHub 干净环境跑第 6 步同一套全量；**CI 绿后 GitHub 自动 squash 合并进 main、删除远端分支**——合并的唯一门禁是 CI（不等人工验收）。复杂项目 CI 可能较慢，这个等待窗口正好先走第 9 步的预发布（rc.1），让用户开始试用。
 - CI 红 → 拉日志定位（`gh pr checks --watch` / `gh run view --log-failed`）→ 本地修复 → 用户自行 `git add` + `/commit`（commit + push 一条龙，AI 不代行 commit）→ CI 对新 head 自动重跑（auto-merge 在最终绿掉的那次 head 上执行）。
 - squash 合并后 main 新 commit 的树 == PR head 的树（squash 只压缩提交历史、不改文件内容）——「合并进 main 的内容 == CI 测过的内容」的物理基础（完整论证见 `references/merge-discipline.md`）。
@@ -145,7 +146,7 @@ CI 绿、auto-merge 完成后（Issue 已由 `fixes #N` 自动关闭；配了 au
 
 ## git / gh 授权边界（与全局纪律衔接）
 
-**触发本 skill（用户要求开发核心功能）= 授权流程内的本地与远端编排操作**：`git worktree add` / `git switch -c` / `git merge origin/main`（对齐）/ `git push`（功能分支）/ `gh pr create` / `gh pr merge --squash --auto --delete-branch`（enable auto-merge 是标准动作——合并由 CI 门禁独裁，无需用户逐次点头）/ `gh issue create`（代为执行，内容以用户口径为准）/ `git worktree remove`，以及本地测试与构建、预发布 tag + `gh release create --prerelease`（第 9 步验收来源）。**`git commit` 不在授权清单内——AI 一律不代为执行 commit**（2026-09-22 用户定：commit 动作由用户亲自完成——自行 `git add` 后触发 `/commit`（commit + push + PR auto-merge 一条龙）；AI 不向用户申请 commit 授权、不代行 commit，职责是在**开发完成时**的交付报告里列全应 `git add` 的路径与改动摘要（测试 + 实现 + CHANGELOG 一次列齐——测试先行的测试产物不单独列、不单独提交，见第 3 步），并确保所需 commit 功能在 `/commit` skill 覆盖范围内——发现缺口先补 skill 而不是申请代行。CI 红修复循环的 commit 同走此通道；2026-09-21 版「须用户明确授权后 AI 执行」表述随之收敛为常态只走用户 `/commit`）。**不改写 main 历史、不 force push、不触碰暂存区**（全局纪律不变；用户 `/commit` 前自行 `git add`，暂存区由用户亲自把关，skill 只提交暂存区内容）。杂事 / bump 分支的 commit + push 走 `/commit`（用户自行 `git add` 后触发，push 后顺手建 PR + enable auto-merge）；正式发版走全自动链：`/bump` → `/add` → `/commit` → `/release`（`/bump` 用户主动触发、或 commit 流程检测需要 bump 时自动触发，均预授权整条链；2026-10-02 起）。
+**触发本 skill（用户要求开发核心功能）= 授权流程内的本地与远端编排操作**：`git worktree add` / `git switch -c` / `git merge origin/main`（对齐）/ `git push`（功能分支）/ `gh pr create`（建前过公开文本自检、带 `# AI_SENSITIVE_CHECKED` 标记）/ `gh pr merge --squash --auto --delete-branch`（enable auto-merge 是标准动作——合并由 CI 门禁独裁，无需用户逐次点头）/ `gh issue create`（代为执行，内容以用户口径为准；同为公开文本，建前自检、带标记）/ `git worktree remove`，以及本地测试与构建、预发布 tag + `gh release create --prerelease`（第 9 步验收来源）。**`git commit` 不在授权清单内——AI 一律不代为执行 commit**（2026-09-22 用户定：commit 动作由用户亲自完成——自行 `git add` 后触发 `/commit`（commit + push + PR auto-merge 一条龙）；AI 不向用户申请 commit 授权、不代行 commit，职责是在**开发完成时**的交付报告里列全应 `git add` 的路径与改动摘要（测试 + 实现 + CHANGELOG 一次列齐——测试先行的测试产物不单独列、不单独提交，见第 3 步），并确保所需 commit 功能在 `/commit` skill 覆盖范围内——发现缺口先补 skill 而不是申请代行。CI 红修复循环的 commit 同走此通道；2026-09-21 版「须用户明确授权后 AI 执行」表述随之收敛为常态只走用户 `/commit`）。**不改写 main 历史、不 force push、不触碰暂存区**（全局纪律不变；用户 `/commit` 前自行 `git add`，暂存区由用户亲自把关，skill 只提交暂存区内容）。杂事 / bump 分支的 commit + push 走 `/commit`（用户自行 `git add` 后触发，push 后顺手建 PR + enable auto-merge）；正式发版走全自动链：`/bump` → `/add` → `/commit` → `/release`（`/bump` 用户主动触发、或 commit 流程检测需要 bump 时自动触发，均预授权整条链；2026-10-02 起）。
 
 ## references（按需加载）
 

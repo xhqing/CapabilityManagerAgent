@@ -78,4 +78,20 @@ if echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:
   fi
 fi
 
+# --- 规则 6：公开文本敏感自检拦截（2026-10-03 立，release / commit skill 公开文本自检配套工具强制）---
+# 公开动作四类：打 annotated tag（-a/--annotate/-m/--message/-F/--file）、推送 tag
+# （--tags/--follow-tags/refs/tags/、refspec 形如版本号）、gh release create/edit、
+# gh pr/issue create/edit（title / body 均为公开文本）。
+# 命令带标记 AI_SENSITIVE_CHECKED 放行（语义：将公开的文本已做敏感检查）。
+# 查询类（git tag -l、git push 普通分支、gh release/pr/issue view/list 等）与本地
+# 删除类（git tag -d）不拦。同源守卫：pi 端 public-text-guard.ts（两端同步改）。
+if ! echo "$cmd" | grep -q 'AI_SENSITIVE_CHECKED'; then
+  if echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*tag[^;&|]*(-[aAmF]([^[:alnum:]]|$)|--(annotate|message|file)([^[:alnum:]-]|$))' \
+     || echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*push[^;&|]*(--tags([^[:alnum:]-]|$)|--follow-tags([^[:alnum:]-]|$)|refs/tags/|v?[0-9]+\.[0-9]+\.[0-9]+)' \
+     || echo "$cmd" | grep -qE '(^|[^[:alnum:]_])gh[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*release[[:space:]]+(create|edit)([^[:alnum:]-]|$)' \
+     || echo "$cmd" | grep -qE '(^|[^[:alnum:]_])gh[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*(pr|issue)[[:space:]]+(create|edit)([^[:alnum:]-]|$)'; then
+    deny_msg "规则拦截：公开动作（打 annotated tag / 推送 tag / 创建或编辑 GitHub Release / PR / Issue）前必须先对将公开的文本（tag message、Release notes、PR / Issue 的 title 与 body）做敏感检查——正式发版按 release skill 第 4 步「公开文本敏感自检」；commit / PR / Issue 按 commit skill「公开文本敏感自检」节（gitleaks + AI 三类语义检查）执行；其它场景至少确认待公开文本无敏感内容。确认后在命令末尾加注释标记 # AI_SENSITIVE_CHECKED 再执行；不得未经检查擅自添加标记。"
+  fi
+fi
+
 exit 0

@@ -1,6 +1,6 @@
 ---
 name: "commit"
-description: "提交当前暂存区已有内容并推送远程（git commit → git push；不执行 git add；无远程则先 gh repo create --public 创建再推送）。当用户输入 commit 时触发，或由 /add 预检完全干净（无人工过目 / 不建议入库且至少 1 个文件入库）后自动衔接触发。最前置先做远端 main 对齐检测：remote main 领先且本地不领先则拉取对齐，分叉或矛盾则暂停询问。分支感知（remote main 锁定、一切经 PR + CI 合并）：main 上 → push 远程 main（仅当远端无保护），被拒或 non-fast-forward 时自动走 PR 兜底通道（建分支 → push → 建 PR → auto-merge），不重试直推；功能 / 杂事 / bump 分支上 → push 分支 → 顺手建 PR（若无）+ auto-merge，CI 绿自动合并、不等人工验收。PR 通道场景在流程末尾（9z 步）等待合并（上限 15 分钟、超时由下次 /commit 的 0a 兜底），合并后自动对齐本地 main（非破坏性、异常即停）并清理已合并分支。commit 前对暂存区做敏感扫描 + cache 检测（cache 命中自动加入 .gitignore），任一命中即终止——不 commit/push、须重新触发。push 之后补齐项目标配（README 双语+LOGO+徽章、All Contributors 署名、LICENSE/CHANGELOG/VERSION、About、Sponsors），缺则补、齐则记 .commit-cache.md 跳过；另做版本滞后检测（指引 /bump）与版本号一致性检测（VERSION 为唯一权威），均不阻塞、每次必查。流程末尾（第 10 步）自动衔接发版：完整成功且工作区/暂存区干净、在 main 与远端同步、自最新 tag 有新提交时——版本就绪则自动进入 /release 完成发版；未就绪则自动走 /bump → /add → /commit → /release 整条链完成发版（不提示、不询问）（2026-10-02 用户立，同日修订自动 bump）。"
+description: "提交当前暂存区已有内容并推送远程（git commit → git push；不执行 git add；无远程则先 gh repo create --public 创建再推送）。当用户输入 commit 时触发，或由 /add 预检完全干净（无人工过目 / 不建议入库且至少 1 个文件入库）后自动衔接触发。最前置先做远端 main 对齐检测：remote main 领先且本地不领先则拉取对齐，分叉或矛盾则暂停询问。分支感知（remote main 锁定、一切经 PR + CI 合并）：main 上 → push 远程 main（仅当远端无保护），被拒或 non-fast-forward 时自动走 PR 兜底通道（建分支 → push → 建 PR → auto-merge），不重试直推；功能 / 杂事 / bump 分支上 → push 分支 → 顺手建 PR（若无）+ auto-merge，CI 绿自动合并、不等人工验收。PR 通道场景在流程末尾（9z 步）等待合并（上限 15 分钟、超时由下次 /commit 的 0a 兜底），合并后自动对齐本地 main（非破坏性、异常即停）并清理已合并分支。commit 前对暂存区做敏感扫描 + cache 检测（cache 命中自动加入 .gitignore），任一命中即终止——不 commit/push、须重新触发；commit message / PR / Issue 等公开文本另过「公开文本敏感自检」（2026-10-03 增）。push 之后补齐项目标配（README 双语+LOGO+徽章、All Contributors 署名、LICENSE/CHANGELOG/VERSION、About、Sponsors），缺则补、齐则记 .commit-cache.md 跳过；另做版本滞后检测（指引 /bump）与版本号一致性检测（VERSION 为唯一权威），均不阻塞、每次必查。流程末尾（第 10 步）自动衔接发版：完整成功且工作区/暂存区干净、在 main 与远端同步、自最新 tag 有新提交时——版本就绪则自动进入 /release 完成发版；未就绪则自动走 /bump → /add → /commit → /release 整条链完成发版（不提示、不询问）（2026-10-02 用户立，同日修订自动 bump）。"
 ---
 
 # Auto Git Commit & Push
@@ -22,6 +22,14 @@ description: "提交当前暂存区已有内容并推送远程（git commit → 
 - **严禁**执行 `git push --force`、`git reset --hard` 等破坏性操作。
 - **严禁**编辑、删除、格式化项目文件（例外仅八类：① README/LICENSE 标配补全——可编辑 `README.md`/`README_cn.md`（顶部 LOGO/徽章居中块 + 移除 Forks/Stars/Last Commit 等动态徽章（第 9l 步；团队仓库的 Visitors 访问量徽章属允许例外、不删） + persona 说明块 + 底部版权署名段 + 版权人/署名引用名字归一为 `All Contributors`（第 9g 步）+ 语言基调修正：把 `README.md` 里「本该用英文却写成中文」的正文改为英文（特殊场景的中文保留不动）+ 英文版跳中文版链接文字统一为「简体中文」（第 9h 步））、创建 `assets/logo.svg`、创建 `LICENSE.md`、**删除冗余的其它格式 license 文件**（只保留 `LICENSE.md`）；② 项目根 `.commit-cache.md` 写入缓存标记或「敏感扫描白名单」条目（不存在则新建；白名单条目仅按用户明确确认追加，见第 2 步）；③ 全局 `~/.claude/docs/agents-registry.md` 的「智能体命名注册表」**追加**新 agent 行（仅 9d 起名时，不改已有行）；④ cache 检测——第 3 步检测到的 cache 文件/目录可新增进 `.gitignore`；⑤ 版本滞后提示（第 9j 步）——检测到 VERSION 滞后时只报告（第 10 步会据此自动衔接 bump 链条完成发版，2026-10-02 起），本 skill 不就地修改任何文件（版本号的实际修改归 bump skill 在 bump 分支上执行）；⑥ 版本号一致性同步（第 9k 步）——检测到 VERSION 与各文件版本号不一致时，以 VERSION 为唯一权威，更新 `package.json`、`package-lock.json`、`CHANGELOG.md`、主 manifest、README 的版本号到与 VERSION 一致（不动 VERSION 自身）；⑦ 新建 `CHANGELOG.md` 与 `VERSION` 文件（第 9m 步）——检测到项目缺这两个文件时按 9m 规则创建，不改动 `.gitignore` 的其它部分；⑧ **第 10 步自动衔接的 bump 链条**（2026-10-02 起）——版本号载体文件的改动由 `/bump` 环节按其 skill 职责执行（VERSION / package.json / CHANGELOG 版本条目 / manifest / README 版本声明与徽章等），本 skill 自身仍不直接改这些文件。
 - 敏感内容扫描、cache 检测**均在 `git commit` 之前执行一次**（针对暂存区已有内容）；`git commit` 之后不再重复。（版本号一致性检测已移至 push 后第 9k 步，不阻塞提交。）
+
+## 公开文本敏感自检（commit message / PR / Issue，2026-10-03 增补）
+
+commit message、PR title / body、Issue 文本都是**公开文本**——commit message 进 `git log` 与 GitHub commits 页、squash 合并后还会沉淀进 main 历史；PR / Issue 文本在公开仓库立即可见。它们与暂存区文件内容不同，是**现场生成的新文字**，不在第 2 步暂存区扫描的覆盖内，需要单独自检：
+
+- **时机**：commit message 在第 6 步生成后、`git commit` 前；PR title / body 在第 8 步 `gh pr create` 前；Issue 文本在 `gh issue create` 前（dev-workflow 场景）。命中敏感内容 → **改写文本**（不把敏感内容发出去），改写后重新自检。
+- **方式**（与 release skill 第 4 步口径一致）：把定稿文本写入 `tmp/` 临时文件（用后清理）跑 `gitleaks dir <文件> --config ~/.gitleaks.toml --no-banner -v`（缺失 / 失败降级 AI 正则扫描）；再做 AI 三类语义检查——财务状况（收入目标、本金、资产、负债、存款等）、个人隐私标识（账户号、证件、真实联系方式、真实 IP / SSH 连接串、密钥实值）、敏感叙述（身份 + 网络出口 + 绕行手段的故事线、合规拒单报文原文、服务商节点代号）；拿不准按可疑处理。`.commit-cache.md` 的「敏感扫描白名单」按范围联动。
+- **工具强制**：`gh pr create` / `gh pr edit` / `gh issue create` / `gh issue edit` 由 public-text-guard 拦截（pi 端 `public-text-guard.ts` + CC 端 `pre-tool-use-guard.sh` 规则 6）——自检通过后命令带 `# AI_SENSITIVE_CHECKED` 标记放行；commit message 的敏感性无法从命令行文本自动判定，由本节的纪律约束。
 
 ## 执行流程
 
@@ -74,7 +82,7 @@ description: "提交当前暂存区已有内容并推送远程（git commit → 
 
 4. 运行 `git status` / `git diff --cached --name-only`，获取本次暂存区已有的文件清单（按类别分组：新增、修改、删除）。
 5. 获取当前分支名与远程仓库地址（`git remote -v`）。
-6. 根据 `git diff --cached --stat` / `git diff --cached` 生成简洁英文提交信息（1-2 句话，说明本次改动的性质）。
+6. 根据 `git diff --cached --stat` / `git diff --cached` 生成简洁英文提交信息（1-2 句话，说明本次改动的性质）。**生成后先过「公开文本敏感自检」**（见上节）——commit message 会公开（进 git log / commits 页 / 合并后沉淀进 main 历史），命中敏感内容则改写 message。
 7. 运行 `git commit -m "<生成的提交信息>"` 提交暂存区内容。**本步与第 8 步 push 用 `&&` 串联成一条命令执行**（不拆开、不中途停下确认，分类器拦单条也不退缩——详见「核心定位」段「两步用 && 串联一条命令跑完」；main 直推与功能分支推送场景均如此串联；命令末尾带 `# AI_AUTHORIZED_COMMIT` 授权标记，见「核心定位」段说明）。
 8. 执行推送（2026-09-21 用户修订：**恢复 PR 链**——remote main 分支保护、锁定直推，一切进 main 的内容经 PR + CI 合并（dev-workflow 2026-09-21 版：功能 PR 由用户验收后合并，杂事 / bump PR 由各自流程 enable auto-merge）；本 skill 对分支做「commit + push 分支 + 建 PR（若无）」，不 merge）。先检查远程仓库（`git remote -v`），按情形处理：
    - **无 `origin`（remote 为空）** → 主动创建 GitHub 远程仓库再推送：
@@ -86,10 +94,10 @@ description: "提交当前暂存区已有内容并推送远程（git commit → 
    - **有 `origin`，当前在 main**（含全新仓库初始提交）→ `git push -u origin main`（已有上游时 `git push`）。**push 被分支保护拒绝**（错误信息含 protected branch / required status checks / GH006 类字样），**或被 non-fast-forward 拒绝**（0a 对齐之后又出现竞态分叉等推不上去的情形）→ **不再只作指引，直接自动走 PR 兜底通道（2026-09-21 用户立）**，依次执行：
      1. `git switch -c chore/<事项>`（事项名取本次 commit message 主题，kebab-case 短词）把本地 main 领先的全部提交带到新分支；
      2. `git push -u origin <分支名>` 推送分支；
-     3. `gh pr create --base main --title "<本次 commit message>" --body "<摘要>"` 建 PR（涉及 Issue 时带 `fixes #<N>`，中英不限但优先英文）；
+     3. `gh pr create --base main --title "<本次 commit message>" --body "<摘要>" # AI_SENSITIVE_CHECKED` 建 PR（涉及 Issue 时带 `fixes #<N>`，中英不限但优先英文；建前先过「公开文本敏感自检」、命令带标记——public-text-guard 硬拦截）；
      4. `gh pr merge <分支名> --squash --auto --delete-branch` 启用 auto-merge——CI 全绿后 GitHub 自动 squash 合并进 main、删除远端分支（合并由 CI 独裁，不手动 merge、不等 CI）。
      执行中任何一步失败 → 如实报告错误，不重试直推、不用管理员权限绕过（禁止 `--force`）。走完（或失败如实报告）后在汇报中报告：拦截原因、所建分支名、PR URL、auto-merge 状态；**本地 main 仍指向带提交的旧位置，PR squash 合并后由第 9z 步自动对齐**（`git branch -f main origin/main` + 清理兜底分支，非破坏性、不改写历史）；仅 9z 异常即停（switch 被挡 / fetch 失败等）或超时未合并的场景才交用户决定（下次 `/commit` 的 0a 会检测并兜底；AI 不执行 reset / force 类操作）。
-   - **有 `origin`，当前在功能 / 杂事 / bump 分支**（dev-workflow 开发、杂事、bump 场景）→ 推送分支：无上游 `git push -u origin <分支名>`，有上游 `git push`；然后 `gh pr list --head <分支名> --state open` 检查——**尚无 open PR 则顺手建一个**（`gh pr create --base main --title "<标题>" --body "<摘要>"`；标题用本次 commit message，body 概述改动，涉及 Issue 时带 `fixes #<N>`，中英不限但优先英文），建完（或已有 open PR 且未启用）则 **enable auto-merge**（`gh pr merge <分支名> --squash --auto --delete-branch`）——CI 绿后 GitHub 自动 squash 合并、删除远端分支（Issue 随 fixes #N 自动关闭）。**不手动 merge**（合并由 CI 独裁——dev-workflow 2026-09-21：CI 过就合，不等人工验收，用户验收移到预发布试用 + 正式发版）；CI 的等待与合并后对齐本地 main 由第 9z 步统一处理；CI 门禁与 ci.yml 的维护归 dev-workflow 第 1 步（远端门禁就位）。
+   - **有 `origin`，当前在功能 / 杂事 / bump 分支**（dev-workflow 开发、杂事、bump 场景）→ 推送分支：无上游 `git push -u origin <分支名>`，有上游 `git push`；然后 `gh pr list --head <分支名> --state open` 检查——**尚无 open PR 则顺手建一个**（`gh pr create --base main --title "<标题>" --body "<摘要>" # AI_SENSITIVE_CHECKED`；标题用本次 commit message，body 概述改动，涉及 Issue 时带 `fixes #<N>`，中英不限但优先英文；建前先过「公开文本敏感自检」、命令带标记），建完（或已有 open PR 且未启用）则 **enable auto-merge**（`gh pr merge <分支名> --squash --auto --delete-branch`）——CI 绿后 GitHub 自动 squash 合并、删除远端分支（Issue 随 fixes #N 自动关闭）。**不手动 merge**（合并由 CI 独裁——dev-workflow 2026-09-21：CI 过就合，不等人工验收，用户验收移到预发布试用 + 正式发版）；CI 的等待与合并后对齐本地 main 由第 9z 步统一处理；CI 门禁与 ci.yml 的维护归 dev-workflow 第 1 步（远端门禁就位）。
    - 推送过程中如遇冲突或其他错误，将错误信息如实报告给用户，不自行尝试破坏性解决（禁止 `--force`）。
 9. **项目标配检测（`git push` 之后，最后一步）**：提交推送已完成，这里补齐项目标配。push 失败时仍进入本步（9a/9b/9d/9g/9h/9k/9l/9m 是本地检测；9e 永久跳过，见第 9e 步），但 9c 需 push 成功。先读项目根 `.commit-cache.md`（不存在则视为无缓存、稍后新建），按缓存标记跳过已确认的项（见「`.commit-cache.md` 检测缓存」）；对未跳过的项逐一检测，**缺则补、齐则记标记，不再停下阻塞**。补的内容作为新工作区改动，本次未提交；本 skill 不执行 `git add`，需用户自行 `git add` 后下次 `/commit` 提交。
 
