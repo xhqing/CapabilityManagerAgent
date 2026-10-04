@@ -36,6 +36,13 @@
 - **测试**：pi 端 12 用例（含 skill 串联写法、`cd` / `git -C` / 分号串联、`git log --grep=commit`、`commit-tree`、文本提及两例）全部通过；CC 端 18 用例（规则 3 处理 11 + 规则 7 回归 4 + 规则 1/2/6 与普通命令回归 3）全部通过；两端结论一致。
 - **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/git-commit-guard.ts`、`pi/agent/extensions/git-status-guard.ts` 已同步；六部分 diff 核对一致。
 
+### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
+
+- **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。
+- **改了什么**：① `skills/release/SKILL.md` 第 7 步重写为「产物核查（以项目声明为准）」——**取消「本仓库历史 assets」信号**；「项目规则 / 文档 / 项目 skill / cache 明确声明要产物」「仓库存在 tag 触发产物 workflow，或 README 下载链接指向 Release 产物」「fork upstream 同名 tag 挂 assets」任一命中（= 已声明）→ 照常构建上传；未声明 → 默认不带产物、直接发布、不再询问。「注意」段与 description 同步。② 全局 `~/.claude/CLAUDE.md`「/release」授权段补限定：产物按项目声明为准，未声明默认不带、不询问。③ 本项目根 `CLAUDE.md` 增加项目级发版声明「本仓库发版不带产物（历史 v1.0.0 assets 属借用备份，不代表惯例）」。
+- **镜像同步**：`claude/skills/release/SKILL.md`、`claude/CLAUDE.md` 已同步（`diff` 逐字节一致；`~/.pi/agent/skills` 与 `~/.claude/skills` 同 inode，自动跟随）。
+- **关联**：v1.2.0 已于本日前序发布（用户裁决：不带产物）；本改动经 `/add` → `/commit` 自动链提交，并随自动发版链发布。
+
 ## 2026-10-03
 
 ### 变更（release skill：公开文本发布前敏感自检）
