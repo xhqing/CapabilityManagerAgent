@@ -34,8 +34,11 @@ import { execSync } from "node:child_process";
 import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const AUTH_MARK = "AI_AUTHORIZED_COMMIT";
-// 与 git-commit-guard.ts 同源的 commit 匹配（含 git -C <path> commit 形态）
-const GIT_COMMIT = /\bgit\s+(?:-\S+\s+(?:[^\s-][^\s]*\s+)?)*commit\b/;
+// 与 git-commit-guard.ts 同源的 commit 匹配（含 git -C <path> commit 形态）。
+// 2026-10-04 收紧：按 && / || / ; / | / 换行 切分命令段，只认「以 git 开头的命令段」——
+// 此前用全文包含式匹配，文档 / 测试用例 / echo 文本里的 "git commit" 会把守卫误触发。
+const SEGMENT_SPLIT = /&&|\|\||;|\n|\|/;
+const GIT_COMMIT_SEGMENT = /^git(?:\s+-\S+(?:\s+[^\s-][^\s]*)?)*\s+commit(?![A-Za-z0-9_-])/;
 // 最终回复里的 status 代码块：``` [语言标注] 换行 >> git status 换行 输出体 ```
 const STATUS_BLOCK = /```[^\n]*\n>> git status\n([\s\S]*?)```/;
 
@@ -50,8 +53,13 @@ const REPLACED_NOTE =
 	"输出——原贴内容与实际执行结果不符（可能未实际执行、编造或贴了过期" +
 	"输出）。";
 
+/** 命令里是否存在「以 git 开头且子命令为 commit」的命令段（与 git-commit-guard.ts 同源）。 */
+function hasGitCommit(command: string): boolean {
+	return command.split(SEGMENT_SPLIT).some((seg) => GIT_COMMIT_SEGMENT.test(seg.trim()));
+}
+
 function isAuthorizedCommit(command: string): boolean {
-	return command.includes(AUTH_MARK) && GIT_COMMIT.test(command);
+	return command.includes(AUTH_MARK) && hasGitCommit(command);
 }
 
 /** 在会话 cwd 实测 git status；失败（非仓库 / 超时等）返回 null。 */

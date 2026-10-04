@@ -8,6 +8,30 @@
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-04
+
+### 新增（kdbx-guard：密码库 / 密钥文件的删除与覆盖硬拦截）
+
+- **为什么做**：2026-10-04 用户在配置 KeePass 双端同步（Syncthing 手机 ↔ Mac）时明确提出「担心 AI 误删电脑端数据库文件」。风险是复合的：数据库内容丢了无法重建，而文件同步的语义是「两端完全一致」——**本机删除会传播到对端**，一次误删 = 两端同时失去数据（对端只剩 `.stversions` 里一份需人工取回的归档）。此前只有文本纪律（「增改查优先、慎用删除」），对这类文件没有任何硬闸。
+- **改了什么**：
+  ① 新增 pi 端扩展 `pi/agent/extensions/kdbx-guard.ts`（tool_call 拦截，两端同源判定）：A) 写 / 编辑类工具（write / edit）命中受保护路径直接 deny（无逃生门）；B) bash / powershell 的删除 / 移动 / 清空动作（`rm` / `mv` / `unlink` / `shred` / `trash` / `truncate`、`find -delete`、`>` 重定向覆盖）命中受保护路径时 deny，命令带标记 `AI_AUTHORIZED_KDBX_OP` 放行。
+  ② `~/.claude/hooks/pre-tool-use-guard.sh` 新增**规则 7**（Bash 删除 / 移动 / 覆盖）与**规则 7 前置段**（Write / Edit / MultiEdit / NotebookEdit 等写类工具按 `file_path` 拦截；因该段需在 Bash 早退之前执行，`deny_msg()` 函数定义上移到脚本前部）；与 pi 端判定逻辑逐条对齐。
+  ③ 受保护目标：任何含 `.kdbx` 的路径、`~/Key/` 与 `/Key/` 下的密钥文件、含 `KeePass` 的目录、`~/Sync` 同步根目录（覆盖 `rm -rf ~/Sync` 这类连窝端与 `rm -rf ~/Sync/KeePass/*` 这类通配删除）。绝对路径统一写作 `/Users/[^/]+/Sync` 通配、**不硬编码个人路径**（仓库既有规范：脚本统一用 `~` / `$HOME` 展开、便于开源镜像直接复用）；首版实现曾写成 `/Users/<本机用户名>/Sync` 字面量，/add 预检被拦下后改为通配形态。
+  ④ 全局 `~/.claude/CLAUDE.md`「工作规则」新增子节「**密码库与密钥文件不得删除 / 移动（钩子已硬拦截）**」——说明保护对象、拦截动作、逃生门，以及「正常使用不触发本规则」的边界（读写密码库由 KeePassXC / KeePassDX 自身完成，不需要 AI 碰文件）。
+- **测试**：同组 25 用例对照测试（Bash 删除 / 移动 / 覆盖 11、写类工具 4、既有规则回归 10），CC 端 25/25；pi 端另用 15 用例组验证 15/15，逐条结果一致。边界用例覆盖「带 `AI_AUTHORIZED_KDBX_OP` 标记放行」「普通 `rm -rf ~/Downloads/junk` / `mv` 放行」「`read` 工具读库放行」「`rm -rf ~/Sync` 连窝端拦截」。可移植化改造后两端各重跑 13 例路径匹配测试（绝对路径当前用户 / 任意用户、`~` / `$HOME` 形态、通配删除、带标记放行、普通删除与「别的路径含 Sync」不误伤）13/13、13/13。
+- **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`claude/CLAUDE.md`、`pi/agent/extensions/kdbx-guard.ts` 已同步；六部分 diff 核对一致。
+
+### 变更（commit 判定收紧：文本提及不再误触发守卫）
+
+- **为什么改**：当日 kdbx-guard 的测试里，把测试用例写成 JSON 字符串喂给 CC 钩子，其中一条 payload 含 `"command":"git commit -m test # AI_AUTHORIZED_COMMIT"`——pi 端 `git-status-guard.ts` 的判定是「命令里同时出现 `AI_AUTHORIZED_COMMIT` 与 `git commit`」（全文包含式匹配），于是把这段**文本**误判成「本次 run 发生过授权 commit」，强制要求在最终回复里贴 `git status` 块（还让用户误以为真的执行了 commit）。同一原因下 `git-commit-guard.ts` 与 CC 钩子规则 3 也会对含这类文本的命令误报拦截。误伤方向虽安全（多拦 / 多提醒，不放松），但造成困惑、且掩盖了真正的触发信号。
+- **改了什么**：三处判定统一收紧为「**按 `&&` / `||` / `;` / `|` / 换行切分命令段后，只认段首为 `git` 的命令段**」——
+  ① pi 端 `pi/agent/extensions/git-commit-guard.ts`：新增 `SEGMENT_SPLIT` + `GIT_COMMIT_SEGMENT` 常量与 `hasGitCommit()` 函数，替换原全文包含式正则；
+  ② pi 端 `pi/agent/extensions/git-status-guard.ts`：同源复制同一判定（`isAuthorizedCommit` 改为「命令含标记 + 存在 git commit 段」）；
+  ③ `~/.claude/hooks/pre-tool-use-guard.sh` 规则 3：新增 `is_git_command()` 辅助函数（切段 → 去前导空白 → 段首必须 `git` → 子命令匹配），规则 3 改用它（规则 5 / 6 暂未改，属同族、可按需再收）。
+- **合法路径不受影响**：`/commit` skill 的真实写法 `git commit -m "<msg>" && git push # AI_AUTHORIZED_COMMIT` 仍照常识别（切段后首个 `git` 开头的段命中 `commit`；标记在整条命令里、不要求与 commit 同段）；`cd <repo> && git commit ...`、`git -C <repo> commit ...`、`git status ; git commit ...` 同样命中；`git log --grep=commit`、`git commit-tree` 仍不命中。
+- **测试**：pi 端 12 用例（含 skill 串联写法、`cd` / `git -C` / 分号串联、`git log --grep=commit`、`commit-tree`、文本提及两例）全部通过；CC 端 18 用例（规则 3 处理 11 + 规则 7 回归 4 + 规则 1/2/6 与普通命令回归 3）全部通过；两端结论一致。
+- **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/git-commit-guard.ts`、`pi/agent/extensions/git-status-guard.ts` 已同步；六部分 diff 核对一致。
+
 ## 2026-10-03
 
 ### 变更（release skill：公开文本发布前敏感自检）

@@ -9,6 +9,41 @@ input=$(cat)
 tool=$(echo "$input" | /usr/bin/python3 -c 'import sys,json; print(json.load(sys.stdin).get("tool_name",""))' 2>/dev/null)
 cmd=$(echo "$input" | /usr/bin/python3 -c 'import sys,json; print(json.load(sys.stdin).get("tool_input",{}).get("command",""))' 2>/dev/null)
 
+# --- 规则 7 前置：写 / 编辑类工具禁止直接改写密码库与密钥文件（2026-10-04 用户立）---
+# 与 pi 端 kdbx-guard.ts 同源（两处判定同步改）。密码库（*.kdbx）与密钥文件
+# （~/Key/ 下）只应由 KeePassXC / KeePassDX 自身读写；本段无逃生门，确需程序化
+# 写入请改用 Bash 命令并带标记 AI_AUTHORIZED_KDBX_OP。
+deny_msg() {
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"$1\"}}"
+  exit 0
+}
+
+KDBX_PROT='(\.kdbx|KeePass|~/Key/|\$HOME/Key/|/Key/|~/Sync|\$HOME/Sync|/Users/[^/]+/Sync)'
+
+# 判断命令里是否存在「以 git 开头的命令段」（按 && || ; | 换行 切分）且其子命令匹配 $1。
+# 2026-10-04 收紧：只在段首为 git 时判定，避免文档 / 测试用例 / echo 文本里的
+# "git commit" / "git tag" 被误判成真命令（实际误伤过：测试 payload 里的这句话
+# 把 pi 端 git-status-guard 误触发了）。与 pi 端 git-commit-guard.ts 同源。
+is_git_command() {
+  local sub="$1" seg
+  while IFS= read -r seg; do
+    seg="${seg#"${seg%%[![:space:]]*}"}"
+    [ -z "$seg" ] && continue
+    if echo "$seg" | grep -qE "^git([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*[[:space:]]+${sub}([^[:alnum:]_-]|$)"; then
+      return 0
+    fi
+  done < <(printf '%s\n' "$cmd" | sed -E 's/(&&|\|\||;|\|)/\n/g')
+  return 1
+}
+case "$tool" in
+  Write|Edit|MultiEdit|NotebookEdit|write_file|edit_file|replace_in_file|create_file|apply_patch)
+    kdbx_fp=$(echo "$input" | /usr/bin/python3 -c 'import sys,json; d=json.load(sys.stdin).get("tool_input",{}) or {}; print(d.get("file_path") or d.get("notebook_path") or d.get("path") or "")' 2>/dev/null)
+    if [ -n "$kdbx_fp" ] && echo "$kdbx_fp" | grep -qE "$KDBX_PROT"; then
+      deny_msg "规则拦截：禁止用写 / 编辑类工具直接改写密码库（*.kdbx）或密钥文件（~/Key/ 下）——这类文件只应由 KeePassXC / KeePassDX 自身读写，且文件同步会把本机改动或删除传播到手机（一次误删两端同时失去数据）。确需程序化写入时，改用 Shell 命令并带标记 # AI_AUTHORIZED_KDBX_OP（用户授权后使用）。"
+    fi
+    ;;
+esac
+
 # 2026-09-03 T138：CodeBuddy IDE 宿主的 Bash 类工具名是 execute_command（CLI 风格才是
 # Bash）；matcher 已双向别名匹配，但脚本内的 tool_name 判断要两个名字都认，否则在
 # CodeBuddy 宿主静默跳过 = 挂了不生效。
@@ -17,10 +52,6 @@ if [ "$tool" != "Bash" ] && [ "$tool" != "execute_command" ]; then
 fi
 [ -z "$cmd" ] && exit 0
 
-deny_msg() {
-  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"$1\"}}"
-  exit 0
-}
 
 # --- 规则 1：杀 VSCode 进程（除非命令里带明确标记 AI_AUTHORIZED_KILL_VSC，由用户授权后使用）---
 if echo "$cmd" | grep -qE '(kill|pkill|killall|osascript)[^;]*' ; then
@@ -39,7 +70,11 @@ fi
 
 # --- 规则 3：git commit 未授权拦截（2026-09-21 用户立规：commit 不论分支/worktree/流程须明确授权）---
 # 授权标记 AI_AUTHORIZED_COMMIT 仅三种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）；其余不得擅自加
-if echo "$cmd" | grep -qE 'git[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*commit([^[:alnum:]_]|$)'; then
+# 2026-10-04 收紧：改用 is_git_command 只认「以 git 开头的命令段」——skill 里真实的
+# 串联写法 `git commit -m "..." && git push # AI_AUTHORIZED_COMMIT` 仍在规则内
+# （第一个段首为 git 的段命中 commit；标记在整条命令里），文档 / 测试用例 / echo
+# 文本里的 "git commit" 不再误伤。与 pi 端 git-commit-guard.ts 同源。
+if is_git_command 'commit'; then
   if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_COMMIT'; then
     deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅三种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
   fi
@@ -91,6 +126,23 @@ if ! echo "$cmd" | grep -q 'AI_SENSITIVE_CHECKED'; then
      || echo "$cmd" | grep -qE '(^|[^[:alnum:]_])gh[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*release[[:space:]]+(create|edit)([^[:alnum:]-]|$)' \
      || echo "$cmd" | grep -qE '(^|[^[:alnum:]_])gh[[:space:]]+(-[^[:space:]]+[[:space:]]+([^[:space:]-][^[:space:]]*[[:space:]]+)?)*(pr|issue)[[:space:]]+(create|edit)([^[:alnum:]-]|$)'; then
     deny_msg "规则拦截：公开动作（打 annotated tag / 推送 tag / 创建或编辑 GitHub Release / PR / Issue）前必须先对将公开的文本（tag message、Release notes、PR / Issue 的 title 与 body）做敏感检查——正式发版按 release skill 第 4 步「公开文本敏感自检」；commit / PR / Issue 按 commit skill「公开文本敏感自检」节（gitleaks + AI 三类语义检查）执行；其它场景至少确认待公开文本无敏感内容。确认后在命令末尾加注释标记 # AI_SENSITIVE_CHECKED 再执行；不得未经检查擅自添加标记。"
+  fi
+fi
+
+# --- 规则 7：密码库 / 密钥文件的删除、移动、覆盖拦截（2026-10-04 用户立）---
+# 背景：用户明确担心「AI 误删电脑端数据库文件」；文件型同步（Syncthing 手机 ↔ Mac）
+# 会把本机删除传播到对端，一次误删 = 两端同时失去数据（对端只在 .stversions 留副本）。
+# 保护对象：*.kdbx 数据库、~/Key/ 下的 keyfile、含 KeePass 的目录、~/Sync 同步根
+# （含 rm -rf ~/Sync 这种连窝端的）；拦截动作：rm / mv / unlink / shred / trash /
+# truncate、find -delete、> 重定向覆盖。逃生门：命令带标记 AI_AUTHORIZED_KDBX_OP。
+# 绝对路径用 /Users/[^/]+/Sync 通配、不硬编码个人路径（仓库既有规范：脚本统一用
+# ~ / $HOME 展开，开源镜像可直接复用）。
+# 与 pi 端 kdbx-guard.ts 同源（两处判定同步改，不能只改一边）。
+if echo "$cmd" | grep -qE '(^|[^[:alnum:]_])(rm|mv|unlink|shred|trash|truncate)([[:space:]]|$)|(^|[^[:alnum:]_])-delete([[:space:]]|$)|>[[:space:]]*[^[:space:]]*(\.kdbx|KeePass|Key/)'; then
+  if echo "$cmd" | grep -qE "$KDBX_PROT"; then
+    if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_KDBX_OP'; then
+      deny_msg "规则拦截：禁止对密码库（*.kdbx）、密钥文件（~/Key/ 下）或 KeePass 同步目录执行删除 / 移动 / 覆盖类操作——内容丢了不可恢复，且文件同步会把本机删除传播到手机（一次误删两端同时失去数据）。确需操作（例如经用户同意清理旧备份）时，在命令里加标记 # AI_AUTHORIZED_KDBX_OP 再执行；未获授权不得擅自加标记。日常读写密码库请通过 KeePassXC / KeePassDX 完成。"
+    fi
   fi
 fi
 

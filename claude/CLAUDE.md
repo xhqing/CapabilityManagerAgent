@@ -176,6 +176,16 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - 确需不带隔离（如显式指定另一账号）时，命令加标记 `# AI_AUTHORIZED_X_UNSAFE`。
 - 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 4）与 pi 端 `~/.pi/agent/extensions/twitter-guard.ts` 硬拦截兜底，两端判定逻辑同步。
 
+### 密码库与密钥文件不得删除 / 移动（钩子已硬拦截）
+
+KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就回不来的东西**：内容无法重建，而文件同步会把本机删除**传到对端**（本地删一下 = 手机和 Mac 同时失去数据，只剩对端 `.stversions` 里的归档可救）。用户对此明确提过担心，所以定了硬规矩。
+
+- **禁止**对 `*.kdbx`、`~/Key/` 下的 keyfile、含 `KeePass` 的同步目录、`~/Sync` 根目录执行删除 / 移动 / 覆盖类操作（`rm` / `mv` / `unlink` / `shred` / `trash` / `truncate`、`find -delete`、用 `>` 重定向覆盖）。
+- **禁止**用写 / 编辑类工具（Write / Edit / MultiEdit）直接改写这些路径（无逃生门）——密码库只应由 KeePassXC / KeePassDX 自己读写。
+- **正常使用不触发本规则**：打开、解锁、保存、同步都由密码管理器程序完成，不需要 AI 碰这些文件；连查看记录、比较 sha256、目录列举都不受限。
+- **确需操作**（用户明确要求清理旧备份 / 迁移文件等）时，Shell 命令里加标记 `# AI_AUTHORIZED_KDBX_OP`，仅限当次授权范围，不得擅自加。
+- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 7）与 pi 端 `~/.pi/agent/extensions/kdbx-guard.ts` 硬拦截兜底，两端判定逻辑同源（2026-10-04 立）。
+
 ### 项目级 rules 的 @ 引用纪律
 
 - `.claude/rules/` 没有按文件名自动加载的机制，文件进入上下文的唯一途径是进入某个 CLAUDE.md：**项目新增 rule 文件 → 同步在项目 CLAUDE.md 加 `@` 引用**（路径 + 一句话摘要）；**删除 rule 文件 → 同步去掉引用**；定期核对两边一致（目录有文件没引用 = 漏加载白写；引用了但没文件 = dangling 引用）。
