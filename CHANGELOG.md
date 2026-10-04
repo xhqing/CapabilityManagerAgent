@@ -107,6 +107,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **影响面核查**：全机 23 个仓库有同样的裸 `docs/` 规则，但**多数是有意为之**——如 `ExecutiveAssistantAgent` 的 `docs/` 装的是简历 PDF、投标模板、面试准备等业务/隐私数据（注释写明「可能含明文账号密码」），忽略是**正确且必要**的（实际上保护了这些内容没进 public 仓库）；`blog` 的 docs 正常跟踪（140/140）。仅镜像仓库该规则属误伤模板残留。
 - **镜像同步**：`claude/CLAUDE.md`、`claude/docs/*.md`、`.gitignore`。
 
+### 修复（commit skill：PR 合并后远端源分支清理补全——`--auto` 异步合并下 `--delete-branch` 不生效）
+
+- **为什么修**：2026-10-04 分支保护试点后首次实走 PR 通道（PR #8）发现的流程缺口——`gh pr merge --auto --delete-branch` 只启用 auto-merge 就退出，**异步完成的合并不会执行删除**（`gh` 不在场）；仓库又未开 `delete_branch_on_merge` 时，远端源分支合并后一直挂着。核查：`chore/publish-claude-docs`（PR #8）合并后仍在远端；`chore/gate-changelog`（PR #1，2026-09-06）更是挂了近一个月，属同类尾巴的长期积累。
+- **改了什么**：① commit skill 9z 新增「远端源分支清理」步骤——PR 确认 MERGED 后核验并 `git push origin --delete <分支>`（失败不阻断对齐、如实报告）；② 第 8 步两处「删除远端分支」的表述修正为「异步 auto-merge 下 `--delete-branch` 不生效、由 9z 核验清理兜底」，消除技能承诺与实测的偏差；③ 本仓库侧开启 `delete_branch_on_merge=true`（GitHub 在合并时自动删分支，与 9z 显式清理互为兜底）。
+- **清理**：远端 `chore/gate-changelog`、`chore/publish-claude-docs` 两个已合并分支已删除，远端仅剩 `main`。
+- **镜像同步**：`claude/skills/commit/SKILL.md`。
+
 ### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
 
 - **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。
