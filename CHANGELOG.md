@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.3.0] - 2026-10-04
+
+新增会话保护工具链与跨会话委派授权：`session-guard`（pi 端扩展，禁止关闭用户终端里的前台 pi 会话与危险 tmux 操作，与 CC 钩子规则 8 同源）、`session-sweep`（后台会话清扫器，默认干跑、`--kill` 才动手）；`AI_AUTHORIZED_COMMIT` 明确授权扩为四种形式（新增跨会话委派）；详见下方 2026-10-04 分节。
+
 ## [1.2.1] - 2026-10-04
 
 release skill 产物核查改为「以项目声明为准」（取消「历史 assets」信号），同步全局 `~/.claude/CLAUDE.md` 的 `/release` 限定与本仓库「不带产物」发版声明；详见下方 2026-10-04 分节。
