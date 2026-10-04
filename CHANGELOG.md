@@ -94,6 +94,19 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **测试**：CC 端 18 用例、pi 端 13 用例（含 `v1.4.0^{}`、`refs/tags/`、`--tags`、`--follow-tags`、`gh release create`、`gh pr create`、打 annotated tag 仍拦；`chore/bump-v1.4.0`、`bump-v1.4.0`、`bugfix/v2.0.1-x`、`release/1.2.3` 改为放行；带标记放行、普通推送与查询不受影响），两端全部通过。
 - **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/public-text-guard.ts` 已同步；六部分 diff 核对一致。
 
+### 新增（分支保护试点 + 「main 是否锁定」口径修正 + `docs/repo-branch-protection.md`）
+
+- **为什么做**：Prometheus 报「守卫修复直推 main」时发现政策口径与现实不符——文档写「remote main 已锁定直推、一切经 PR + CI 合并」，实测全机 42 个远程仓库里只有 **4 个**真开了保护，35 个 public 仓库裸着（直推永远成功，技能里「push 被拒 → 走 PR 兜底」的分支永不触发），当天一次正常直推被当成异常追查。
+- **改了什么**：① 新增 `docs/repo-branch-protection.md`（事实来源 7 个已保护仓库 / 未保护范围 / private 受限、试点参数模板、铺开前必先开 auto-merge 的前置条件、常用命令含「gh api 的 404 响应体是合法 JSON，判定要看退出码」这个坑、紧急关闭逃生门）；② 全局 `~/.claude/CLAUDE.md` 口径改为「直推可用性**视仓库实际保护状态**而定、不全局默认锁定」并指向新文档；③ 用户决策试点：`CapabilityManagerAgent`、`ExecutiveAssistantAgent`、`zcode-cli` 开启保护（要求 PR（0 批准）+ 必需检查 `validate` + **对管理员同样生效** + 禁强推 + 禁删分支）。
+- **未铺开其余 32 个的原因**：它们 `allow_auto_merge=false`，直接开保护会让 PR 悬空（技能 9z 只等 15 分钟），铺开前必须先开 auto-merge；另 `zcode-cli` 的定时任务 `prepare`（schedule 触发）连续失败（`bun run sync` 退出 1），因其不是 PR 检查、未挂为必需检查（已告知用户）。
+
+### 修复（镜像 `claude/docs/` 被 .gitignore 静默吞掉——docs 从未发布过）
+
+- **事故**：同步 `docs/repo-branch-protection.md` 时发现镜像仓库远端 `claude/` 下只有 `CLAUDE.md` / `hooks` / `patch` / `skills`——**整个 docs 部分从未入库**。根因：`.gitignore` 第 29 行一条**裸 `docs/`** 规则（从模板带来的「运行时数据目录」规则）把 `claude/docs/` 一并匹配掉了；本地 `diff` 校验全绿、远端却少一整部分，**单靠 diff 发现不了**。
+- **改了什么**：① 镜像仓库 `.gitignore` 的 `docs/` 改为 `/docs/`（只限定根目录，保留模板原意、不再吞镜像部分）并加注释说明事故；② 全局 `~/.claude/docs/capability-sync.md`「怎么验证」节补要求——除了 `diff -r`，**还要确认六部分在 git 里是「已跟踪」状态**（`git ls-files` 非空 / `git check-ignore` 无输出）；③ 补齐 docs：`agents-registry.md`、`capability-sync.md`、`new-agent-scaffold.md`、`repo-branch-protection.md` 四个文件解除忽略后随本次提交入库。
+- **影响面核查**：全机 23 个仓库有同样的裸 `docs/` 规则，但**多数是有意为之**——如 `ExecutiveAssistantAgent` 的 `docs/` 装的是简历 PDF、投标模板、面试准备等业务/隐私数据（注释写明「可能含明文账号密码」），忽略是**正确且必要**的（实际上保护了这些内容没进 public 仓库）；`blog` 的 docs 正常跟踪（140/140）。仅镜像仓库该规则属误伤模板残留。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/docs/*.md`、`.gitignore`。
+
 ### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
 
 - **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。

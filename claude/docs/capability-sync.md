@@ -1,0 +1,18 @@
+# 底层通用能力开源与镜像同步
+
+> 本文件由全局 `~/.claude/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：维护全局 `~/.claude/` 与 `~/.pi/agent/extensions/` 的通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）时、同步 CapabilityManagerAgent `claude/` 与 `pi/agent/extensions/` 镜像时。权威源在全局 `~/.claude/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `claude/docs/`。
+
+## 全局权威 ↔ 本项目镜像，内容时刻一致
+
+CapabilityManagerAgent（Prometheus）是把智能体团队的**底层通用能力底座开源出去**的源头仓库。**全局 `~/.claude/` 与 `~/.pi/agent/extensions/` 是通用能力的权威源**；该项目 `claude/` 下对应的五部分——`skills/`、`CLAUDE.md`、`docs/`、`hooks/`、`patch/`——加上 `pi/agent/extensions/` 下的 pi 扩展，是全局权威源的**开源镜像**（原 `rules/` 五条规则已全文并入 CLAUDE.md，rules/ 目录已删除，历史版本见该仓库 git 历史），必须与全局**时刻保持逐字节一致**。
+
+- **目录布局**：该项目 `claude/` 目录（不带点）是全局 `~/.claude/` 的开源镜像。因目录名不是 `.claude`，Claude Code 不会自动加载它、该项目运行时也不依赖它（该项目运行时的能力由全局 `~/.claude/` 直接提供）；`.claude/` 目录保留为该项目**独有的项目级能力目录**，放该项目特有、不随通用能力同步的内容（如 capability-manager skill——Prometheus 本项目的专属工具）。两者分工：`claude/` 镜像「开源给全世界的通用能力」、`.claude/` 放「本项目自己的项目级能力」。
+- **权威方向**：**全局 `~/.claude/` 是唯一权威源**，该项目 `claude/` 对应部分是它的镜像。改动先在全局落地（全局是所有项目运行时实际加载的「活」源头），再同步覆盖到该项目 `claude/` 镜像；反过来不准只改 `claude/` 镜像而不动全局（那样镜像会与权威源分叉）。**为什么以全局为权威**：全局是实际运行时加载的中心、是「活」的；`claude/` 只是把全局内容开源出去的快照，以全局为权威更贴合实际使用，也避免了「权威源不被加载、要靠镜像回流」的别扭。
+- **范围（六部分）**：`skills/` 下所有**通用** skill、根 `CLAUDE.md`（含已并入的「工作规则」五条）、`docs/` 下拆出的参考文档（agents-registry、new-agent-scaffold、capability-sync）、`hooks/` 下的强制守卫脚本（`pre-tool-use-guard.sh`、`test-cases-guard.py`——由全局 `~/.claude/settings.json` 的 `hooks.PreToolUse` 注册执行，2026-09-25 起纳入镜像）、`patch/` 下的自研辅助机制（当前：`patch/skill-custom/`——skill 定制自动恢复器，2026-09-25 起纳入镜像；目录取名 `patch` 即「自研补丁 / 增强层」，放进去即公开，2026-09-25 由 `local/` 改名而来）、pi 扩展（`~/.pi/agent/extensions/` 下的工具强制扩展：git-commit-guard / git-status-guard / version-guard / test-cases-guard / twitter-guard 五个 `.ts`——与 `hooks/` 是同一套工具强制的 pi 侧实现（version-guard 2026-10-02 增：VERSION 与群公告版本号一致性守卫），2026-09-25 起纳入镜像，镜像位置为该项目 `pi/agent/extensions/`）——这六部分在全局是权威、在该项目是镜像（前五部分：`~/.claude/` ↔ `claude/`；pi 扩展：`~/.pi/agent/extensions/` ↔ `pi/agent/extensions/`），逐字节相同。**不含 `commands/`**（各处 commands 自行管理）；**不含项目级专属 skill**（如 capability-manager，放 `.claude/`、不进通用同步）；**不含镜像对象目录下的运行时 / 编辑产物**（`hooks/` 的 `__pycache__/`、`*.bak-*`；`patch/` 的 `*.log`、`.lock`、`conflicts/`——本机产物，不进镜像）。
+- **唯一例外：敏感信息**。涉及密钥、凭证、本机运行数据的内容（如 `settings.local.json` 等本机配置），不在「逐字节一致」的硬要求内——由该项目用 `.gitignore` 在项目级隔离，确保敏感信息不随开源仓库泄露。除此之外**不存在任何特例**：包括 `runtime.conf` 路径也不特殊对待，项目副本与全局逐字节相同，clone 者拿到后按本机路径自行适配即可。
+- **为什么**：把全局钉成权威源（实际运行时的中心），`claude/` 作为开源镜像，任何人 clone 该项目即得通用能力快照；全局改一处、镜像同步一处，避免两边分叉、互相漂移。
+- **怎么验证**：每次改动后用 `diff -r ~/.claude/<部分> claude/<部分>` 核对六部分（`skills` / `CLAUDE.md` / `docs` / `hooks` / `patch` / pi 扩展）是否仍逐字节一致（被 `.gitignore` 隔离的敏感文件与镜像对象目录下的本机产物不参与公开比对，是仅有的允许差异；核对 hooks 与 patch 时分别用 `diff -r -x '__pycache__' -x '*.bak*' ~/.claude/hooks claude/hooks` 与 `diff -r -x '*.log' -x '.lock' -x 'conflicts' ~/.claude/patch claude/patch` 排除本机产物；pi 扩展用 `diff -r ~/.pi/agent/extensions pi/agent/extensions` 核对）。**另需确认这六部分在 git 里是「已跟踪」状态**：`git ls-files claude/docs | wc -l` 等不应为 0（或 `git check-ignore -v <文件>` 应无输出）——2026-10-04 事故：镜像仓库 `.gitignore` 里一条**裸 `docs/`** 规则把 `claude/docs/` 静默吞掉，本地 `diff` 全绿、远端却少了一整部分（docs 从未发布过），只靠 diff 发现不了。
+- **自动同步、无需每次询问**：一旦发现全局 `~/.claude/` 与该项目 `claude/` 镜像之间出现分叉（无论哪边领先），**直接自动同步对齐，不要再向用户询问「要不要同步」**。同步方向以全局权威优先——理想流程是改动先落全局、再镜像 `claude/`；若分叉是 `claude/` 镜像领先（比如临时直接改了镜像），就把 `claude/` 内容覆盖回全局、一次性对齐后，继续走全局优先。
+- **同步动作只记 CapabilityManagerAgent 的 CHANGELOG**：通用能力同步这件事本身的变更记录，**只记在 CapabilityManagerAgent 的 `CHANGELOG.md`**，**不记到其它任何项目的 CHANGELOG**（如各业务项目 DayTradingAgent 等）。为什么：底层通用能力的同步归这个开源仓库管、是它本身的事，不该混进各业务项目自己的变更记录里、污染那些项目的 changelog。
+
+（原「anysearch skill 同步（全局为权威副本）」一节已删除：单一出口模式下各 agent 项目不再分发副本，该分发层已终结——2026-09-13 核验全部项目副本已清空。历史规则见本文件 git 历史。）

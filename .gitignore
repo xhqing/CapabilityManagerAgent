@@ -25,8 +25,9 @@ claude/skills/scroll-reverser/local/*
 # 临时产物目录（预览图、调试快照等），不入库
 tmp/
 
-# 运行时数据目录，不入库
-docs/
+# 运行时数据目录，不入库（只限定根目录；不能写成裸 `docs/`——那会把镜像部分
+# `claude/docs/` 一起吞掉：本地 diff 全绿、远端却少一整部分，2026-10-04 事故）
+/docs/
 
 # Python 字节码缓存（本地生成，不入库）
 __pycache__/
