@@ -80,6 +80,16 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **测试**：扩展端模拟 `agent_settled`——30 分钟 – 6 小时区间只 notify ✓、10 分钟节流生效 ✓；脚本端验证低阈值拒绝（退出码 2）、候选 > 3 拒绝、`--json` 可直接被 JSON 解析器读取 ✓；另用自建的 `pi-zombietest` 会话验证了 `--kill` 真能关闭目标会话 ✓。
 - **镜像同步**：`claude/CLAUDE.md`、`claude/patch/session-sweep/session-sweep.py`、`pi/agent/extensions/session-sweep.ts` 已同步；六部分 diff 核对一致。
 
+### 修复（public-text-guard 误伤：含版本号的分支名被当成推 tag）
+
+- **为什么改**：Prometheus 走 bump 链时报了实证——`git push origin chore/bump-v1.4.0` 这类**分支推送**被 public-text-guard 拦下（「refspec 形如版本号」那一条没有前边界，`bump-v1.4.0` 里出现了 `v1.4.0` 就命中），必须额外带 `AI_SENSITIVE_CHECKED` 才能过；同日我自己跑的验收命令里含这段文本也被拦，属同一误伤。
+- **改了什么**：两端同源收紧——形如版本号的 refspec 必须是**裸 token**（前面不能是字母数字 / `/` / `.` / `-`，后面同理）：
+  ① pi 端 `pi/agent/extensions/public-text-guard.ts`：版本号分支加前后边界 `(?<![\w/.-])v?\d+\.\d+\.\d+(?![\w/.-])`；
+  ② `~/.claude/hooks/pre-tool-use-guard.sh` 规则 6：改写为 `([^[:alnum:]/_.-]|^)v?[0-9]+\.[0-9]+\.[0-9]+([^[:alnum:]/_.-]|$)`（ERE 无 lookbehind，用前导字符类等价表达）。
+  `--tags` / `--follow-tags` / `refs/tags/` 三种写法判定不变，真推 tag 照旧拦截。
+- **测试**：CC 端 18 用例、pi 端 13 用例（含 `v1.4.0^{}`、`refs/tags/`、`--tags`、`--follow-tags`、`gh release create`、`gh pr create`、打 annotated tag 仍拦；`chore/bump-v1.4.0`、`bump-v1.4.0`、`bugfix/v2.0.1-x`、`release/1.2.3` 改为放行；带标记放行、普通推送与查询不受影响），两端全部通过。
+- **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/public-text-guard.ts` 已同步；六部分 diff 核对一致。
+
 ### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
 
 - **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。
