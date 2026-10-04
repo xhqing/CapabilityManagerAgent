@@ -65,6 +65,17 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **测试**：pi 端 14 用例、CC 端 17 用例（含 tmux 两类、kill/pkill/killall、按 pid 实测识别、合法路径 `tmux kill-session -t pi-*` 放行、带标记放行，以及规则 2 / 7 的回归），两端全部通过。
 - **镜像同步**：`claude/CLAUDE.md`、`claude/skills/commit/SKILL.md`、`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/session-guard.ts`、`pi/agent/extensions/git-commit-guard.ts` 已同步；六部分 diff 核对一致。
 
+### 变更（收尾自动巡视：session-sweep 扩展 + 清扫器安全阀）
+
+- **为什么做**：用户给「后台会话不活跃即清」定了清扫方式——**不挂系统定时器**，改成「agent 干完活收尾时顺手跑一次 `session-sweep.py`」。光靠 agent 记性不可靠，故工具化：新增 pi 端扩展在 `agent_settled`（Pi 不会再自动继续）时自动巡视。
+- **改了什么**：
+  ① 新增 `pi/agent/extensions/session-sweep.ts`：`agent_settled` 时巡视一次（全局 10 分钟节流）——空闲 **≥ 6 小时**的明显僵尸自动 `--kill`；**30 分钟 – 6 小时**的只 notify 列清单、**不自动杀**（避免误伤刚用完或在等工作流反馈的会话）。
+  ② `claude/patch/session-sweep/session-sweep.py`：`--json` 改为**纯 JSON 输出**（此前混人类可读文字，会让上游扩展的 `JSON.parse` 静默失败）；`--kill` 结果纳入 JSON 的 `killed` 字段；新增**安全阀**——`--idle-min < 10` 分钟或候选 > 3 个时**拒绝执行**，除非显式 `--force`。
+  ③ 全局 `~/.claude/CLAUDE.md`「后台会话」条目补「清扫方式（不挂定时器）」与「脚本安全阀」两条。
+- **事故记录（安全阀的由来）**：脚本改完后为测 kill 路径跑了 `--idle-min 0 --kill --kill-unknown`，结果把**三个真实会话**一并清掉——正在跑提交流程的 `pi-Prometheus`、在等工作流反馈的 `pi-Victor`、以及 `pi-buzz`。所幸 Prometheus 的提交与 bump 在被杀前已完成（`7163ef8` + PR #5 → `9943c59`，工作区干净、无锁文件），未丢工作；但 **v1.3.0 的 tag / Release 因进程被杀而中断**（已重新委派补齐）。安全阀即由此事故而来：批量或低阈值清理必须先干跑看清单。
+- **测试**：扩展端模拟 `agent_settled`——30 分钟 – 6 小时区间只 notify ✓、10 分钟节流生效 ✓；脚本端验证低阈值拒绝（退出码 2）、候选 > 3 拒绝、`--json` 可直接被 JSON 解析器读取 ✓；另用自建的 `pi-zombietest` 会话验证了 `--kill` 真能关闭目标会话 ✓。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/patch/session-sweep/session-sweep.py`、`pi/agent/extensions/session-sweep.ts` 已同步；六部分 diff 核对一致。
+
 ### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
 
 - **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。

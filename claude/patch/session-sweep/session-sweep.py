@@ -115,6 +115,8 @@ def main() -> int:
     ap.add_argument("--kill-unknown", action="store_true", help="连「匹配不到记录文件」的也清（默认不动）")
     ap.add_argument("--exclude", default="", help="逗号分隔的白名单，排除这些会话")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
+    ap.add_argument("--force", action="store_true",
+                    help="绕开批量 / 低阈值安全阀（2026-10-04 事故后加，非不得已不要用）")
     args = ap.parse_args()
 
     exclude = {s.strip() for s in args.exclude.split(",") if s.strip()}
@@ -137,37 +139,58 @@ def main() -> int:
         else:
             skipped.append((r, f"刚活动过（{r['idle_min']} 分钟前）"))
 
-    if args.json:
-        print(json.dumps({"candidates": [c[0] for c in candidates],
-                          "skipped": [{"row": s[0], "why": s[1]} for s in skipped]},
-                         ensure_ascii=False, indent=2))
-    else:
-        print(f"后台 pi 会话共 {len(rows)} 个（阈值：空闲 ≥ {args.idle_min} 分钟）\n")
-        print(f"【候选清理 {len(candidates)} 个】")
-        for r, why in candidates:
-            print(f"  - {r['session']:<18} 启动 {r['started']}  最后活动 {r['last_active']}"
-                  f"  空闲 {r['idle_min']} 分钟  ({why})")
-        if not candidates:
-            print("  （无）")
-        print(f"\n【保留 {len(skipped)} 个】")
-        for r, why in skipped:
-            idle = f"{r['idle_min']} 分钟" if r["idle_min"] is not None else "未知"
-            print(f"  - {r['session']:<18} 空闲 {idle}  原因：{why}")
-
-    if args.kill and candidates:
-        print()
-        ok = fail = 0
+    killed: list[str] = []
+    if args.kill:
+        # 安全阀（2026-10-04 事故后加）：低阈值与批量清理必须先显式 --force。
+        # 背景：当时为测 kill 路径用了 `--idle-min 0 --kill --kill-unknown`，把所有
+        # 无客户端附着的会话（含正在跑提交流程的、在等工作流反馈的）一并清掉。
+        if args.idle_min < 10 and not args.force:
+            print(f"拒绝执行：--idle-min {args.idle_min} 低于 10 分钟安全下限——这么低的阈值会把「刚用完还热着」的会话也当成候选。"
+                  f"先干跑看看清单，确实要清请加 --force。")
+            return 2
+        if len(candidates) > 3 and not args.force:
+            print(f"拒绝执行：本次候选 {len(candidates)} 个（超过 3 个）——批量清理风险高，可能误伤在工作流里的会话。"
+                  "候选清单：")
+            for r, _ in candidates:
+                print(f"  - {r['session']}（空闲 {r['idle_min']} 分钟）")
+            print("确认无误后加 --force 重跑。")
+            return 2
         for r, _ in candidates:
             if subprocess.run(["tmux", "kill-session", "-t", r["session"]],
                               capture_output=True).returncode == 0:
-                print(f"  ✅ 已关闭 {r['session']}")
-                ok += 1
-            else:
+                killed.append(r["session"])
+
+    if args.json:
+        # 纯 JSON 输出（不再混人类可读文字，便于上游扩展 / 脚本解析）
+        print(json.dumps({
+            "idle_min": args.idle_min,
+            "dry_run": not args.kill,
+            "candidates": [c[0] for c in candidates],
+            "killed": killed,
+            "skipped": [{"row": s[0], "why": s[1]} for s in skipped],
+        }, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"后台 pi 会话共 {len(rows)} 个（阈值：空闲 ≥ {args.idle_min} 分钟）\n")
+    print(f"【候选清理 {len(candidates)} 个】")
+    for r, why in candidates:
+        print(f"  - {r['session']:<18} 启动 {r['started']}  最后活动 {r['last_active']}"
+              f"  空闲 {r['idle_min']} 分钟  ({why})")
+    if not candidates:
+        print("  （无）")
+    print(f"\n【保留 {len(skipped)} 个】")
+    for r, why in skipped:
+        idle = f"{r['idle_min']} 分钟" if r["idle_min"] is not None else "未知"
+        print(f"  - {r['session']:<18} 空闲 {idle}  原因：{why}")
+
+    if args.kill:
+        print()
+        for s in killed:
+            print(f"  ✅ 已关闭 {s}")
+        for r, _ in candidates:
+            if r["session"] not in killed:
                 print(f"  ❌ 关闭失败 {r['session']}")
-                fail += 1
-        print(f"\n结果：成功 {ok} / 失败 {fail}")
-    elif args.kill:
-        print("\n（没有候选，无需清理）")
+        print(f"\n结果：成功 {len(killed)} / 失败 {len(candidates) - len(killed)}")
     else:
         print("\n这是干跑（未关闭任何会话）；要真清理加 --kill。")
     return 0

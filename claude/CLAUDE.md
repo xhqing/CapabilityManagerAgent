@@ -211,4 +211,6 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
   - **不活跃就清**：空闲 ≥ 30 分钟、且无人在看的后台会话直接清掉。「无人在看」= `tmux list-panes -a -F "#{session_attached}"` 为 0、且 `tmux list-clients` 为空；「空闲」= 该会话的记录文件 `~/.pi/agent/sessions/<cwd-slug>/<时间戳>_<会话ID>.jsonl` 的 mtime 距今 ≥ 30 分钟（记录文件的 slug = cwd 去掉首尾斜杠后 `/` 换 `-`、首尾各加 `--`）。
   - **不能自作主张清的**：用户自己终端里的 pi 进程（`ps -o tty=` 显示真实 tty、不在 tmux 里）；记录文件 30 分钟内有更新（正在干活）；处于活跃工作流里等反馈（先问用户一句再动）。
   - **用户终端里的会话（前台）一律不许用命令关闭（2026-10-04 用户立）**：用户终端窗口里的 pi 会话他能看见、由他本人操作——禁止用 `kill` / `pkill` / `killall` 直接杀 pi 进程，也禁止 `tmux kill-server`（会把用户的 tmux 会话一起端掉）与 `tmux kill-session` 指向非 `pi-` 名字的会话；关闭后台会话只能用 `tmux kill-session -t <pi-名字>`。已配套工具强制：CC 钩子规则 8 与 pi 端 `session-guard.ts`（无标记一律 deny）。
+  - **清扫方式（2026-10-04 用户定：不挂系统定时器）**：改成「**agent 干完活收尾时顺手跑一次**」——已工具化为 pi 端扩展 `session-sweep.ts`（`agent_settled` 钩子自动巡视）：空闲 **≥ 6 小时**的明显僵尸自动清掉；**30 分钟 – 6 小时**的只列清单提示、**不自动杀**（很可能是刚用完或在等工作流反馈，误杀代价大）。要停就删/禁该扩展。
+  - **脚本安全阀（2026-10-04 用鲜血换来）**：`session-sweep.py --kill` 在「`--idle-min < 10`」或「候选 > 3 个」时**拒绝执行**，除非显式 `--force`。背景：当日为测 kill 路径跑了 `--idle-min 0 --kill --kill-unknown`，把无客户端附着的会话（含正在跑提交流程的、在等工作流反馈的）一并清掉——要批量清先干跑看清单，再带 `--force`。
   - **工具化**：`~/.claude/patch/session-sweep/session-sweep.py`（默认干跑、`--kill` 才真删）可做定期巡视；查列表 `tmux list-sessions -F "#{session_name}" | grep '^pi-'`。
