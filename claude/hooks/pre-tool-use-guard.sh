@@ -69,14 +69,14 @@ if echo "$cmd" | grep -qE 'open[[:space:]]+(-na[[:space:]]+[^&|;]*)?["'"'"']?vsc
 fi
 
 # --- 规则 3：git commit 未授权拦截（2026-09-21 用户立规：commit 不论分支/worktree/流程须明确授权）---
-# 授权标记 AI_AUTHORIZED_COMMIT 仅三种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）；其余不得擅自加
+# 授权标记 AI_AUTHORIZED_COMMIT 仅四种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）；其余不得擅自加
 # 2026-10-04 收紧：改用 is_git_command 只认「以 git 开头的命令段」——skill 里真实的
 # 串联写法 `git commit -m "..." && git push # AI_AUTHORIZED_COMMIT` 仍在规则内
 # （第一个段首为 git 的段命中 commit；标记在整条命令里），文档 / 测试用例 / echo
 # 文本里的 "git commit" 不再误伤。与 pi 端 git-commit-guard.ts 同源。
 if is_git_command 'commit'; then
   if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_COMMIT'; then
-    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅三种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
+    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅四种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
   fi
 fi
 
@@ -143,6 +143,31 @@ if echo "$cmd" | grep -qE '(^|[^[:alnum:]_])(rm|mv|unlink|shred|trash|truncate)(
     if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_KDBX_OP'; then
       deny_msg "规则拦截：禁止对密码库（*.kdbx）、密钥文件（~/Key/ 下）或 KeePass 同步目录执行删除 / 移动 / 覆盖类操作——内容丢了不可恢复，且文件同步会把本机删除传播到手机（一次误删两端同时失去数据）。确需操作（例如经用户同意清理旧备份）时，在命令里加标记 # AI_AUTHORIZED_KDBX_OP 再执行；未获授权不得擅自加标记。日常读写密码库请通过 KeePassXC / KeePassDX 完成。"
     fi
+  fi
+fi
+# --- 规则 8：禁止关闭用户终端里的会话 / 危险的 tmux 操作（2026-10-04 用户立）---
+# 用户终端窗口里的 pi 会话（前台）他能看见、由他本人操作；agent 关闭后台会话只有一条
+# 合法路径：`tmux kill-session -t <pi-名字>`。逃生门标记 AI_AUTHORIZED_SESSION_KILL。
+# 与 pi 端 session-guard.ts 同源（判定逻辑同步改）。
+if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_SESSION_KILL'; then
+  if echo "$cmd" | grep -qE '(^|[^[:alnum:]_])tmux[[:space:]]+kill-server([^[:alnum:]_-]|$)'; then
+    deny_msg "规则拦截：禁止 tmux kill-server——会把用户自己的 tmux 会话一起端掉（2026-10-04 用户立规：终端里的会话由用户本人操作）。只关某一个后台会话请用 tmux kill-session -t <pi-名字>；确需 kill-server 时加标记 # AI_AUTHORIZED_SESSION_KILL（用户授权后使用）。"
+  fi
+  if echo "$cmd" | grep -qE 'tmux([[:space:]]+-[^[:space:]]+)*[[:space:]]+kill-session([^[:alnum:]_-]|$)' \
+     && ! echo "$cmd" | grep -qE 'pi-[[:alnum:]_-]+'; then
+    deny_msg "规则拦截：tmux kill-session 只能关 `pi-` 前缀的后台会话；用户终端里的会话及其它 tmux 会话由用户本人操作（2026-10-04 用户立规）。确需操作时加标记 # AI_AUTHORIZED_SESSION_KILL（用户授权后使用）。"
+  fi
+  if echo "$cmd" | grep -qE '(^|[^[:alnum:]_])(kill|pkill|killall)([[:space:]]|$)'; then
+    if echo "$cmd" | grep -qE '(^|[^[:alnum:]_.-])pi([^[:alnum:]_]|$)|\.pi/agent|pi[[:space:]]+-n([^[:alnum:]_]|$)'; then
+      deny_msg "规则拦截：禁止用 kill / pkill / killall 关闭 pi 会话——用户终端里的前台会话就在其中、由他本人操作（2026-10-04 用户立规）。关闭后台会话请用 tmux kill-session -t <pi-名字>；确需强杀时加标记 # AI_AUTHORIZED_SESSION_KILL（用户授权后使用）。"
+    fi
+    for pid in $(echo "$cmd" | grep -oE '(^|[[:space:];&|])[0-9]{2,7}([[:space:];&|]|$)' | tr -d ' ;&|' | sort -u); do
+      case "$(ps -o command= -p "$pid" 2>/dev/null | head -1)" in
+        pi|pi\ *)
+          deny_msg "规则拦截：pid $pid 是 pi 会话进程（很可能是用户终端里的前台会话），禁止关闭（2026-10-04 用户立规）。关闭后台会话请用 tmux kill-session -t <pi-名字>；确需强杀时加标记 # AI_AUTHORIZED_SESSION_KILL（用户授权后使用）。"
+          ;;
+      esac
+    done
   fi
 fi
 

@@ -29,9 +29,10 @@ function hasGitCommit(command: string): boolean {
 
 const DENY_REASON =
 	"[git-commit-guard] 拦截：commit 需用户明确授权（不论分支 / worktree / " +
-	"流程，全局铁律 + 2026-09-21 用户立规）。明确授权仅三种形式：用户主动" +
+	"流程，全局铁律 + 2026-09-21 用户立规）。明确授权仅四种形式：用户主动" +
 	"触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的" +
-	"自动衔接。获得授权后在命令末尾加注释标记 `# AI_AUTHORIZED_COMMIT` " +
+	"自动衔接、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）。" +
+	"获得授权后在命令末尾加注释标记 `# AI_AUTHORIZED_COMMIT` " +
 	"再执行；未获授权不得擅自加标记。";
 
 export default function (pi: ExtensionAPI) {

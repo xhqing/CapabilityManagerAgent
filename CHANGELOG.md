@@ -40,6 +40,27 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **测试**：pi 端 12 用例（含 skill 串联写法、`cd` / `git -C` / 分号串联、`git log --grep=commit`、`commit-tree`、文本提及两例）全部通过；CC 端 18 用例（规则 3 处理 11 + 规则 7 回归 4 + 规则 1/2/6 与普通命令回归 3）全部通过；两端结论一致。
 - **镜像同步**：`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/git-commit-guard.ts`、`pi/agent/extensions/git-status-guard.ts` 已同步；六部分 diff 核对一致。
 
+### 新增（session-sweep：后台会话清扫器 + 用完即清 / 不活跃即清规矩）
+
+- **为什么做**：用户 2026-10-04 明确——「**我看不到后台会话，后台会话对我来说等于不存在**」，要求「只要不活跃都要清理掉，或者用完就清理掉」。现状是代际遗田：tmux 里挂着一堆 `pi-<名字>` 后台会话（实测 21 个），其中 19 个已空闲约 29 小时（10-03 团队批量化唤醒留下），而且全部无 tmux 客户端附着（= 没人看得见）；光靠「下次记得清」的文本纪律不可靠，需要工具。
+- **改了什么**：
+  ① 全局 `~/.claude/CLAUDE.md`「会话间协作」节新增一条「**后台会话用完即清、不活跃即清**」：用完就清（`agent_call` / `agent_wake` 拉起的会话完成使命后主动 `tmux kill-session`，下次需要会重新唤醒）；不活跃就清（空闲 ≥ 30 分钟且无人在看）；明确「不能自作主张清」的四类（真实 tty 上的会话、30 分钟内有活动、活跃工作流等反馈、拿不准的情况）；给出「无人在看」「空闲」的判定方法（tmux 附着计数 + 会话记录文件 mtime，含 slug 推导规则）。
+  ② 新增 `patch/session-sweep/session-sweep.py`（可移植、无硬编码个人路径）：默认干跑列出候选与保留理由，`--kill` 才真关闭；支持 `--idle-min` / `--exclude` / `--kill-unknown` / `--json`；安全阀——只动 `pi-` 前缀、有客户端附着的跳过、非 tmux 的 pi 进程不动、记录文件匹配不到的默认不动。会话→记录文件的映射用「进程启动时间 ↔ 文件名 UTC 时间戳」（实测误差 0–1 秒）。
+- **当时执行的清理**：20 个后台会话（含 19 个空闲 ≈ 29 小时 + 1 个从未使用的空会话 `pi-vendy`）已关闭，0 失败；`pi-Victor`（27 分钟前还在活跃工作流里等反馈）按规矩保留。另有 2 个非 tmux 的 tty 会话（GrowthMarketerAgent / CommunityManagerAgent）属用户可见范围，未动。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/patch/session-sweep/session-sweep.py` 已同步；六部分 diff 核对一致。
+
+### 变更（会话保护 + 跨会话委派提交：两条新规矩配套工具强制）
+
+- **为什么做**：用户在「后台会话用完即清」立规后立刻补了两条边界与一条授权——
+  ① **终端窗口里的 pi 会话（前台）由用户本人操作，禁止 agent 用命令关闭**（他看得见这些会话、会自己处理）。风险很实：`pkill -f "pi -n"`、`kill <pid>`、`tmux kill-server` 这三类写法都会误伤用户正在用的会话（`kill-server` 更是把用户自己的 tmux 会话一起端掉）。
+  ② **其它 agent 的仓库有待提交内容时自动委派**：用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」——把「跨会话委派提交」升为常设授权，省去反复确认。
+- **改了什么**：
+  ① 全局 `~/.claude/CLAUDE.md`：「Git 写操作必须先征得同意」节新增「常设授权：其它 agent 仓库有待提交内容 → 自动委派，不必询问用户」条目；「Git 暂存区禁止 AI 自主增删改」节把 commit 的明确授权从「三种形式」扩为「**四种形式**」（新增 ④ 跨会话委派）；「工作规则 · 会话间协作」节新增同一条的完整条目（含授权边界：只允许委派对方按它自己的 skill 流程提交，不得由本会话替对方仓库执行 git 写操作）；「后台会话」条目新增子条「**用户终端里的会话（前台）一律不许用命令关闭**」（禁止 kill/pkill/killall 打 pi 进程、禁止 `tmux kill-server` 与指向非 `pi-` 名字的 `kill-session`；关闭后台会话只能 `tmux kill-session -t <pi-名字>`）。
+  ② 新增 pi 端扩展 `pi/agent/extensions/session-guard.ts`（与 CC 钩子规则 8 同源）：拦 `tmux kill-server`、拦指向非 `pi-` 名字的 `tmux kill-session`、拦打 pi 进程的 `kill` / `pkill` / `killall`（两种识别方式：命令文本出现 pi 特征；或目标是具体 pid 且实测 `ps` 显示该进程就是 `pi`——用于抓裸 `kill <pid>`）；逃生门标记 `AI_AUTHORIZED_SESSION_KILL`。
+  ③ `~/.claude/hooks/pre-tool-use-guard.sh` 新增**规则 8**（同源判定）；规则 3 与 pi 端 `git-commit-guard.ts` 的 deny 消息、`skills/commit/SKILL.md` 的标记说明同步补上第四种授权形式。
+- **测试**：pi 端 14 用例、CC 端 17 用例（含 tmux 两类、kill/pkill/killall、按 pid 实测识别、合法路径 `tmux kill-session -t pi-*` 放行、带标记放行，以及规则 2 / 7 的回归），两端全部通过。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/skills/commit/SKILL.md`、`claude/hooks/pre-tool-use-guard.sh`、`pi/agent/extensions/session-guard.ts`、`pi/agent/extensions/git-commit-guard.ts` 已同步；六部分 diff 核对一致。
+
 ### 变更（release skill 产物核查改为「以项目声明为准」；本项目声明不带产物）
 
 - **为什么改**：2026-10-04 用户立规——发版产物问题「以后不要再询问」。背景：v1.1.0 / v1.2.0 发版时 release skill 第 7 步按「本仓库历史 Release 挂过 assets」（v1.0.0 在案）暂停等待裁决；用户说明 v1.0.0 的 assets 是当时**借 Release 作备份**、并非发布惯例——该历史信号在本仓库属假信号。同时用户要求不能一刀切「全局一律不带产物」：VSCE / 二进制类项目的产物是安装链路必需品（如 vsce-install 从 Release 取 vsix），一刀切会静默破坏那些项目。
