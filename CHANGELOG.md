@@ -124,6 +124,12 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
   ③ **首次演练（ExecutiveAssistantAgent 项目）**：该仓库工作区改动（新增 termux-ssh skill + README 双语 skills 清单修正 + CHANGELOG）按新授权**直接走完 /add → /commit**——预检三步全绿（不入库检测 / gitleaks 零命中 / AI 语义扫描零可疑块）→ 5 文件入暂存 → `git commit` → **直推 main 被新开的分支保护拒绝**（保护试点当场得到验证）→ 自动走 PR 兜底通道（PR #3）→ auto-merge 合并 → 9z 步骤按 skill 的场景 B 用非破坏性 `git branch -f` 对齐本地 main、清理本地与远端源分支；全程未询问用户。
 - **镜像同步**：`claude/CLAUDE.md`、`claude/hooks/pre-tool-use-guard.sh`、`claude/skills/commit/SKILL.md`、`pi/agent/extensions/git-commit-guard.ts` 已同步；六部分 diff 核对一致。
 
+### 变更（add skill：description 与授权段补「常设授权」触发来源）
+
+- **为什么改**：上一批同步漏了一处——`skills/add/SKILL.md` 的 description 与「授权边界」段仍只写「用户触发 /add，或 bump 自动衔接」，未反映 2026-10-04 新立的常设授权（工作区 / 暂存区有待提交内容即直接发起）；commit skill 已补、add skill 漏补，两边口径不一致会导致「该自动发起时没发起」。
+- **改了什么**：`claude/skills/add/SKILL.md`：description 补「或发现工作区 / 暂存区有待提交内容时自动发起」；「授权边界」第 1 条补常设授权形式（`check_description.py` 复检 PASS，772/1024）。
+- **镜像同步**：`claude/skills/add/SKILL.md` 已同步。
+
 ### 修复（commit skill：PR 合并后远端源分支清理补全——`--auto` 异步合并下 `--delete-branch` 不生效）
 
 - **为什么修**：2026-10-04 分支保护试点后首次实走 PR 通道（PR #8）发现的流程缺口——`gh pr merge --auto --delete-branch` 只启用 auto-merge 就退出，**异步完成的合并不会执行删除**（`gh` 不在场）；仓库又未开 `delete_branch_on_merge` 时，远端源分支合并后一直挂着。核查：`chore/publish-claude-docs`（PR #8）合并后仍在远端；`chore/gate-changelog`（PR #1，2026-09-06）更是挂了近一个月，属同类尾巴的长期积累。
