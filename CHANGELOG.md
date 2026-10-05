@@ -111,6 +111,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **影响面核查**：全机 23 个仓库有同样的裸 `docs/` 规则，但**多数是有意为之**——如 `ExecutiveAssistantAgent` 的 `docs/` 装的是简历 PDF、投标模板、面试准备等业务/隐私数据（注释写明「可能含明文账号密码」），忽略是**正确且必要**的（实际上保护了这些内容没进 public 仓库）；`blog` 的 docs 正常跟踪（140/140）。仅镜像仓库该规则属误伤模板残留。
 - **镜像同步**：`claude/CLAUDE.md`、`claude/docs/*.md`、`.gitignore`。
 
+### 变更（新增第 5 种 commit 授权形式：常设授权「有待提交内容即直接提交，不用问」）
+
+- **为什么做**：用户 2026-10-04 明确「**下次工作区或暂存区有待提交的内容就直接触发 /add 或者 /commit 提交，不用问我**」——把「发现有待提交内容 → 走 skill 流程提交」从「逐次询问」改为**常设授权**，减少反复确认。授权边界：**授权的是流程、不是跳过检查**——add / commit skill 的全部安全阀（gitleaks + AI 语义预检、暂存区敏感扫描、cache 检测、需人工过目即停在 add 阶段、发版异常暂停等）照常生效。
+- **改了什么**：
+  ① 全局 `~/.claude/CLAUDE.md`：「Git 写操作必须先征得同意」节新增常设授权条目；「Git 暂存区禁止 AI 自主增删改」节把 commit 的明确授权从「四种形式」扩为「**五种形式**」（新增 ⑤ 常设授权），并明确口头泛指令不算**单次**授权但仍受常设授权约束。
+  ② CC 钩子 `pre-tool-use-guard.sh` 规则 3、pi 端 `git-commit-guard.ts` 的 deny 消息、`skills/commit/SKILL.md` 的标记说明同步补上第五种形式。
+  ③ **首次演练（ExecutiveAssistantAgent 项目）**：该仓库工作区改动（新增 termux-ssh skill + README 双语 skills 清单修正 + CHANGELOG）按新授权**直接走完 /add → /commit**——预检三步全绿（不入库检测 / gitleaks 零命中 / AI 语义扫描零可疑块）→ 5 文件入暂存 → `git commit` → **直推 main 被新开的分支保护拒绝**（保护试点当场得到验证）→ 自动走 PR 兜底通道（PR #3）→ auto-merge 合并 → 9z 步骤按 skill 的场景 B 用非破坏性 `git branch -f` 对齐本地 main、清理本地与远端源分支；全程未询问用户。
+- **镜像同步**：`claude/CLAUDE.md`、`claude/hooks/pre-tool-use-guard.sh`、`claude/skills/commit/SKILL.md`、`pi/agent/extensions/git-commit-guard.ts` 已同步；六部分 diff 核对一致。
+
 ### 修复（commit skill：PR 合并后远端源分支清理补全——`--auto` 异步合并下 `--delete-branch` 不生效）
 
 - **为什么修**：2026-10-04 分支保护试点后首次实走 PR 通道（PR #8）发现的流程缺口——`gh pr merge --auto --delete-branch` 只启用 auto-merge 就退出，**异步完成的合并不会执行删除**（`gh` 不在场）；仓库又未开 `delete_branch_on_merge` 时，远端源分支合并后一直挂着。核查：`chore/publish-claude-docs`（PR #8）合并后仍在远端；`chore/gate-changelog`（PR #1，2026-09-06）更是挂了近一个月，属同类尾巴的长期积累。

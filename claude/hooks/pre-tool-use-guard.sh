@@ -69,14 +69,14 @@ if echo "$cmd" | grep -qE 'open[[:space:]]+(-na[[:space:]]+[^&|;]*)?["'"'"']?vsc
 fi
 
 # --- 规则 3：git commit 未授权拦截（2026-09-21 用户立规：commit 不论分支/worktree/流程须明确授权）---
-# 授权标记 AI_AUTHORIZED_COMMIT 仅四种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）；其余不得擅自加
+# 授权标记 AI_AUTHORIZED_COMMIT 仅五种场景使用：/commit skill 的串联命令、用户当轮明确授权后、/add 预检完全干净后的自动衔接（2026-10-01 增）、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）、常设授权下的自动提交（工作区 / 暂存区有待提交内容即直接提交，2026-10-04 用户立）；其余不得擅自加
 # 2026-10-04 收紧：改用 is_git_command 只认「以 git 开头的命令段」——skill 里真实的
 # 串联写法 `git commit -m "..." && git push # AI_AUTHORIZED_COMMIT` 仍在规则内
 # （第一个段首为 git 的段命中 commit；标记在整条命令里），文档 / 测试用例 / echo
 # 文本里的 "git commit" 不再误伤。与 pi 端 git-commit-guard.ts 同源。
 if is_git_command 'commit'; then
   if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_COMMIT'; then
-    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅四种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接、跨会话委派（其它 agent 依用户 2026-10-04 立的常设授权发起）。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
+    deny_msg "规则拦截：commit 需用户明确授权（不论分支 / worktree / 流程，全局 CLAUDE.md 铁律）。明确授权仅五种形式：用户主动触发 /commit、用户当轮消息明确授权 commit、/add 预检完全干净后的自动衔接、跨会话委派（其它 agent 依常设授权发起）、**常设授权下的自动提交（工作区 / 暂存区有待提交内容即直接提交，2026-10-04 用户立）**。获得授权后在命令末尾加注释标记 # AI_AUTHORIZED_COMMIT 再执行；未获授权不得擅自加标记。"
   fi
 fi
 
