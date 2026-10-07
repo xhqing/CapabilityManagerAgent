@@ -25,6 +25,8 @@
 2. **路径坑**：`drive +upload` 的 `--file` 与 `docs +create` 的 `--content` 只接受**当前目录内的相对路径**（绝对路径报 unsafe file path）——先 `cd` 到文件所在目录，或用 stdin 管道（`-`）；`+download` 的 flag 是 `--file-token`（不是 `--token`）。
 3. **单文件 ≤20MB** 走整体上传（`+upload` 自动处理）；若有超大文件需分片，读 `lark-cli drive +upload --help`。
 4. **list 元数据 size 可能为 0**：上传刚完成时 list 返回的 size 字段可能是空值，不代表文件为空——验证完整性要实际下载对比字节数 / md5。
+5. **`+upload` 同名不覆盖、会生成副本**（2026-10-07 实测：同一文件重复上传后云端出现两个同名文件 ✗，非报错、非覆盖）。所以**自动化上传（定时 / 实时推送）必须先删云端同名旧文件再上传**：`lark-cli drive files list --folder-token <folder> --as user` 找同名的 token → `lark-cli drive +delete --file-token <t> --type file --as user --yes` → 再 `+upload`。删除只针对「即将被新版替换的同名文件」（不碰其它文件）；删除是写操作，手工场景先向用户确认，自动化场景需在流程里明确声明。
+6. **`--output` 只接受当前目录下的相对路径**（2026-10-07 实测）：传绝对路径会被拒（`unsafe output path`）——下载前先 `cd` 到目标目录、用 `./文件名`。
 
 ## MD 文件转为飞书文档（docx）
 
