@@ -77,13 +77,14 @@ export default function (pi: ExtensionAPI): void {
 	let lastSummarizedUserCount = -1; // 上次总结时的用户消息数（判断「有没有新输入」）
 	let sessionToken = 0; // 换会话 / 重载时自增，用于丢弃过期的总结结果
 
-	/** 文本清洗：换行 / 制表符折成空格、合并空白，并截断。 */
-	function clean(text: string, max = MAX_LABEL_LEN): string {
-		return text
+	/** 文本清洗：换行 / 制表符折成空格、合并空白，并截断到 max；ellipsis=true 时截断处补「…」（总长仍不超过 max）。 */
+	function clean(text: string, max = MAX_LABEL_LEN, ellipsis = false): string {
+		const flat = text
 			.replace(/[\r\n\t]+/g, " ")
 			.replace(/\s+/g, " ")
-			.trim()
-			.slice(0, max);
+			.trim();
+		if (flat.length <= max) return flat;
+		return ellipsis ? `${flat.slice(0, max - 1)}…` : flat.slice(0, max);
 	}
 
 	/** 总结结果清洗：在 clean 基础上再去掉模型可能多写的「总结：」前缀、引号与句末标点。 */
@@ -365,7 +366,7 @@ export default function (pi: ExtensionAPI): void {
 	// 用户刚提交输入 → 自动模式下把这次输入当作临时标签（新任务才换、短句「继续」保留旧标签）
 	pi.on("before_agent_start", async (event, ctx) => {
 		if (auto && source !== "manual") {
-			const prompt = clean(event.prompt ?? "", PROVISIONAL_LEN);
+			const prompt = clean(event.prompt ?? "", PROVISIONAL_LEN, true);
 			if (prompt && (!label || prompt.length >= PROVISIONAL_MIN_LEN)) {
 				label = prompt;
 				source = "auto";
