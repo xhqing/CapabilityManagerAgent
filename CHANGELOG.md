@@ -40,6 +40,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-07
+
+### 变更（backup skill 飞书端点：补两条实测踩坑）
+
+在密码库云端异地备份落地过程中实测发现两条坑，补入 `skills/backup/references/feishu.md` 的坑位清单（第 5、6 条）：
+
+- ① **`+upload` 同名不覆盖、会生成副本**：同一文件重复上传后云端出现两个同名文件（不报错、不覆盖）→ 自动化上传（定时 / 实时推送）**必须先删云端同名旧文件再上传**：`files list` 找到同名 token → `+delete --file-token <t> --type file --as user --yes` → 再 `+upload`，保证云端每个文件恒定一份。原文档只写了 `.md → docx` 路径的「不能同名覆盖」，二进制文件同样如此。
+- ② **`--output` 只接受当前目录下的相对路径**：传绝对路径被拒（`unsafe output path`）→ 下载前先 `cd` 到目标目录、用 `./文件名`。
+
 ## 2026-10-04
 
 ### 新增（kdbx-guard：密码库 / 密钥文件的删除与覆盖硬拦截）
