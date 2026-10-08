@@ -10,6 +10,8 @@
  *   1. **自动（默认开启）**：agent 每干完一轮，把最近的会话片段发给当前会话的模型，
  *      总结成一句不超过 30 字的标签（如「调研任务标签方案并写出扩展」），自动替换旧
  *      标签；干活途中先拿用户这轮的输入当临时标签，干完后再用总结替换。
+ *      「继续」「continue」这类续接输入不覆盖旧标签（isContinuation 判定）——
+ *      它们只是让 agent 接着干、不含新任务信息；否则长任务跑到一半，标签会被这类词洗掉。
  *      节流：同一会话两次总结至少隔 15 秒、且必须比上次总结多了新的用户消息才会再调，
  *      每次调用 30 秒超时；失败就保留现有标签、不影响会话。
  *   2. **手动**：`/task <文本>` 设置的标签会「钉住」自动总结（source = manual），直到
@@ -51,6 +53,41 @@ const TRANSCRIPT_MAX_CHARS = 6000;
 const TRANSCRIPT_MAX_MESSAGES = 12;
 /** 用户输入短于这个长度时不当作「新任务」、保留旧标签（避免「继续」「再试一次」洗掉标签）。 */
 const PROVISIONAL_MIN_LEN = 8;
+/** 剥掉续接用语与指代词后，剩余实义内容不足这个长度 → 判为「续接类」输入。 */
+const CONTINUATION_REST_MIN = 4;
+
+/** 「续接类」输入的句首用语（可带前置礼貌语；中文 + 英文）。 */
+export const CONTINUATION_HEAD_RE =
+	/^(?:请|麻烦|帮我|please|pls)?\s*(?:继续|接着|往下|续上|再试|重试|重来|再来|重新|再|下一步|然后呢|接着呢|还有呢|开始吧|干吧|搞吧|来吧|go on|keep going|keep working|keep at it|keep|carry on|continue|proceed|resume|retry|try again|try once more|once more|again|go ahead|move on|next)/i;
+
+/** 「续接类」输入里剥掉语法骨架后、不携带新任务信息的词（语气词 / 指代词 / 泛动词 / 虚词）。 */
+export const CONTINUATION_FILLER_RE =
+	/(?:一下|一次|一遍|下去|这个|那个|这边|那边|这些|那些|它|他|她|这|那|吧|啊|哦|呀|了|呢|嘛|的|请|麻烦|\b(?:the|this|that|these|those|one|some|it|task|work|thing|job|please|now|from|where|you|left|off|doing|do|go|on|with|then|just|again|once|more|for|me)\b)+/gi;
+
+/**
+ * 是否「续接类」输入：像「继续」「continue」「接着弄这个」「go on」这种话，
+ * 只是让 agent 接着干上一件事，本身不含新任务信息。
+ *
+ * 为什么需要：干活途中的临时标签直接取用户输入，若不识别这类输入，「continue」
+ * 会把整条任务标签覆盖成一个命令词——长任务跑多久、标签就错多久（2026-10-08 实缺陷）。
+ *
+ * 判定两步：① 句首必须是续接用语；② 剥掉续接用语与语气 / 指代 / 泛动词后，
+ * 剩下的实义内容不足 CONTINUATION_REST_MIN 个字。所以「继续调研 vscode 问题」
+ * 剩「调研vscode问题」→ 不算续接（按新任务处理），「继续」「接着弄这个」→ 算续接。
+ */
+export function isContinuation(raw: string): boolean {
+	if (!raw) return false;
+	let text = raw.trim().toLowerCase().replace(/\s+/g, " ");
+	text = text.replace(/[。．.!！?？~～…、,，:：;；"'“”‘’()（）\[\]【】]+$/gu, "").trim();
+	if (!text) return false;
+	const head = text.match(CONTINUATION_HEAD_RE);
+	if (!head) return false;
+	const rest = text
+		.slice(head[0].length)
+		.replace(CONTINUATION_FILLER_RE, "")
+		.replace(/[\s。．.!！?？、,，:：;；~～…]+/gu, "");
+	return rest.length < CONTINUATION_REST_MIN;
+}
 
 const SUMMARY_SYSTEM_PROMPT = [
 	"你是 pi 会话标签生成器。你会收到一段会话片段（用户消息、助手回复、工具结果）。",
@@ -231,7 +268,6 @@ export default function (pi: ExtensionAPI): void {
 
 		summarizing = true;
 		lastSummaryAt = now;
-		lastSummarizedUserCount = userCount;
 		const token = sessionToken;
 
 		const controller = new AbortController();
@@ -260,6 +296,8 @@ export default function (pi: ExtensionAPI): void {
 			source = "auto";
 			done = true;
 			working = false;
+			// 记「已总结」只放在成功路径：失败保留旧计数，之后再有结算会自动重试
+			lastSummarizedUserCount = userCount;
 			persist();
 			render(ctx);
 		} catch {
@@ -363,10 +401,12 @@ export default function (pi: ExtensionAPI): void {
 		render(ctx);
 	});
 
-	// 用户刚提交输入 → 自动模式下把这次输入当作临时标签（新任务才换、短句「继续」保留旧标签）
+	// 用户刚提交输入 → 自动模式下把这次输入当作临时标签
+	// （只有新任务才换标签：续接类输入（「继续」「continue」）与短句保留旧标签）
 	pi.on("before_agent_start", async (event, ctx) => {
-		if (auto && source !== "manual") {
-			const prompt = clean(event.prompt ?? "", PROVISIONAL_LEN, true);
+		const rawPrompt = event.prompt ?? "";
+		if (auto && source !== "manual" && !isContinuation(rawPrompt)) {
+			const prompt = clean(rawPrompt, PROVISIONAL_LEN, true);
 			if (prompt && (!label || prompt.length >= PROVISIONAL_MIN_LEN)) {
 				label = prompt;
 				source = "auto";

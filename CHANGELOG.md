@@ -98,6 +98,16 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **规则改写**：`~/.claude/CLAUDE.md` 该节由「用前必申请授权、用毕必弹窗归还」改为「已弃用并移除」——任何会话不得重装、启用或使用 computer-use 类工具（重装需用户明确同意）。
 - **镜像同步**：`claude/CLAUDE.md` 已随全局同步；`claude/patch/done-dialog/` 镜像已删除（2026-10-08）。
 
+### 变更（task-label：续接类输入不再覆盖任务标签）
+
+- **为什么改**：2026-10-08 用户报告实缺陷——任务因模型报错意外中断后，用户在会话里输入 `continue` 继续，footer 的 task-label 就一直显示「正在处理：continue」、不再反映实际任务。根因：临时标签的保护条件是「输入长度 ≥ 8 个字符才当新任务」，「继续」只有 2 个字会被护住，但英文 `continue` 恰好 8 个字符、被误判为新任务描述，把整条标签覆盖成一个命令词；覆盖只进内存、要等本轮跑完且自动总结成功才能换回，长任务期间标签就一直错着。
+- **改了什么**：`pi/agent/extensions/task-label.ts`（全局与镜像两处逐字节一致）——
+  - 新增 `isContinuation()` 判定（连同 `CONTINUATION_HEAD_RE` / `CONTINUATION_FILLER_RE` 导出以便测试）：句首是续接用语（继续 / 接着 / 重试 / 重新 / 下一步 / continue / go on / keep going / carry on / resume / retry / try again …，可带「请 / please」前置），且剥掉语气词、指代词、泛动词后剩余实义内容不足 4 个字，才算「续接类」输入；「继续调研 vscode 问题」「keep working on the parser bug」这类带任务内容的输入仍按新任务处理；
+  - `before_agent_start` 设置临时标签前先过 `isContinuation()`——续接类输入保留原标签（只把状态切成「正在处理」），不再覆盖；
+  - `autoSummarize()` 的「已总结」计数 `lastSummarizedUserCount` 由「调用前记」改为「成功后才记」——总结失败时不再被标记成已总结，之后再有结算（越过 15 秒节流）会自动重试（本次事故里第一次自动总结恰逢模型 API 报错失败、标签卡在原始输入上，也有这个因素）。
+- **测试**：`isContinuation` 用例表 35 例（中英文续接用语、带任务内容的续接式输入、边界空串）+ mock pi API 事件流 13 例（复现事故场景「已有标签 + continue 输入不覆盖」、无标签时续接输入不造标签、新任务正常替换、结算后自动总结替换、总结失败保留标签并允许重试）共 48/48 通过；真实 tmux 会话端到端实测：任务完成标签「✅ 完成：简单确认回复」→ 输入 `continue` → footer 保持「⏳ 正在处理：简单确认回复」（修复前会变成「正在处理：continue」）→ 结算后标签不变；再发真实新任务「帮我写一个统计当前目录文件数量的脚本并运行」→ 标签正常替换。持久化核对：`continue` 轮次的 task-label 记录写的是原任务标签、从未写入 `continue`。
+- **镜像同步**：`pi/agent/extensions/task-label.ts` 已同步（与全局逐字节一致）。
+
 ## 2026-10-07
 
 ### 变更（backup skill 飞书端点：补两条实测踩坑）
