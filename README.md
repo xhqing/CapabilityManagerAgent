@@ -5,7 +5,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Version](https://img.shields.io/badge/Version-1.5.2-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.5.3-blue.svg)](#)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/CapabilityManagerAgent.json" alt="Visits/day (14d)" />
 
