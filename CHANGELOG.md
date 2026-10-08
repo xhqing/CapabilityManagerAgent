@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.6] - 2026-10-08
+
+task-label 缺陷修复：续接类输入（如 `continue`）不再覆盖任务标签；自动总结失败后允许重试；详见下方 2026-10-08 分节。
+
 ## [1.5.5] - 2026-10-08
 
 computer-use 弃用并移除：CLAUDE.md 规则节改写为「已弃用并移除」；镜像删除 `claude/patch/done-dialog`；详见下方 2026-10-08 分节。
