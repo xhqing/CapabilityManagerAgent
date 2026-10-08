@@ -169,6 +169,13 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **远程连接强制新窗口**：触发 VSCode Remote-SSH / Remote Tunnel 用 `code --folder-uri "vscode-remote://ssh-remote+<host>/<远端路径>" --new-window`，禁止 `open vscode://vscode-remote` URI（会复用用户当前窗口、顶替工作现场）。
 - 两条均由 `~/.claude/hooks/pre-tool-use-guard.sh` 硬拦截兜底，文本说明为什么。
 
+### 电脑操作（computer-use）用前必申请授权、用毕必通知归还（工具层已强制）
+
+**任何「操作 GUI / 控制电脑」的能力（open-computer-use MCP、Codex computer-use 等任何等价工具）——使用前必须先向用户申请电脑操作授权**：在会话里直接向用户说明「要做什么、大概需要多久」，得到明确同意后才能开始；**使用结束后必须主动通知用户并归还电脑操作权限**（明确告知「已用完」，不得静默结束、不得让用户在一旁干等不知道何时能接手）。授权不跨次复用——下一次要操作电脑时重新申请。纯读取屏幕（截图看一眼）同属申请范围，申请时说清「只看」还是「要点击 / 输入」。
+
+- **工具层强制（pi 端，2026-10-08）**：`~/.pi/agent/mcp-adapter.json` 已把 `open-computer-use` 的 `approveTools` 设为 `true`——每次调用都会弹审批框（**Allow once / Allow for session / Allow server for this session / Deny**），这是防「不打招呼直接操作用户电脑」的最后防线；弹框选项由用户本人决定，**AI 不得代点、不得诱导**；无审批框可答的场景（headless）直接 fail closed。文本申请是常规流程、弹框是兜底，两层都要过。
+- **为什么**：用户和 AI 共用一台电脑——不经申请就截图 / 点击 / 输入，等于与用户抢操作权、把用户晾在一边；用毕不通知，用户不知道何时轮到自己（2026-10-08 事故：开发 copybridge 时连续使用 computer-use，未提前申请、用毕未通知）。CC / 其它 harness 若日后接入同类能力，同样适用本条。
+
 ### X / Twitter 查询必须带账号隔离（钩子已硬拦截）
 
 本机 Chrome 里，**查询专用号**与**运营号**分在不同的 profile。而 `twitter-cli` 默认会遍历所有 Chrome profile、取第一个有 x.com cookie 的——不隔离时，查询专用号的 cookie 一旦失效，工具会**静默**切到运营号，让运营号承担自动化访问风险（`opencli twitter` 走浏览器会话，无隔离机制，同样拦）。

@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.2] - 2026-10-08
+
+新增「电脑操作（computer-use）授权」规则：用前必向用户申请、用毕必通知归还；pi 端配套把 open-computer-use 的 `approveTools` 改为 `true`（每次调用弹审批框）；详见下方 2026-10-08 分节。
+
 ## [1.5.1] - 2026-10-07
 
 task-label 扩展改进：临时标签截断处补省略号「…」（超长输入不再硬切）；详见下方 2026-10-07 分节。
@@ -51,6 +55,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-08
+
+### 新增（电脑操作 computer-use 授权：用前必申请、用毕必通知归还）
+
+- **背景**：2026-10-08 用户立规——此前开发 copybridge 时连续使用 computer-use 操作用户电脑，既未提前申请、用毕也未通知，与用户抢操作权、让用户空等。
+- **规则**（写入全局 `~/.claude/CLAUDE.md`「工作规则」新增节）：任何 GUI 操作类能力（open-computer-use MCP、Codex computer-use 等任何等价工具）**使用前必须先向用户申请电脑操作授权**（说明要做什么、大概需要多久），得到明确同意后才能开始；**使用结束后必须主动通知用户并归还控制权**；授权不跨次复用；纯读取屏幕（截图）同属申请范围。
+- **工具强制（pi 端）**：`~/.pi/agent/mcp-adapter.json` 已把 `open-computer-use` 的 `approveTools` 由 `false` 改为 `true`——每次调用都弹审批框（Allow once / Allow for session / Allow server for this session / Deny），授权选项由用户本人决定、AI 不得代点；无审批可答场景（headless）fail closed。注：该配置为本机运行时配置、不在镜像六部分范围，镜像只含规则文本。
+- **镜像同步**：`claude/CLAUDE.md` 已随全局同步（2026-10-08，逐字节一致）。
 
 ## 2026-10-07
 
