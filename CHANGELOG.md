@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.5] - 2026-10-08
+
+computer-use 弃用并移除：CLAUDE.md 规则节改写为「已弃用并移除」；镜像删除 `claude/patch/done-dialog`；详见下方 2026-10-08 分节。
+
 ## [1.5.4] - 2026-10-08
 
 用毕通知升级为「屏幕正中央确认弹窗」：新增 `patch/done-dialog/done-dialog.sh`（弹窗 +「知道了」按钮 + 阻塞等点击，点击即确认信号 / 控制权交还）；CLAUDE.md 该节同步改准；详见下方 2026-10-08 分节。
@@ -86,6 +90,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **新增**：`patch/done-dialog/done-dialog.sh`（屏幕正中央 `display dialog`；标题「电脑操作已结束」、唯一按钮「知道了」；支持传入「本次操作摘要」；阻塞等待点击——点击返回 `acknowledged`、中止返回 `dismissed`）。已实测全链路：弹窗 → 用户点击 → 信号回传（`acknowledged`）。
 - **规则同步**：`~/.claude/CLAUDE.md` 该节「用毕」要求改为——必须弹该弹窗并等待点击才算完成交接；**不得只用会话消息 / 系统通知横幅替代**。
 - **镜像同步**：`claude/CLAUDE.md` 与 `claude/patch/done-dialog/` 已随全局同步（2026-10-08）。
+
+### 变更（computer-use 弃用并移除：规则改写 + 补丁脚本删除）
+
+- **背景**：2026-10-08 用户实测后决定彻底弃用 computer-use（原话：「我不想用computer-use能力了，以后也不想用了」），要求删除相关 MCP 与工具。
+- **全局处置**：pi 端 MCP 配置条目（`~/.pi/agent/mcp-adapter.json` 的 `open-computer-use`）移除、文件置空；全局 npm 包 `@qwen-code/open-computer-use` 卸载；MCP 元数据缓存删除；`~/.claude/patch/done-dialog/` 删除；运行中的相关进程经 launchctl / 空闲超时清理。
+- **规则改写**：`~/.claude/CLAUDE.md` 该节由「用前必申请授权、用毕必弹窗归还」改为「已弃用并移除」——任何会话不得重装、启用或使用 computer-use 类工具（重装需用户明确同意）。
+- **镜像同步**：`claude/CLAUDE.md` 已随全局同步；`claude/patch/done-dialog/` 镜像已删除（2026-10-08）。
 
 ## 2026-10-07
 
