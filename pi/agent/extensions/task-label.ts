@@ -12,6 +12,8 @@
  *      标签；干活途中先拿用户这轮的输入当临时标签，干完后再用总结替换。
  *      「继续」「continue」这类续接输入不覆盖旧标签（isContinuation 判定）——
  *      它们只是让 agent 接着干、不含新任务信息；否则长任务跑到一半，标签会被这类词洗掉。
+ *      输入里的长路径 / URL / 附件也会先紧凑化（condenseForLabel）——
+ *      否则标签会被「…/var/f…」这类路径碎片占满，看不出会话在干什么。
  *      节流：同一会话两次总结至少隔 15 秒、且必须比上次总结多了新的用户消息才会再调，
  *      每次调用 30 秒超时；失败就保留现有标签、不影响会话。
  *   2. **手动**：`/task <文本>` 设置的标签会「钉住」自动总结（source = manual），直到
@@ -87,6 +89,64 @@ export function isContinuation(raw: string): boolean {
 		.replace(CONTINUATION_FILLER_RE, "")
 		.replace(/[\s。．.!！?？、,，:：;；~～…]+/gu, "");
 	return rest.length < CONTINUATION_REST_MIN;
+}
+
+/** 路径 token（绝对 / 相对 / `~` / Windows）——临时标签里目录没有语义、先摘掉，只看文件名。
+ * 起始边界除行首 / 空格外还包括常用中英文标点与引号（路径紧跟「，」「（」时也要能识别）。 */
+const PATH_TOKEN_RE =
+	/(^|[\s，。、；：？！（）【】《》"'“”‘’\[\]<>…])((?:~|\.{1,2})?\/[^\s，。、；：？！（）【】《》"'`…]+|[A-Za-z]:\\[^\s，。、；：？！（）【】《》"'`…]+)/gu;
+/** 文件名超过这个长度、或名字里带长哈希串 → 当作机器生成的长名，整个路径丢掉。 */
+const BASENAME_MAX = 24;
+
+/** 名字（去扩展名后）里带 ≥10 位连续十六进制串 → 像机器生成的长名。 */
+function isHashLikeName(name: string): boolean {
+	return /[0-9a-f]{10,}/iu.test(name.replace(/\.[^.]+$/u, ""));
+}
+
+/** 这个 token 是否真的像路径（「和/或」这种单个斜杠的普通文字不碰）。 */
+function looksLikePath(token: string): boolean {
+	if (token.includes("\\")) return true;
+	if (/^(?:~|\.{1,2})\//u.test(token)) return true;
+	if ((token.match(/\//gu) ?? []).length >= 2) return true;
+	return /\.[A-Za-z0-9]{1,8}$/u.test(token);
+}
+
+/**
+ * 临时标签的「去噪」：路径 / URL / Markdown 附件紧凑化。
+ *
+ * 背景（2026-10-08 用户报告）：用户消息里常带很长的绝对路径（截图附件路径、项目文件
+ * 路径等），临时标签取输入原文截断到 40 字——路径一占位，标签就剩「…/var/f…」这种
+ * 没有语义的碎片，看不出会话在干什么。这里在截断之前先把这类噪声压掉：
+ *   - Markdown 图片（粘贴的附件）整体丢掉，链接只保留链接文字；
+ *   - URL 去掉协议与查询串，保留「域名 + 路径」这类有语义的部分；
+ *   - 路径只保留文件名（`/Users/x/foo/bar.ts` → `bar.ts`）；文件名本身像机器长名
+ *     （超长或含长哈希串）就整个丢掉；整条输入只剩一个这样的长名路径时退回文件名。
+ */
+export function condenseForLabel(raw: string): string {
+	let text = raw;
+	text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, " "); // Markdown 图片：整体丢掉
+	text = text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"); // Markdown 链接：只留文字
+	text = text.replace(/<([^<>]*)>/g, " $1 "); // 尖括号包裹的链接直接脱壳
+	text = text.replace(/https?:\/\/\S+/gi, (m) =>
+		m.replace(/^https?:\/\//i, "").replace(/[?#].*$/u, "").replace(/[)\]}>.,;]+$/u, ""),
+	);
+	let sawPath = false;
+	let firstBase = "";
+	text = text.replace(PATH_TOKEN_RE, (m, boundary: string, token: string) => {
+		if (!looksLikePath(token)) return m;
+		sawPath = true;
+		const base = token.split(/[\\\/]/u).filter(Boolean).pop() ?? "";
+		if (!firstBase) firstBase = base;
+		const keep = base.length <= BASENAME_MAX && !isHashLikeName(base);
+		return `${boundary}${keep ? base : ""} `;
+	});
+	text = text.replace(/\s+/g, " ").trim();
+	text = text.replace(/\s*([，。、；：？！])/gu, "$1").replace(/([，。、；：？！])\s+/gu, "$1");
+	text = text.replace(/^[\s，。、；：？！,;:.]+/u, "").replace(/[\s，。、；：]+$/u, "");
+	if (text) return text;
+	if (!sawPath || !firstBase) return "";
+	// 整条输入只剩一个长名 / 哈希路径 → 退回文件名（截断），标签至少还能看出「在弄一个文件」
+	return firstBase.length > BASENAME_MAX ? `${firstBase.slice(0, BASENAME_MAX - 1)}…` : firstBase;
 }
 
 const SUMMARY_SYSTEM_PROMPT = [
@@ -406,7 +466,7 @@ export default function (pi: ExtensionAPI): void {
 	pi.on("before_agent_start", async (event, ctx) => {
 		const rawPrompt = event.prompt ?? "";
 		if (auto && source !== "manual" && !isContinuation(rawPrompt)) {
-			const prompt = clean(rawPrompt, PROVISIONAL_LEN, true);
+			const prompt = clean(condenseForLabel(rawPrompt), PROVISIONAL_LEN, true);
 			if (prompt && (!label || prompt.length >= PROVISIONAL_MIN_LEN)) {
 				label = prompt;
 				source = "auto";
