@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.8] - 2026-10-09
+
+全局注册表超集映射表加行（Atlas 新增子项目 channels-watch、Kit 新增子项目 copybridge）；详见下方 2026-10-09 分节。
+
 ## [1.5.7] - 2026-10-08
 
 task-label 缺陷修复（二）：输入里的长路径 / URL 不再把临时标签挤成路径碎片；详见下方 2026-10-08 分节。
@@ -75,6 +79,20 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-09
+
+### 变更（全局注册表超集映射表加行：Atlas 新增子项目 channels-watch）
+
+- **为什么改**：2026-10-09 用户决定将视频号私信监控工具 channels-watch 立项并开源（仓库 xhqing/channels-watch），交由 FullStackEngineerAgent（Atlas）负责维护；作为 Atlas 的子项目登记进注册表。
+- **改了什么**：`agents-registry.md` 超集映射表在 Atlas → ghostty 行后加一行：Atlas → channels-watch（视频号私信只读监控，Python + Playwright；2026-10-09 立项开源）。
+- **镜像同步**：`claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致；顺带修正 `README_cn.md` 版本徽章落后（1.5.1 → 1.5.8）。
+
+### 变更（全局注册表超集映射表加行：Kit 新增子项目 copybridge）
+
+- **为什么改**：2026-10-09 核对团队仓库 Visitors 徽章数据源时发现，copybridge（2026-10-08 建立的 macOS 剪贴板桥接工具，已开源 xhqing/copybridge）尚未登记进注册表超集映射表与 ExecutiveAssistantAgent 子项目清单，一并补登（其采集列表登记已随同日 xhqing 变更完成）。
+- **改了什么**：`agents-registry.md` 超集映射表在 Kit → blog 行后加一行：Kit → copybridge（macOS 剪贴板桥接工具；2026-10-08 建立、2026-10-09 登记）。
+- **镜像同步**：`claude/docs/agents-registry.md` 已同步，diff 与全局逐字节一致。
 
 ## 2026-10-08
 
