@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.16] - 2026-10-09
+
+agent-wait-banner 判定精化：等待窗口精确化（send 类委派等回信期间才补横幅；ask 一有结果即结窗不再补），修复「已收尾汇报被误补横幅」的假阳性（用户实测指出）；同步更新全局 CLAUDE.md 工具描述句；详见下方 2026-10-09 分节。
+
 ## [1.5.15] - 2026-10-09
 
 capability-manager skill 对齐现状：命名规则改为「以 `Agent` 结尾、前缀尽可能简单」、引用模型改单一出口（删旧「分发到各 agent 项目副本」描述）、清理 find-skill 残留与注册表路径修正；详见下方 2026-10-09 分节。
@@ -109,6 +113,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
 ## 2026-10-09
+
+### 变更（agent-wait-banner 判定精化：等待窗口精确化，修复「已收尾汇报被误补横幅」）
+
+- **为什么改**：2026-10-09 用户实测指出一处矛盾——超时放弃 / 已收到回复的收尾汇报（正文写着「无进行中的等待」）被旧版扩展自动补上大红横幅，两句话打架。根因：旧版判定为粗粒度「本轮只要委派过其它智能体（`agent_call` / `intercom` / `agent_wake`），收尾消息若没带横幅就自动补」，不区分「是否还在等待」。
+- **改了什么**：① pi 扩展 `~/.pi/agent/extensions/agent-wait-banner.ts` 判定重构为「等待窗口」（v2）——**send 类委派**（`agent_call` mode=send / `intercom` send|handover）发出后、到任何新消息（对方回信 / 用户输入）到达前，窗口内汇报自动补横幅；**ask 类调用**用 `toolCallId` 登记、`tool_execution_end`（回复 / 超时 / 失败）即结窗不再补（按「联系不上不硬等」原则，超时后不提醒保持会话）；`agent_wake` 单独不算等待；widget 与窗口同步（ask 阻塞期间挂、窗口关闭即撤）。② 全局 CLAUDE.md「工具强制」描述句同步更新（替代原「本轮只要委派过就补」的表述）。
+- **验证**：单元测试 14/14 通过（含今日场景复盘：ask 回复后 / ask 超时后 → 不补；send 后未收消息 → 补；send 后回信 → 不补；intercom handover → 补；已含横幅字样不重复补）；端到端实测（两个临时 pi 会话）——send 后、回信前输出被正确补横幅，回信后与 ask 返回后的输出均不补。新逻辑从下一个新会话生效（扩展启动时加载，已在运行的会话仍持旧版）。
+- **同步**：镜像 `pi/agent/extensions/agent-wait-banner.ts` 与 `claude/CLAUDE.md` 已更新至与全局逐字节一致。
 
 ### 变更（capability-manager skill 对齐现状：命名规则 / 单一出口模型 / find-skill 清理）
 
