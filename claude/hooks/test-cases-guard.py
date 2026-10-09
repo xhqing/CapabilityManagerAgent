@@ -20,11 +20,15 @@ Issue 需求端）：测试（用例）定义权归测试 Agent（Hopper / 独�
 - Bash 命令中指向上述目标的写类操作：rm / mv / touch / mkdir / tee /
   truncate / chmod 等参数含测试目标；cp / ln / rsync / install 目标参数
   是测试目标；sed -i；输出重定向（> / >>）目标为测试文件；find -delete；
-  git rm / mv / add / clean / restore / checkout / stash（显式指向测试目标）。
+  git rm / mv / clean / restore / checkout / stash（显式指向测试目标）。
 
 放行：
 - 一切读与运行操作（cat / ls / grep / diff / git log / 跑测试命令等——
   跑测试命令不含写动词，天然放行）；
+- **`git add` 把测试文件入暂存区**（2026-10-09 用户收窄：守卫只防「改测试
+  内容」，不拦「入暂存区」——暂存不改变文件内容，而 dev-workflow 要求
+  「测试 + 实现同一次提交、同一个 PR」，开发侧必须能把测试文件加进暂存区；
+  此前 `add` 被归入 git 写动词、把这条动线一并拦住了）；
 - 命令中带授权标记 `# TEST_CASES_WRITE_OK` 的整条命令（测试 Agent 出题
   写测试、独立会话代行、用户授权的例外操作走此通道，与杀 VSC 进程 hook
   的 `# AI_AUTHORIZED_KILL_VSC` 同模式）。
@@ -32,8 +36,9 @@ Issue 需求端）：测试（用例）定义权归测试 Agent（Hopper / 独�
 拦截动作：exit 2（deny），stderr 说明原因与合规通道。
 
 已知的强度边界（接受）：拦「显式路径的写命令」，拦不住命令内部代码的
-文件操作（如 python -c 里 open(..., 'w')）与 `git add .` 这类无显式目标
-的形式——深层规避靠 dev-workflow 流程纪律与测试 Agent 独立出题兜底。
+文件操作（如 python -c 里 open(..., 'w')）、以及改写后靠 `git add` 把它
+送进暂存区的路径（2026-10-09 收窄后不再拦 `git add`）——深层规避靠
+ dev-workflow 流程纪律与测试 Agent 独立出题兜底。
 """
 
 import json
@@ -76,7 +81,9 @@ WRITE_ANY = re.compile(
 # 目标参数（尾部 token）是测试目标才违规的写动词（cp src dst：源是
 # 测试目标属于读取，放行；目标写入才拦）
 WRITE_DST = re.compile(r"\b(cp|ln|rsync|scp|install)\b")
-GIT_WRITE = re.compile(r"\bgit\s+(rm|mv|add|clean|restore|checkout|stash)\b")
+# 会改动 / 搬走测试内容的 git 子命令：注意**不含 `git add`**——暂存不改变文件
+# 内容，且开发侧要把测试与实现放进同一次提交、需要它入暂存区（2026-10-09 收窄）
+GIT_WRITE = re.compile(r"\bgit\s+(rm|mv|clean|restore|checkout|stash)\b")
 SED_INPLACE = re.compile(r"\bsed\s+(?:-\w*i\w*|--in-place)")
 REDIRECT = re.compile(r">{1,2}\s*(\S+)")
 FIND_DELETE = re.compile(r"\s-delete\b")
@@ -92,7 +99,7 @@ DENY_REASON = (
     "纪律）。若确需写入（测试 Agent 出题、独立会话代行出题、用户授权的"
     "例外操作），在命令末尾加授权标记 `# TEST_CASES_WRITE_OK`，或由用户"
     "手动操作；若发现测试 / 需求本身有问题，终止开发并向用户上报，不自行"
-    "改测试绕过。"
+    "改测试绕过（`git add` 把测试文件入暂存区不在此列，不拦——暂存不改内容）。"
 )
 
 

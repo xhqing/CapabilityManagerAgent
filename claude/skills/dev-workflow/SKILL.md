@@ -75,7 +75,7 @@ git switch -c <分支名>
 
 ## 第 4 步：开发中的纪律
 
-1. **测试文件全量只读 + 可运行，禁止增删改**：一切测试文件（测试目录 `test/` `tests/` `__tests__/` `spec/` `e2e/`、`*.test.*` `*.spec.*` `test_*.py` `*_test.go` `conftest.py` 等，含存量 `test-cases/`）只能读和执行，不能新建、修改、删除、移动——包括补测试也不行（测试归测试 Agent，防「写完实现补快照式测试把当前行为连 bug 固化进断言」）。本条已配套工具强制：跨端 hook（CC / ZCode / CodeBuddy / Trae 四端共用 `~/.claude/hooks/test-cases-guard.py`，pi 端 `~/.pi/agent/extensions/test-cases-guard.ts`）直接拦截指向测试目标的写操作（被 deny 时按提示走合规通道，不要绕过），见 `references/test-cases.md`。
+1. **测试文件全量只读 + 可运行，禁止增删改**：一切测试文件（测试目录 `test/` `tests/` `__tests__/` `spec/` `e2e/`、`*.test.*` `*.spec.*` `test_*.py` `*_test.go` `conftest.py` 等，含存量 `test-cases/`）只能读和执行，不能新建、修改、删除、移动——包括补测试也不行（测试归测试 Agent，防「写完实现补快照式测试把当前行为连 bug 固化进断言」）。本条已配套工具强制：跨端 hook（CC / ZCode / CodeBuddy / Trae 四端共用 `~/.claude/hooks/test-cases-guard.py`，pi 端 `~/.pi/agent/extensions/test-cases-guard.ts`）直接拦截指向测试目标的**写操作**（bash 写动词 / Write、Edit 工具 / `git` 的 `rm`、`mv`、`clean`、`restore`、`checkout`、`stash`——被 deny 时按提示走合规通道，不要绕过）；**`git add` 入暂存区不拦**（2026-10-09 用户收窄：暂存不改变文件内容，而测试与实现要一次提交、需要开发侧能把测试文件入暂存区），见 `references/test-cases.md`。
 2. **碰到测试或需求有问题 → 终止开发，向用户汇报**：具体问题（测试跑不起来、断言疑似与 Issue 预期不符、Issue 含糊不清）+ 建议，请用户对齐：改 Issue（编辑 / 评论澄清）→ 测试 Agent 按新 Issue 改测试 → 开发继续。绝不通过改测试来绕过问题——这是 LLM 的著名失败模式（改不动代码就放宽断言），本流程从结构上禁掉它。
 3. **版本号不在功能分支 bump**：多个并行分支各自 bump 必然冲突，正式版本号递增由发版流程统一处理（`/bump` 经 bump 分支 + PR 改齐后进 main）。预发布 tag 的后缀版本号（`-rc.N` / `-beta.N`）只存在于 tag 与 Release 层面，不写进版本文件——同样不违反本条。
 4. **CHANGELOG 条目写在自己的段落**：记录「为什么改 + 改了什么」；不同分支写的条目落在不同位置，git 能自动合并。避免和别的分支同时新建同一个版本标题。
