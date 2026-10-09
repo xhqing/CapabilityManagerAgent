@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.15] - 2026-10-09
+
+capability-manager skill 对齐现状：命名规则改为「以 `Agent` 结尾、前缀尽可能简单」、引用模型改单一出口（删旧「分发到各 agent 项目副本」描述）、清理 find-skill 残留与注册表路径修正；详见下方 2026-10-09 分节。
+
 ## [1.5.14] - 2026-10-09
 
 注册表新增第 21 个 agent `cuAgent`（电脑操作员，computer-use 专用、不分组直属用户）并同步修订新建 Agent 命名规则（以 `Agent` 结尾、前缀尽可能简单，不再强制拟人名）；computer-use 口径由「已弃用并移除」修订为「仅限 cuAgent 项目内使用」（项目级 MCP）；详见下方 2026-10-09 分节。
@@ -105,6 +109,16 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
 ## 2026-10-09
+
+### 变更（capability-manager skill 对齐现状：命名规则 / 单一出口模型 / find-skill 清理）
+
+- **为什么改**：2026-10-09 命名规则修订（cuAgent 建立的配套）后，Kit 巡检提醒本项目专属 skill `capability-manager` 及其 references 仍写旧命名规则（「拟人名必选」「目录名 XxxAgent」等）；全面核对时发现另外两处系统性过时：① 三个 references 仍把「全局 → 各 agent 项目副本分发」写成现行流程（该分发层 2026-09-13 已终结、副本已全部清空）；② 多处引用已不存在的 find-skill。本次一并对齐到现状。
+- **改了什么**（`.claude/skills/capability-manager/`，项目专属 skill、不进全局 / 不进镜像，只动本项目文件）：
+  - `SKILL.md`：description 与场景 B / 汇报口径删「各 agent 项目副本 / 分发」旧模型（改单一出口）；场景 C 命名流程改为「以 `Agent` 结尾、前缀尽可能简单；用户要求时才按历史拟人名惯例」；注册表位置改指 `~/.claude/docs/agents-registry.md`；合法差异示例改用现行本机数据目录（scroll-reverser `local/`、backup `endpoints/`）。
+  - `references/registry-and-scaffolding.md`：定名 / 查重 / 注册表追加 / 镜像路径按现状改准；脚手架改为「不建 `.claude/`、不复制通用副本」（与 new-agent-scaffold.md 对齐）；徽章标准改 License / Version / Type（删旧「Last Commit / AI Agent」口径）；补 `AGENTS.md` 软链与 VERSION / CHANGELOG 生成；开源命令占位符改 `<目录名>`；建远程的授权口径补 `/commit` 通道。
+  - `references/sync-flow.md`：「同步情形 2（分发）」改写为已终结说明；角色速查表与巡检脚本去掉项目副本层；find-skill 例外段与合法差异表改列现行本机数据差异。
+  - `references/content-lifecycle.md`：判断矩阵与新增 / 下线 / 修改流程去掉分发步骤；改 CLAUDE.md 的影响示例更新。
+- **验证**：description 长度检查 `check_description.py` 通过（549/1024，exit 0）；旧词零残留扫描（find-skill / XxxAgent / DigiVendAgent / browser-use 无命中）；「拟人名」「分发」剩余处均为有意保留的历史语境说明。
 
 ### 新增（第 21 个 agent：cuAgent——电脑操作员；同步修订新建 Agent 命名规则）
 
