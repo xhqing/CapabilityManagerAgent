@@ -134,14 +134,14 @@ commit message、PR title / body、Issue 文本都是**公开文本**——commi
      - topics 推断：VSCode 扩展 → `vscode`/`vscode-extension`；性能监控 → `performance`/`monitoring`；macOS 依赖 → `macos`；TypeScript → `typescript`；Claude Code 构建 → `claude-code`；Agent → `ai-agent`。按实际命中选取，不强加。
    - 补全（或检测发现已配）后 → 写 `<!-- commit-skill: github-about = ok -->` + 日期行。
 
-   **9d. Agent 拟人名**（标记 `agent-persona`）：项目目录名以 `Agent` 结尾时，必须有一个**蕴含主要能力含义**的拟人化名字并写进 README（项目核心内容为代表 Agent 能力的 skills / rules / memory / mcp 等，名字即 Agent 的身份）。
+   **9d. Agent 名称**（标记 `agent-persona`）：项目目录名以 `Agent` 结尾时，必须有一个**名称**并写进 README（项目核心内容为代表 Agent 能力的 skills / rules / memory / mcp 等，名字即 Agent 的身份）。历史惯例是**蕴含主要能力含义的拟人名**（如 Tinker / Hopper）；**2026-10-09 修订后，新建 agent 用简洁名**——以 `Agent` 结尾的目录名本身（前缀尽可能简单，如 `cuAgent`）即为名称。
    - **触发**：目录名以 `Agent` 结尾。不以 `Agent` 结尾 → 跳过本项、不记录。
    - **检测已有**：① 查全局 `~/.claude/docs/agents-registry.md` 的「智能体命名注册表」，该仓库已在表中 → 名字即定，README 引用之；② 否则看 README（中英任一）是否已有 persona 说明块（如 `> **<Name>** — <一句话能力说明>` 形式）。两者皆无 → 视为缺名。
-   - **缺名则起名**：
-     - **查重**：新名不得与注册表已有名（Scout / Wright / Buzz / Vendy / Echo / Kit / Victor 等）重复，首字母尽量错开以利辨识；
-     - **语义**：名字要**蕴含该 Agent 的主要能力**（双关优先，如修补维护类取 Tinker「修补匠」、制造生产类取 Wright「制造匠」），避免直白工具名（如 Patcher）；
+   - **缺名则定名**：
+     - **查重**：新名不得与注册表已有名称（拟人名与项目名都查）重复，首字母尽量错开以利辨识；
+     - **定名**：**优先用简洁名**——以 `Agent` 结尾的目录名本身即名称（前缀尽可能简单，如 `cuAgent`，2026-10-09 修订）；用户要求起拟人名时按历史惯例（蕴含主要能力含义、双关优先，如 Tinker「修补匠」、Wright「制造匠」）；
      - **写入**：在两版 README 标题正下方加 persona 说明块（emoji + **名字** + 一句话能力说明），中英一致；
-     - 起名后**把新名字追加进全局 `~/.claude/docs/agents-registry.md` 的「智能体命名注册表」**（新起一行 `| **<名字>** | <仓库目录名> | <职称> | <主要职责> |`，不改已有行；若该 agent 不属销售流水线，在同文件「销售流水线与三小组」段补注其独立）；
+     - 定名后**把新名称追加进全局 `~/.claude/docs/agents-registry.md` 的「智能体命名注册表」**（新起一行 `| **<名称>** | <仓库目录名> | <职称> | <主要职责> |`，不改已有行；若该 agent 不属销售流水线，在同文件「销售流水线与三小组」段补注其独立）；
    - 已有名字（注册表命中或 README persona 块已存在）或新起并写入后 → 写 `<!-- commit-skill: agent-persona = ok -->` + 日期行（注明名字）。
 
    **9e. AutoMemory 目录**（标记 `automemory`）：**永久跳过——不检测、不补全、不写标记**。
@@ -158,7 +158,7 @@ commit message、PR title / body、Issue 文本都是**公开文本**——commi
      2. **署名说明段**：README 的 `## License & Attribution` / `## 版权与署名` 段落内（LICENSE.md 一般无此段，只看版权声明行）——凡「作为本项目作者/版权人被引用」的具体名字（`by <Name>`、`作者：<Name>`、`© <Name>`、`<Name> (<email>)`、裸人名、`@handle` 等）→ 改为 `All Contributors`。
    - **不改（排除清单）**：
      - **GitHub 仓库地址里的 user**（如 `github.com/xhqing/repo` 中的 `xhqing`）——仓库归属事实、非版权人；改了会让链接指向不存在的仓库、失效；
-     - **Agent 拟人名**（9d 写入的 Scout / Wright / Victor 等）——角色身份、非版权人，与 9d 冲突；
+     - **Agent 名称**（9d 写入的 Scout / Wright / cuAgent 等，含拟人名与简洁名）——角色身份、非版权人，与 9d 冲突；
      - **第三方依赖/工具署名**（依赖库自带的版权声明）——非本项目版权人；
      - **项目名本身**。
    - **判定方式**：由 CC 语义判断「该名字是否代表本项目版权人/作者」（非纯正则）；**拿不准的保留不动并在汇报里列出**，不擅自改。
@@ -293,7 +293,7 @@ commit message、PR title / body、Issue 文本都是**公开文本**——commi
 - GitHub About：已配置（中英双语 description + topics，YYYY-MM-DD）
 
 <!-- commit-skill: agent-persona = ok -->
-- Agent 拟人名：已写入 README（<名字>，YYYY-MM-DD）
+- Agent 名称：已写入 README（<名字>，YYYY-MM-DD）
 
 <!-- commit-skill: attribution-name = ok -->
 - 版权人/署名引用名字：已归一为 All Contributors（YYYY-MM-DD 确认）
@@ -319,7 +319,7 @@ commit message、PR title / body、Issue 文本都是**公开文本**——commi
 - `readme-standard` 标记：第 9a 步检测到 README 中英双语（`README.md` 以美式英文为主、`README_cn.md` 以简体中文为主） + LOGO + 徽章 + 版权署名段全齐时写入。
 - `license` 标记：第 9b 步检测到 `LICENSE.md` 存在（且无冗余）时写入。
 - `github-about` 标记：第 9c 步补全 About（或检测发现已配）后写入。
-- `agent-persona` 标记：第 9d 步检测到 README 已有拟人名（或新起并写入）后写入；仅以 `Agent` 结尾的项目适用。
+- `agent-persona` 标记：第 9d 步检测到 README 已有名称（拟人名 / 简洁名，或新起并写入）后写入；仅以 `Agent` 结尾的项目适用。
 - `automemory` 标记：**永久不写入**——9e 已随全局 AutoMemory 禁用而永久跳过（详见第 9e 步），缓存段不再出现该标记。
 - `attribution-name` 标记：第 9g 步检测到 README（中英两版）与 LICENSE.md 的版权人/署名引用名字均已归一为 `All Contributors`（或无可改位置）后写入。
 - `readme-link-text` 标记：第 9h 步检测到英文版 `README.md` 里指向 `README_cn.md` 的跳转链接文字已是「简体中文」（或英文版暂无该链接、留待 9a 补）后写入。
@@ -347,4 +347,4 @@ commit message、PR title / body、Issue 文本都是**公开文本**——commi
 
 ## 汇报
 
-报告提交与推送结果：本次提交的暂存区文件清单（按新增、修改、删除分组）、commit hash、分支名、远程仓库地址、推送是否成功、推送的提交范围（如适用）；**功能 / 杂事 / bump 分支场景加报**：分支推送结果（分支名、推送范围）、建 PR 结果（新建 PR 的 URL，或已有 open PR 的链接）与 auto-merge 状态（已启用，CI 绿自动合并）、9z 等待与对齐结果（PR 是否已合并 / 等待时长或超时、本地 main 对齐结果、已清理的本地与远端分支；CI 失败或异常即停的如实报告原因与后续指引），并提示——**修复 / 功能合并进 main 后由发版链自动发正式版**（2026-10-09 用户明确：「修复合并进 main 之后就应该自动发布正式版」——**不要拿「要不要发版」问用户**）：`/commit` 走到第 10 步会自动触发 bump 链条完成发版；验收在发版之后进行（用户装上正式版实际使用），发现问题走修复循环 + 补丁版；**main 直推被拒、自动走 PR 兜底通道的场景加报**：拦截原因（分支保护 / non-fast-forward）、所建分支名、PR URL、auto-merge 状态、9z 等待与对齐结果（PR 是否已合并 / 等待时长或超时、本地 main 对齐结果、已清理的本地与远端分支；异常即停的如实报告原因，交用户处理）；若因发现敏感内容而终止，则列出对应文件清单、敏感片段与处理建议；若本次扫描有白名单跳过项，加报一行「白名单跳过：<条目摘要>」（不展开）；若因发现 cache 文件/目录而终止，则列出 cache 清单、已写入 `.gitignore` 的忽略规则，并提示用户从暂存区移除 cache（`git restore --staged` / `git rm --cached`）。（版本号不一致不再终止提交——已移至 push 后第 9k 步处理。）并提示「本次提交流程已终止，处理 / 确认后需重新触发（重新输入 `/commit`，或重新 `/add` 且预检完全干净自动衔接）走完整流程」。随后报告第 9 步项目标配检测的结果：补了哪些内容（logo.svg、README/README_cn 改动或新建、徽章清单（License / Version / Type 三枚补全情况，含移除 Forks / Stars / Last Commit 等动态徽章，如有；团队仓库已挂的 Visitors 访问量徽章属允许例外、如实报告「保留未动」）、版权署名段、persona 拟人名、LICENSE.md 新建/冗余删除、About 的 description/topics、版权人/署名引用名字归一为 All Contributors 的改动、英文版 README 跳中文版链接文字统一为「简体中文」的改动、仓库 Sponsors 按钮（检测 / 修复 `xhqing/.github` 全局 FUNDING.yml）的改动、CHANGELOG.md 与 VERSION 文件（第 9m 步）的新建结果（缺哪个建哪个 + 版本号取值来源）或已存在确认、版本滞后检测的结果（VERSION 是否滞后；若滞后则报告：当前 VERSION / 最新已发布版本 / 待发布提交数 + 指引「发版时统一 bump，执行 /bump」——不就地修改文件）、版本号一致性检测的结果（VERSION 与各文件是否一致；若不一致则报告：以 VERSION 为准同步了哪些文件 + 各自旧值→新值））以及写入了哪些缓存标记；**报告第 10 步自动发版检测与衔接结果**（走了发版链则报告全程——版本未就绪时含 bump 的新版本号与改动文件、add 预检结果与暂存情况、bump 提交的 PR / CI 合并 / 对齐，以及最终的版本号 / tag / GitHub Release URL / 产物与清理，转述各环节汇报要点；未触发或链条中途停下则说明原因——工作区或暂存区不干净 / PR 未合并 / 无新提交 / 无 VERSION / gh 未就绪 / 链条停在某环节待人工）；提醒「本次补全的标配内容是新工作区改动，本 skill 不执行 git add，需用户自行 `git add` 后再 `/commit` 才会提交（功能分支上，下次 `/commit` 继续推送到同一分支）；有这类未提交改动时第 10 步不会自动发版，提交后的下次 `/commit` 会再走发版检测」。**汇报的最后一件事（2026-09-05 用户立；同日修订：代码块首行加 `>> git status` 命令标记）**：执行 `git status`，把该命令的输出**原样**以代码块方式直接输出——不加工、不总结、不截断、不做额外解读，代码块**首行固定加一行 `>> git status` 命令标记**（让用户一眼看出这是 `git status` 的执行输出；标记行是呈现格式、不算命令输出的一部分）；无论流程走完还是中途终止（敏感内容扫描 / cache 检测命中），汇报都以这个 `git status` 代码块收尾（对应执行流程第 11 步）。
+报告提交与推送结果：本次提交的暂存区文件清单（按新增、修改、删除分组）、commit hash、分支名、远程仓库地址、推送是否成功、推送的提交范围（如适用）；**功能 / 杂事 / bump 分支场景加报**：分支推送结果（分支名、推送范围）、建 PR 结果（新建 PR 的 URL，或已有 open PR 的链接）与 auto-merge 状态（已启用，CI 绿自动合并）、9z 等待与对齐结果（PR 是否已合并 / 等待时长或超时、本地 main 对齐结果、已清理的本地与远端分支；CI 失败或异常即停的如实报告原因与后续指引），并提示——**修复 / 功能合并进 main 后由发版链自动发正式版**（2026-10-09 用户明确：「修复合并进 main 之后就应该自动发布正式版」——**不要拿「要不要发版」问用户**）：`/commit` 走到第 10 步会自动触发 bump 链条完成发版；验收在发版之后进行（用户装上正式版实际使用），发现问题走修复循环 + 补丁版；**main 直推被拒、自动走 PR 兜底通道的场景加报**：拦截原因（分支保护 / non-fast-forward）、所建分支名、PR URL、auto-merge 状态、9z 等待与对齐结果（PR 是否已合并 / 等待时长或超时、本地 main 对齐结果、已清理的本地与远端分支；异常即停的如实报告原因，交用户处理）；若因发现敏感内容而终止，则列出对应文件清单、敏感片段与处理建议；若本次扫描有白名单跳过项，加报一行「白名单跳过：<条目摘要>」（不展开）；若因发现 cache 文件/目录而终止，则列出 cache 清单、已写入 `.gitignore` 的忽略规则，并提示用户从暂存区移除 cache（`git restore --staged` / `git rm --cached`）。（版本号不一致不再终止提交——已移至 push 后第 9k 步处理。）并提示「本次提交流程已终止，处理 / 确认后需重新触发（重新输入 `/commit`，或重新 `/add` 且预检完全干净自动衔接）走完整流程」。随后报告第 9 步项目标配检测的结果：补了哪些内容（logo.svg、README/README_cn 改动或新建、徽章清单（License / Version / Type 三枚补全情况，含移除 Forks / Stars / Last Commit 等动态徽章，如有；团队仓库已挂的 Visitors 访问量徽章属允许例外、如实报告「保留未动」）、版权署名段、persona 名称、LICENSE.md 新建/冗余删除、About 的 description/topics、版权人/署名引用名字归一为 All Contributors 的改动、英文版 README 跳中文版链接文字统一为「简体中文」的改动、仓库 Sponsors 按钮（检测 / 修复 `xhqing/.github` 全局 FUNDING.yml）的改动、CHANGELOG.md 与 VERSION 文件（第 9m 步）的新建结果（缺哪个建哪个 + 版本号取值来源）或已存在确认、版本滞后检测的结果（VERSION 是否滞后；若滞后则报告：当前 VERSION / 最新已发布版本 / 待发布提交数 + 指引「发版时统一 bump，执行 /bump」——不就地修改文件）、版本号一致性检测的结果（VERSION 与各文件是否一致；若不一致则报告：以 VERSION 为准同步了哪些文件 + 各自旧值→新值））以及写入了哪些缓存标记；**报告第 10 步自动发版检测与衔接结果**（走了发版链则报告全程——版本未就绪时含 bump 的新版本号与改动文件、add 预检结果与暂存情况、bump 提交的 PR / CI 合并 / 对齐，以及最终的版本号 / tag / GitHub Release URL / 产物与清理，转述各环节汇报要点；未触发或链条中途停下则说明原因——工作区或暂存区不干净 / PR 未合并 / 无新提交 / 无 VERSION / gh 未就绪 / 链条停在某环节待人工）；提醒「本次补全的标配内容是新工作区改动，本 skill 不执行 git add，需用户自行 `git add` 后再 `/commit` 才会提交（功能分支上，下次 `/commit` 继续推送到同一分支）；有这类未提交改动时第 10 步不会自动发版，提交后的下次 `/commit` 会再走发版检测」。**汇报的最后一件事（2026-09-05 用户立；同日修订：代码块首行加 `>> git status` 命令标记）**：执行 `git status`，把该命令的输出**原样**以代码块方式直接输出——不加工、不总结、不截断、不做额外解读，代码块**首行固定加一行 `>> git status` 命令标记**（让用户一眼看出这是 `git status` 的执行输出；标记行是呈现格式、不算命令输出的一部分）；无论流程走完还是中途终止（敏感内容扫描 / cache 检测命中），汇报都以这个 `git status` 代码块收尾（对应执行流程第 11 步）。

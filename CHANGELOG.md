@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.14] - 2026-10-09
+
+注册表新增第 21 个 agent `cuAgent`（电脑操作员，computer-use 专用、不分组直属用户）并同步修订新建 Agent 命名规则（以 `Agent` 结尾、前缀尽可能简单，不再强制拟人名）；computer-use 口径由「已弃用并移除」修订为「仅限 cuAgent 项目内使用」（项目级 MCP）；详见下方 2026-10-09 分节。
+
 ## [1.5.13] - 2026-10-09
 
 注册表镜像：zcode-cli 与 cmux-launcher 标注「2026-10-09 起短期搁置（用户决定暂不维护）」（Atlas 两个子项目）；详见下方 2026-10-09 分节。
@@ -101,6 +105,23 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
 ## 2026-10-09
+
+### 新增（第 21 个 agent：cuAgent——电脑操作员；同步修订新建 Agent 命名规则）
+
+- **为什么改**：2026-10-09 用户建立第 21 个 agent **cuAgent（电脑操作员）**——用 computer-use 能力（GUI 自动化：看屏幕 / 点击 / 输入 / 拖拽）代替用户操作本机电脑界面；独立工具型 agent、不分组、直属用户，独立于销售流水线（远程仓库待建）。并随之一并修订新建 Agent 的命名规则：**以 `Agent` 结尾、前缀尽可能简单**（如 `cuAgent`）——不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名（历史 agent 多为拟人名，沿用保留）。
+- **改了什么**：
+  - `agents-registry.md`：注册表加 cuAgent 行（名称 / 项目（仓库）/ 职称「电脑操作员」/ 职责）；表头「拟人名」改「名称」并补命名规则说明（「以 `Agent` 结尾、前缀尽可能简单，如 `cuAgent`；历史 agent 多为拟人名」）；「销售流水线与三小组」段补 cuAgent 位置说明（不分组、直属用户、独立于销售流水线）；「新建 Agent 时自动维护注册表」节与超集关系节里的「带拟人名的」措辞按新口径修订。
+  - `new-agent-scaffold.md`：目录名 / 名称规则改为「以 `Agent` 结尾、前缀尽可能简单」；引入语与 logo 小节措辞同步（「含团队 agent 与独立工具型 agent」）。
+  - `commit/SKILL.md`（9d 步）：「拟人名」全面改「名称」；「缺名则定名」改为优先简洁名（以 `Agent` 结尾的目录名本身即名称），用户要求拟人名时才按历史惯例起名；查重口径（拟人名与项目名都查）、9g 排除清单、缓存模板说明同步。
+  - `icon-design/SKILL.md`：logo 视觉区分节「拟人实体用拟人头像」改为「Agent 门面用统一模板」（名称含拟人名与简洁名）。
+  - `CLAUDE.md`：「团队结构参考」节由「20 个拟人名 agent」改为「21 个 agent」，新建流程与查重措辞按新命名规则同步。
+- **镜像同步**：五处已覆盖——`claude/CLAUDE.md`、`claude/docs/agents-registry.md`、`claude/docs/new-agent-scaffold.md`、`claude/skills/commit/SKILL.md`、`claude/skills/icon-design/SKILL.md`，diff 与全局逐字节一致（本会话复核确认；六部分整体 diff 复核一致，仅既有的本机豁免差异）。本批改动由其它会话完成（Kit 巡检发现并委派）；Prometheus（CapabilityManagerAgent 会话）复核 diff、补记本条 CHANGELOG 并走提交与发版流程。
+
+### 变更（computer-use：由「已弃用并移除」修订为「仅限 cuAgent 项目内使用」）
+
+- **为什么改**：2026-10-09 用户确认恢复 computer-use 能力、且**限定只有 cuAgent 能用**（cuAgent 的立项即建立在此能力上）——2026-10-08 曾「彻底弃用并移除」，本次按新范围修订而非全面恢复。
+- **改了什么**：`CLAUDE.md` 该节由「已弃用并移除」改写为「仅限 cuAgent 项目内使用」——computer-use 只以 cuAgent 项目的**项目级 MCP** 形式存在（cuAgent 仓库根 `.mcp.json`，npx 拉起固定版本、不装全局）；**其它任何会话 / 项目不得启用、使用或全局安装** computer-use 类工具，全局 `~/.pi/agent/mcp-adapter.json` 保持无该条目；确需在 cuAgent 之外使用仍须先经用户明确同意。沿革（2026-10-08 弃用与组件移除 → 2026-10-09 限定恢复）保留在节内。
+- **镜像同步**：`claude/CLAUDE.md` 已覆盖，diff 与全局逐字节一致（本会话复核确认）。
 
 ### 变更（全局注册表：zcode-cli 与 cmux-launcher 标注短期搁置）
 

@@ -112,10 +112,10 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## 团队结构参考（按需读取，指针节）
 
-团队有 20 个拟人名 agent（三个小组 + 直属岗位）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.claude/docs/`，CapabilityManagerAgent `claude/docs/` 为逐字节一致的开源镜像）：
+团队共有 21 个 agent（三个小组 + 直属岗位）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.claude/docs/`，CapabilityManagerAgent `claude/docs/` 为逐字节一致的开源镜像）：
 
-- **新建带拟人名的 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（拟人名查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（目录命名、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
-- **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：拟人名、项目、职责、销售流水线、三小组分组）。
+- **新建 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
+- **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
 - **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
 - **Agent 项目与子项目的 `.claude/` 超集关系**：Agent 项目 `.claude/` 下任何内容变更后**自动同步**到其全部子项目（无需询问）；映射表与细则见 `~/.claude/docs/agents-registry.md`。
 
@@ -169,11 +169,11 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **远程连接强制新窗口**：触发 VSCode Remote-SSH / Remote Tunnel 用 `code --folder-uri "vscode-remote://ssh-remote+<host>/<远端路径>" --new-window`，禁止 `open vscode://vscode-remote` URI（会复用用户当前窗口、顶替工作现场）。
 - 两条均由 `~/.claude/hooks/pre-tool-use-guard.sh` 硬拦截兜底，文本说明为什么。
 
-### 电脑操作（computer-use）已弃用并移除（2026-10-08）
+### 电脑操作（computer-use）：仅限 cuAgent 项目内使用（2026-10-09 修订）
 
-- 用户 2026-10-08 决定**彻底弃用 computer-use**（原话：「我不想用computer-use能力了，以后也不想用了」）。相关工具已全部移除：pi 端 MCP 配置条目（`~/.pi/agent/mcp-adapter.json` 的 `open-computer-use`，文件已置空）、全局 npm 包 `@qwen-code/open-computer-use`（含 `open-computer-use` 命令）、MCP 元数据缓存、以及配套补丁脚本 `~/.claude/patch/done-dialog/`（全局与镜像一并删除）。本机还留有 Codex / cmux 各自自带的 computer-use 组件（非本项目安装），处置待用户决定。
-- **任何会话：不得重装、启用或使用 computer-use 类工具**；如日后确有需要，必须先经用户明确同意再安装（不要因为「任务需要」而自行装回）。
-- 沿革：同日早些时候曾立「用前必申请授权、用毕弹确认窗归还」规则并完成实测闭环（审批框 + done-dialog 用毕弹窗）；用户实测后决定弃用，规则随之改写为「已弃用」。原「用毕确认弹窗」机制不再存在。
+- 沿革：2026-10-08 用户曾决定彻底弃用 computer-use（原话：「我不想用computer-use能力了，以后也不想用了」），相关组件全部移除（pi 全局 MCP 条目、全局 npm 包、缓存、配套补丁；同日早些时候试点的「用前授权 + 用毕弹窗」机制随之作废）。2026-10-09 用户确认**恢复 computer-use 能力、且限定只有 cuAgent 能用**。
+- **当前口径**：computer-use 只以 cuAgent 项目的**项目级 MCP** 形式存在（cuAgent 仓库根 `.mcp.json`，由 npx 拉起固定版本、不装全局）。**其它任何会话 / 项目不得启用、使用或全局安装 computer-use 类工具**，全局 `~/.pi/agent/mcp-adapter.json` 保持无该条目；确需在 cuAgent 之外使用时，仍须先经用户明确同意。
+- 本机还留有 Codex / cmux 各自自带的 computer-use 组件（非本项目安装），处置待用户决定。
 
 ### X / Twitter 查询必须带账号隔离（钩子已硬拦截）
 
