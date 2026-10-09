@@ -86,6 +86,22 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 ## 2026-10-09
 
+### 变更（全局注册表超集映射表加行：Atlas 新增子项目 mp4-player）
+
+- **为什么改**：2026-10-09 用户把 mp4-player（VSCode 视频播放扩展，上游 Brodazz/mp4-player 的独立仓库：编辑器标签页内带音频播放视频，内置 ffmpeg WebAssembly 做音频解码与格式转码）交给 FullStackEngineerAgent（Atlas）负责并纳入其子项目；作为 Atlas 的子项目登记进注册表。
+- **改了什么**：`agents-registry.md` 超集映射表在 Atlas → ghostty 行后加一行：Atlas → mp4-player（…2026-10-09 移交 Atlas，开发目录 ~/Developer/mp4-player）。
+- **镜像同步**：全局注册表由 Kit（ExecutiveAssistantAgent 会话）按「全局权威优先、自动同步」规则覆盖到镜像 `claude/docs/agents-registry.md`，diff 与全局逐字节一致（本会话复核确认）；本条 CHANGELOG 补记由 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（发版节奏口径对齐：修复 / 功能合并进 main 后自动发正式版，验收移到发版之后）
+
+- **为什么改**：2026-10-09 用户明确「修复合并进 main 之后就应该自动发布正式版」，并指出不该拿「要不要发版」问用户。触发场景：ghostty-launcher 的 Issue #8 修复合并进 main 后，开发会话按 dev-workflow 原措辞「试用要在发版链被触发前完成」停住问用户要不要发版——而 commit skill 第 10 步本就是「合并后自动走 bump → add → commit → release」的全自动链，文本与工具 / 用户口径冲突，本次把文本对齐到工具与用户口径。
+- **改了什么**：
+  - `skills/dev-workflow/SKILL.md`：description、核心逻辑段、第 9 步（使用验收）、第 10 步（正式发版）四处——「试用满意才正式发版」「试用要在发版链被触发前完成」「正式发布的版本 = 用户使用验收过的 main 快照」等措辞改为「**发版自动衔接**：修复 / 功能合并进 main 后由 bump → add → commit → release 链自动发正式版，不等人工试用；**验收发生在发版之后**（装上正式版实际使用即为验收），发现问题走修复循环（新 Issue + 测试先行 → 修复合并 → 补丁版自动发版）」；预发布通道保留为「需要提前试用时」的可选手段，不再是正式发版前置。
+  - `skills/dev-workflow/references/acceptance.md`：文件定位段与「main 与发布的语义闭环」段同步（验收落点由「发版前」移到「发版后」）。
+  - `skills/commit/SKILL.md`：「汇报」节里「正式发版以用户预发布试用满意为前提……未 bump 时本流程不会自动发版」改为「修复 / 功能合并进 main 后由发版链自动发正式版——不要拿『要不要发版』问用户」。
+  - 镜像同步：`claude/skills/` 三处已覆盖，逐字节一致。
+- **落地佐证**（2026-10-09）：对齐后立即按新口径执行——ghostty-launcher 的 Issue #8 修复（PR #9 合并）→ bump 0.2.3（PR #11）→ 正式发版 v0.2.3（带 ghostty-launcher-0.2.3.vsix 产物），全程未再向用户确认发版。
+
 ### 变更（test-cases-guard 收窄：只防「改测试内容」，`git add` 入暂存区不再拦）
 
 - **为什么改**：2026-10-09 用户裁定收窄 test-cases-guard 的口径。触发场景：ghostty-launcher Issue #8 修复按 dev-workflow 走到收尾时，开发会话要把「测试 + 实现 + CHANGELOG」一次提交（同一次提交、同一个 PR，2026-09-30 用户定的硬规矩），而守卫原先把 `git add` 归入 git 写动词（`rm|mv|add|clean|restore|checkout|stash`）——于是开发 Agent 连「把测试文件入暂存区」也被拦下，dev-workflow 这条动线被工具强制断在半路，只能靠用户手动 `git add` 或加例外标记。用户口径：**守卫只防「开发 Agent 改测试内容」，不拦「把未改动的测试文件入暂存区」**——暂存不改变文件内容，而内容改写路径（bash 写动词 / Write、Edit 工具 / `git rm`、`mv`、`clean`、`restore`、`checkout`、`stash`）已经单独拦住了。

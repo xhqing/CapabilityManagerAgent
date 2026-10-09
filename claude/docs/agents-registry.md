@@ -61,6 +61,7 @@
 | FullStackEngineerAgent（Atlas） | pi | Pi agent harness 独立分叉仓库（TypeScript monorepo：coding agent CLI / agent 运行时 / 统一多供应商 LLM API / TUI 组件库），2026-09-19 起与原上游 earendil-works/pi 断开 fork 关系，自主维护演进 |
 | FullStackEngineerAgent（Atlas） | ghostty | Ghostty 终端的独立分叉仓库（2026-09-20 起与原上游 ghostty-org/ghostty 断开 fork 关系、自主演进；当前为 v1.3.1 基线 + 「Cmd+V 粘贴剪贴板图片为临时文件路径」补丁，GitHub Actions 云构建） |
 | FullStackEngineerAgent（Atlas） | channels-watch | 视频号私信只读监控（Python + Playwright：监控视频号助手私信页的「打招呼消息 / 私信」，新消息推送飞书 / ntfy / Server酱，launchd 每 5 分钟一轮；2026-10-09 立项开源） |
+| FullStackEngineerAgent（Atlas） | mp4-player | VSCode 视频播放扩展（上游 Brodazz/mp4-player 的独立仓库：编辑器标签页内带音频播放视频，内置 ffmpeg WebAssembly 做音频解码与格式转码；2026-10-09 移交 Atlas，开发目录 ~/Developer/mp4-player） |
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
 | ExecutiveAssistantAgent（Kit） | CyberRipple | 组织总览仓库（AI Agent 团队总览 README 中英双语；交由 Kit 负责，远程仓库待建） |
 | ExecutiveAssistantAgent（Kit） | blog | 个人博客仓库（docsify 静态博客，github.com/xhqing/blog，线上 xhqing.github.io/blog） |
