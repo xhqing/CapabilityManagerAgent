@@ -53,10 +53,10 @@
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
 | BackendEngineerAgent（Anvil） | CC-BRIDGE | Claude Code 上游桥接框架（Node.js） |
-| FullStackEngineerAgent（Atlas） | zcode-cli | 非官方 ZCode 终端客户端（Node.js / TypeScript，TUI） |
+| FullStackEngineerAgent（Atlas） | zcode-cli | 非官方 ZCode 终端客户端（Node.js / TypeScript，TUI）；2026-10-09 起短期搁置（用户决定暂不维护，本地开发目录已删除） |
 | FullStackEngineerAgent（Atlas） | zcode-vsce | 非官方 ZCode VSCode 扩展客户端（与 zcode-cli 平行的姊妹项目：同一官方 runtime、`app-server` 协议、webview 前端） |
 | FullStackEngineerAgent（Atlas） | ghostty-launcher | VSCode 状态栏一键唤起外部 Ghostty 终端的扩展（在跑激活已有窗口 / 未跑带工作区目录启动，零依赖、仅 macOS） |
-| FullStackEngineerAgent（Atlas） | cmux-launcher | VSCode 扩展：一键唤起外部 CMux 终端（状态栏 + 主侧边栏 / 副侧边栏 / 底部面板 / 编辑器区四处窗口面板，通过 CMux 自带 CLI 通信，零依赖、仅 macOS，ghostty-launcher 的姊妹项目） |
+| FullStackEngineerAgent（Atlas） | cmux-launcher | VSCode 扩展：一键唤起外部 CMux 终端（状态栏 + 主侧边栏 / 副侧边栏 / 底部面板 / 编辑器区四处窗口面板，通过 CMux 自带 CLI 通信，零依赖、仅 macOS，ghostty-launcher 的姊妹项目）；2026-10-09 起短期搁置（用户决定暂不维护，本地开发目录已归档） |
 | FullStackEngineerAgent（Atlas） | codef | 全屏打开 VSCode 的 CLI 小工具（code + 自动全屏 + 目标窗口置顶，bash + osascript、仅 macOS；开发目录 ~/Developer/codef，生产副本部署在 ~/.local/bin/，发版后安装、禁止软链） |
 | FullStackEngineerAgent（Atlas） | pi | Pi agent harness 独立分叉仓库（TypeScript monorepo：coding agent CLI / agent 运行时 / 统一多供应商 LLM API / TUI 组件库），2026-09-19 起与原上游 earendil-works/pi 断开 fork 关系，自主维护演进 |
 | FullStackEngineerAgent（Atlas） | ghostty | Ghostty 终端的独立分叉仓库（2026-09-20 起与原上游 ghostty-org/ghostty 断开 fork 关系、自主演进；当前为 v1.3.1 基线 + 「Cmd+V 粘贴剪贴板图片为临时文件路径」补丁，GitHub Actions 云构建） |
