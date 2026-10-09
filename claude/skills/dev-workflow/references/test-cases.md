@@ -38,7 +38,7 @@
   - 各端配置位置不变（CC `~/.claude/settings.json`、ZCode `~/.zcode/cli/config.json`、CodeBuddy `~/.codebuddy/settings.json`、Trae `~/.trae-cn/hooks.json` 的 PreToolUse matcher；pi 端 `~/.pi/agent/extensions/`，新会话生效）；
   - **授权标记 `# TEST_CASES_WRITE_OK`**：命令末尾带此标记则整条放行——测试 Agent / 独立会话出题写入、用户授权的例外操作（缓存清理等）走此通道（与杀 VSC 进程 hook 的 `# AI_AUTHORIZED_KILL_VSC` 同模式）。合法写入被 deny 时，应把写入内容先落到项目 `tmp/`、再用带标记的 Bash 命令拷入，或交用户手动操作——不做无标记的绕过。
 - **测试命令配置的边界**：跑测试的命令配置（如 package.json 的 `test` script、CI 里的测试命令）开发不动——要改走用户 / 测试方（这些配置决定「跑什么测试」，属测试体系的一部分）。
-- **强度边界（知情）**：hook 拦「显式路径的写命令」，拦不住命令内部代码的文件操作（python -c 里 open('w')）与 `git add .` 这类无显式目标的形式；拦测试写入防的是「改测试迁就实现」与「补快照式测试」，防不了「改实现 hack 骗测试」（在源码里 hack 让断言恰好通过）——这层靠用户实物验收（预发布产物是真实现的产物，hack 骗得过测试骗不过人手实测）+ 重要功能可选测试 Agent 复核兜底。
+- **强度边界（知情）**：hook 拦「显式路径的写命令」，拦不住命令内部代码的文件操作（python -c 里 open('w')）；**`git add` 把测试文件入暂存区不拦**（2026-10-09 用户收窄：暂存不改变文件内容，而 dev-workflow 要求「测试 + 实现同一次提交、同一个 PR」，开发侧必须能把测试文件加进暂存区——此前 `add` 被归入 git 写动词、把这条动线一并拦住了；收窄后 `git rm` / `mv` / `clean` / `restore` / `checkout` / `stash` 这些会改动或搬走测试内容的子命令照旧拦）。拦测试写入防的是「改测试迁就实现」与「补快照式测试」，防不了「改实现 hack 骗测试」（在源码里 hack 让断言恰好通过）——这层靠用户实物验收（预发布产物是真实现的产物，hack 骗得过测试骗不过人手实测）+ 重要功能可选测试 Agent 复核兜底。
 
 ## CI 集成：回归防护网进 CI（2026-09-21 立）
 

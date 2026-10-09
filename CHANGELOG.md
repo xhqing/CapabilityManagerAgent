@@ -82,6 +82,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 ## 2026-10-09
 
+### 变更（test-cases-guard 收窄：只防「改测试内容」，`git add` 入暂存区不再拦）
+
+- **为什么改**：2026-10-09 用户裁定收窄 test-cases-guard 的口径。触发场景：ghostty-launcher Issue #8 修复按 dev-workflow 走到收尾时，开发会话要把「测试 + 实现 + CHANGELOG」一次提交（同一次提交、同一个 PR，2026-09-30 用户定的硬规矩），而守卫原先把 `git add` 归入 git 写动词（`rm|mv|add|clean|restore|checkout|stash`）——于是开发 Agent 连「把测试文件入暂存区」也被拦下，dev-workflow 这条动线被工具强制断在半路，只能靠用户手动 `git add` 或加例外标记。用户口径：**守卫只防「开发 Agent 改测试内容」，不拦「把未改动的测试文件入暂存区」**——暂存不改变文件内容，而内容改写路径（bash 写动词 / Write、Edit 工具 / `git rm`、`mv`、`clean`、`restore`、`checkout`、`stash`）已经单独拦住了。
+- **改了什么**：① `~/.claude/hooks/test-cases-guard.py`：`GIT_WRITE` 去掉 `add`（保留 `rm|mv|clean|restore|checkout|stash`）；头部「拦截范围 / 放行 / 强度边界」三段与 deny 文案同步改写（明确写出 `git add` 不在此列、不拦的理由）。② `~/.pi/agent/extensions/test-cases-guard.ts`：同一份规则逐条对齐（正则、注释、deny 文案同步改）。③ 文档同步：`skills/dev-workflow/SKILL.md` 第 4 步纪律 1 与 `skills/dev-workflow/references/test-cases.md` 强度边界段补上「`git add` 不拦」与理由（原先那段「拦不住 `git add .`」的边界描述已过时，改为准确边界）。④ 镜像同步：`claude/hooks/`、`claude/skills/`、`pi/agent/extensions/` 三部分已覆盖，六部分 diff 逐字节一致（仅本机私有文件与 `__pycache__` 属豁免差异）。
+- **验证**（2026-10-09，两端各自真实跑）：CC 端把合成 JSON 喂给 hook 实跑 9 条——`git add` 单个测试文件 / 混合（实现 + 测试）/ `git add -A` → 放行；`rm` / `git rm` / `git checkout --` 测试文件、Write 工具写测试文件 → 仍拦截；带授权标记 → 放行；Edit 工具改实现文件 → 放行。pi 端把扩展源文件原样载入（仅替换 pi 包 import）后用合成 tool_call 事件跑 12 条——含 `git mv` / `sed -i` / 输出重定向 / 带标记等场景，12/12 全部符合预期（同时验证改后 TS 可正常加载）。
+- **落地边界**：pi 端扩展在会话启动时加载，已在运行中的会话仍持旧版（本次收窄对下一个会话生效）——已在跑的开发会话这一次仍需走例外标记或用户手动 `git add`，重启后不再需要。
+
 ### 变更（全局注册表超集映射表加行：Atlas 新增子项目 channels-watch）
 
 - **为什么改**：2026-10-09 用户决定将视频号私信监控工具 channels-watch 立项并开源（仓库 xhqing/channels-watch），交由 FullStackEngineerAgent（Atlas）负责维护；作为 Atlas 的子项目登记进注册表。

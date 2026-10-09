@@ -10,6 +10,12 @@
  * Issue 需求端 + 测试 Agent 主通道）：测试（用例）定义权归测试 Agent，开发
  * Agent 对一切测试文件只读 + 可运行、禁止增删改——防「改测试迁就实现」，
  * 也防补「快照式测试」。
+ *
+ * 2026-10-09 用户收窄（两端同步改）：守卫只防「改测试内容」，不拦「把测试文件
+ * 入暂存区」——`git add` 不改变文件内容，而 dev-workflow 要求「测试 + 实现同一次
+ * 提交、同一个 PR」，需要开发 Agent 能把测试文件加进暂存区；此前 `git add` 被
+ * 归入写动词、把这条动线也拦住了。收窄后：bash 写动词、Write/Edit 工具、git 的
+ * rm/mv/clean/restore/checkout/stash（这些都会改动或搬走测试内容）照常拦。
  */
 
 import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -31,7 +37,9 @@ function isTestTarget(path: string): boolean {
 const WRITE_ANY = /\b(rm|rmdir|shred|unlink|touch|mkdir|tee|truncate|dd|chmod|chown|mv)\b/;
 // 目标参数（尾部 token）是测试目标才违规的写动词（cp src dst：源是读取，放行）
 const WRITE_DST = /\b(cp|ln|rsync|scp|install)\b/;
-const GIT_WRITE = /\bgit\s+(rm|mv|add|clean|restore|checkout|stash)\b/;
+// 会改动 / 搬走测试内容的 git 子命令：注意**不含 `git add`**——暂存不改变文件
+// 内容，且开发侧要把测试与实现放进同一次提交、需要它入暂存区（2026-10-09 收窄）
+const GIT_WRITE = /\bgit\s+(rm|mv|clean|restore|checkout|stash)\b/;
 const SED_INPLACE = /\bsed\s+(?:-\w*i\w*|--in-place)/;
 const REDIRECT = />{1,2}\s*(\S+)/;
 const FIND_DELETE = /\s-delete\b/;
@@ -46,7 +54,7 @@ const DENY_REASON =
 	"纪律）。若确需写入（测试 Agent 出题、独立会话代行出题、用户授权的" +
 	"例外操作），在命令末尾加授权标记 `# TEST_CASES_WRITE_OK`，或由用户" +
 	"手动操作；若发现测试 / 需求本身有问题，终止开发并向用户上报，不自行" +
-	"改测试绕过。";
+	"改测试绕过（`git add` 把测试文件入暂存区不在此列，不拦——暂存不改内容）。";
 
 function stripQuotes(tok: string): string {
 	return tok.replace(/^['"]+|['"]+$/g, "");
