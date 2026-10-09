@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.11] - 2026-10-09
+
+新增「会话收尾检查」全局规则（所有 Agent 会话收尾前必须把自己负责的子项目仓库处理干净、不干净不收尾）+ 双端工具强制（pi 端扩展 settle-repo-check 巡检提醒、CC 端 Stop hook 未干净阻断收尾一次）；详见下方 2026-10-09 分节。
+
 ## [1.5.10] - 2026-10-09
 
 发版节奏口径对齐：修复 / 功能合并进 main 后自动发正式版、验收移到发版之后（dev-workflow + commit 措辞）；注册表加行（Atlas 子项目 mp4-player）；详见下方 2026-10-09 分节。
@@ -89,6 +93,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
 ## 2026-10-09
+
+### 新增（会话收尾检查：负责的子项目仓库必须干净——新全局规则 + 双端工具强制）
+
+- **为什么改**：2026-10-09 用户立新全局规则——每个 Agent 会话**结束任务之前**（向用户交付 / 收尾汇报之前）必须检查自己负责的全部子项目仓库是否干净，**不干净的全部要处理干净**才能收尾（不是只报告、也不留给「下次自然提交」）。触发背景：当日实测全队 22 个子项目仓库有 16 个不干净，其中 Atlas 名下 8 个只挂着上一轮同步改动未提交——子项目随附版同步、文档补记这类零散改动会长期烂在各个工作区里；收尾自检让每个 Agent 交付时，名下所有仓库都处于「干净 + 与远端同步」的终态。
+- **规则正文**（写入全局 `~/.claude/CLAUDE.md`「工作规则」新增节）：干净口径（`git status --porcelain` 无输出、与远端无落后分叉、本地领先的提交该推就推）、检查范围（该 Agent 项目 `CLAUDE.md` 的「子项目清单」节 + 注册表「超集关系映射」表）、处理方式（按各仓库自己的流程 `/add` → `/commit`，多仓库逐个处理；查不到 / 拿不准是否在途 WIP 的先向用户说明）、边界（只查自己负责的；临时产物与刻意留住的工作区在途改动不算）。
+- **工具强制（双端，判定逻辑同源——同一个 Python 脚本）**：
+  - `~/.claude/hooks/settle-repo-check.py`（CC 端 Stop hook，已在 `~/.claude/settings.json` 的 `hooks.Stop` 注册）：由 cwd 在注册表「超集关系映射」表定位所属 Agent 的全部子项目，逐个 `git status --porcelain` 巡检；未干净时 exit 2 **阻断收尾一次**（stderr 给 Claude 理由、促其先处理）、`stop_hook_active` 时放行防循环；cwd 不属于任何 Agent / 子项目时静默通过；`--json` 模式供 pi 端扩展调用。
+  - `~/.pi/agent/extensions/settle-repo-check.ts`（pi 端扩展）：`agent_settled` 钩子调用上述脚本巡检本会话所在 Agent 项目的子项目仓库——全部干净则静默；发现不干净则 ① 通知用户（`ctx.ui.notify` warning）、② 就同一批不干净仓库向会话注入一次提醒促其处理；**去重签名**防重复打断（同一批只提醒一次，集合变化或全部干净后重新计数）。
+- **镜像同步**：三处已覆盖——`claude/CLAUDE.md`、`claude/hooks/settle-repo-check.py`、`pi/agent/extensions/settle-repo-check.ts`，diff 与全局逐字节一致（本会话复核确认）；六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）一并整体 diff 复核一致。本批次由 Kit（ExecutiveAssistantAgent 会话）完成镜像同步，Prometheus（CapabilityManagerAgent 会话）复核 diff 并补记本条 CHANGELOG。
 
 ### 变更（全局注册表超集映射表加行：Atlas 新增子项目 mp4-player）
 
