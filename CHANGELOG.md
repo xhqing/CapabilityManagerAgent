@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.9] - 2026-10-09
+
+test-cases-guard 收窄：`git add` 把测试文件入暂存区不再拦（只防「改测试内容」）；详见下方 2026-10-09 分节。
+
 ## [1.5.8] - 2026-10-09
 
 全局注册表超集映射表加行（Atlas 新增子项目 channels-watch、Kit 新增子项目 copybridge）；详见下方 2026-10-09 分节。
