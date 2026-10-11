@@ -75,6 +75,7 @@
 | QuantStrategistAgent（Markowitz） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
 | ProductProducerAgent（Wright） | GitComic | Git 漫画书产品线仓库（试读 PDF + 引流图卡，en/zh 双语，后续全本迭代在该仓进行；制作资产与交付物在本机被忽略的 artifacts/） |
 | ProductProducerAgent（Wright） | agent-team-playbook-src | The Agent Team Playbook 产品私有源仓库（en/zh 源树 + spec；付费内容不公开，tag + gh release 附分语言 zip 管版本；与公开落地页仓 agent-team-playbook 区分——那是 Mason 的 GitHub Pages 部署仓） |
+| DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项；按 2026-10-09 新式脚手架不建 `.claude/`，超集以 CLAUDE.md 全文随附落地） |
 
 - **触发**：Agent 项目 `.claude/` 下任何内容变更（新增 / 修改 / 删除文件）后，**自动同步**到其所有子项目，无需询问；删除的文件同步删除子项目中的对应文件。
 - **子项目清单**：由各 Agent 项目在自己的 `.claude/CLAUDE.md` 中维护（须与上方「超集关系映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。

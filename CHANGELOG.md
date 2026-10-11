@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.17] - 2026-10-11
+
+注册表镜像：DayTradingAgent（Victor）登记新子项目 TradingProofs（交易数学的 Lean 4 + Mathlib 机器可验证证明，2026-10-11 立项）；详见下方 2026-10-11 分节。
+
 ## [1.5.16] - 2026-10-09
 
 agent-wait-banner 判定精化：等待窗口精确化（send 类委派等回信期间才补横幅；ask 一有结果即结窗不再补），修复「已收尾汇报被误补横幅」的假阳性（用户实测指出）；同步更新全局 CLAUDE.md 工具描述句；详见下方 2026-10-09 分节。
@@ -111,6 +115,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-11
+
+### 变更（全局注册表超集映射表加行：Victor 新增子项目 TradingProofs）
+
+- **为什么改**：2026-10-11 用户把交易数学形式化项目单独立项，交给 DayTradingAgent（Victor）负责、作为其子项目——把交易数学（从 `notes/cumulative-return-derivation.md` 的固定比例下注推导开始）做成 Lean 4 + Mathlib 的机器可验证证明；作为 Victor 的子项目登记进注册表（DayTradingAgent 此前在映射表中无子项目行）。
+- **改了什么**：`agents-registry.md` 超集映射表在 ProductProducerAgent → agent-team-playbook-src 行后加一行：DayTradingAgent（Victor）→ TradingProofs（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离；2026-10-11 立项；按 2026-10-09 新式脚手架不建 `.claude/`，超集以 CLAUDE.md 全文随附落地）。
+- **镜像同步**：`claude/docs/agents-registry.md` 已由 Victor 会话按「全局权威优先、自动同步」覆盖，diff 与全局逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异：anysearch `.env`、backup `endpoints.json`、scroll-reverser `local/config.md`、`__pycache__` 产物）。本条 CHANGELOG 由 Victor 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-09
 
