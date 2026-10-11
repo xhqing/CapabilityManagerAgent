@@ -1,8 +1,12 @@
 # Changelog
 
-本项目（CapabilityManagerAgent）是智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `CLAUDE.md` / `docs` 三部分（全局规则随 CLAUDE.md 走；原 `~/.claude/rules/` 目录已废弃删除，2026-09-14 起文档口径统一）与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/` 镜像范围的增删改，以及全局 ↔ 本项目镜像的同步动作。
+本项目（CapabilityManagerAgent）是智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `CLAUDE.md` / `docs` 三部分（全局规则随 CLAUDE.md 走；原 `~/.claude/rules/` 目录已废弃删除，2026-09-14 起文档口径统一）与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/`、`pi/agent/extensions/`、`pi/agent/npm/` 镜像范围的增删改，以及全局 ↔ 本项目镜像的同步动作。
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
+
+## [1.5.20] - 2026-10-11
+
+新增「pi 第三方包清单」镜像（第七类同步对象）：第三方 npm 包的备份与迁移清单（`pi/agent/npm/`）+ 刷新脚本 `patch/npm-manifest/refresh.py`；详见下方 2026-10-11 分节。
 
 ## [1.5.19] - 2026-10-11
 
@@ -145,6 +149,12 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：新增 `~/.pi/agent/extensions/background-tasks.ts`——`background_run` / `background_list` / `background_stop` 三工具（补 pi 无内建后台 bash，语义对齐 CC 的 run_in_background / TaskStop）、完成时 `[后台任务完成]` 通知唤醒、会话退出清理遗留任务、`:activity` 活动上报供 footer 提醒；日志落「会话工作目录 tmp/pi-bg/」。DayTradingAgent 侧同步：删原项目级扩展、密采样停盯提醒迁入其 `trade-guards` 的 TaskStop 桥、CLAUDE.md / SKILL.md / host-integration.md 与其 CHANGELOG 同步（详见该项目 CHANGELOG）。
 - **验证**：桥冒烟 21/21（全局路径加载 + 三工具 + 上报）；pi -p 双环境加载；tmux 实测（EA 目录、非 DayTradingAgent）后台任务运行中 footer 提醒显示 / 结束撤销。
 - **镜像同步**：`pi/agent/extensions/background-tasks.ts` 新增并同步（diff 逐字节一致）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 新增（pi 第三方包清单：备份与迁移用——第七类同步对象 + 刷新脚本）
+
+- **为什么改**：2026-10-11 用户提出——同步到本仓库的目的除「自研能力开源」外还有「智能体系统在用通用能力的备份」：以防笔记本损坏换新机时能方便找回与迁移。第三方包源码不适合直接入库（体积 / 平台耦合 / 更新成本），但「版本号 + 项目地址」清单可以；要求把本机 `~/.pi/agent/npm/` 的在用状态纳入同步。
+- **改了什么**：① 新增镜像目录 `pi/agent/npm/`——`package.json` / `package-lock.json`（本机 `~/.pi/agent/npm/` 副本：声明 + 精确锁，含版本、下载地址与完整性哈希）、`PACKAGES.md`（生成的人读清单：包名 / 精确版本 / 来源 / License / 用途）、`README.md`（用途与换机恢复步骤：装 pi 本体 → 逐个 `pi install` 精确版本 → 拷回 `claude/` 与 `pi/agent/extensions/` 自研能力 → 凭证与数据另行处理）。② 新增 `claude/patch/npm-manifest/refresh.py`（刷新脚本：复制两 json + 生成 PACKAGES.md；`--check` 校验镜像与当前本机一致）。③ `claude/docs/capability-sync.md` 纳入第七类同步对象（生成式内容、校验用 `--check`；更新时机 = 装 / 删 / 升级 pi 包后），并顺带补全 patch 目录描述（session-sweep）与 pi 扩展数量说明（14 个、以目录实际为准）。
+- **验证**：refresh.py 同步运行通过、`--check` 通过；docs 与 patch 镜像 diff 逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异）。本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-09
 
