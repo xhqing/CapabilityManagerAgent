@@ -1,21 +1,23 @@
 # 同步与一致性核对（场景 B 详细流程）
 
-本文件是 SKILL.md「场景 B」的详细展开。讲清楚**全局权威源 ↔ 本项目镜像 ↔ 各项目副本**之间怎么同步、怎么验证、哪些差异是合法的。同步范围只覆盖**六部分**（skills / CLAUDE.md / docs / hooks / patch / pi 扩展；全局规则随 CLAUDE.md 走，原 `~/.claude/rules/` 目录已废弃删除），不含 `commands/`、`settings.json`。
+本文件是 SKILL.md「场景 B」的详细展开。讲清楚**全局权威源 ↔ 本项目镜像 ↔ 各项目副本**之间怎么同步、怎么验证、哪些差异是合法的。同步范围覆盖**六部分**（skills / CLAUDE.md / docs / hooks / patch / pi 扩展；全局规则随 CLAUDE.md 走，原 `~/.claude/rules/` 目录已废弃删除）**+ 第七类生成式清单**（`pi/agent/npm/`，用 `refresh.py` 刷新 / `--check` 核验、不做逐字节 diff），不含 `commands/`、`settings.json`。
 
 ## 位置与角色速查
 
 | 角色 | 路径 | 作用 |
 |---|---|---|
 | 权威源 | `~/.claude/`（前五部分）+ `~/.pi/agent/extensions/`（pi 扩展） | 唯一事实来源；所有项目运行时加载它；改动从这里开始 |
-| 本项目开源镜像 | `~/Developer/CapabilityManagerAgent/claude/` + `pi/agent/extensions/` | 把全局开源出去的快照（六部分） |
+| 本项目开源镜像 | `~/Developer/CapabilityManagerAgent/claude/` + `pi/agent/extensions/` | 把全局开源出去的快照（六部分；另含第七类生成式清单 `pi/agent/npm/`） |
 
 > **单一出口说明**：各 agent 项目**不再**分发通用能力副本——分发层 2026-09-13 已终结、项目副本已全部清空；各 agent 运行时直接加载全局 `~/.claude/`。Agent 项目与其**子项目**之间的 `.claude/` 超集关系是另一回事（见 `agents-registry.md`），本文件不涉及。
+
+> **第七类（生成式清单）**：`~/.pi/agent/npm/`（pi 自动维护的 package.json / package-lock.json）→ `pi/agent/npm/`（两 json 副本 + 生成的 `PACKAGES.md`），由 `~/.claude/patch/npm-manifest/refresh.py` 刷新、`--check` 核验；属生成式内容，不做逐字节 diff。
 
 下面把本项目根记作 `$AUTH`，即 `~/Developer/CapabilityManagerAgent`。
 
 ## 同步情形 1：全局 → 本项目镜像（最常见）
 
-全局改好了六部分内容（前五部分在 `~/.claude/`，pi 扩展在 `~/.pi/agent/extensions/`），把它镜像到本项目。逐部分操作：
+全局改好了六部分内容（前五部分在 `~/.claude/`，pi 扩展在 `~/.pi/agent/extensions/`），把它镜像到本项目。逐部分操作（第七类 npm 清单的刷新见本节末）：
 
 ```bash
 AUTH=~/Developer/CapabilityManagerAgent
@@ -51,6 +53,8 @@ cp ~/.pi/agent/extensions/*.ts "$AUTH/pi/agent/extensions/"
 
 **本机数据差异（重要）**：个别 skill 目录下有自己的本机数据（如 `scroll-reverser/local/` 的配置、`backup/endpoints/` 的端点注册表），**被 `.gitignore` 隔离、不参与「逐字节一致」核对**（属合法差异，见下文）。整目录 `cp -R` 时保留它们、不要删。
 
+**第七类（npm 第三方包清单）**：装 / 删 / 升级 pi 包后，跑 `python3 ~/.claude/patch/npm-manifest/refresh.py` 刷新本项目 `pi/agent/npm/`（生成式内容：`package.json` / `package-lock.json` 副本 + 生成的 `PACKAGES.md`；不参与逐字节 diff，校验用 `--check`）。
+
 ## 同步情形 2（已终结）：全局 → 各 agent 项目副本
 
 早期曾有一个「把通用 skill 分发到各 agent 项目 `.claude/` 副本」的层，**2026-09-13 起已终结**——单一出口模式下各项目不再分发副本、副本已全部清空，各 agent 运行时直接加载全局 `~/.claude/`。本情形不再执行；如遇历史残留副本，按「清理而非同步」处理（删掉副本、回归加载全局）。
@@ -79,7 +83,7 @@ cp "$AUTH/pi/agent/extensions/"*.ts ~/.pi/agent/extensions/
 
 ## 一致性核对（diff 验证）
 
-每次同步后必跑，确认逐字节一致。只核对**六部分**（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）。
+每次同步后必跑，确认逐字节一致。只核对**六部分**（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）；第七类 npm 清单用 `--check` 另行核验（生成式、不比对逐字节）。
 
 **全局 vs 本项目镜像**：
 
@@ -94,6 +98,8 @@ diff -r -x '__pycache__' -x '*.bak*' "$AUTH/claude/hooks" ~/.claude/hooks
 diff -r -x '*.log' -x '.lock' -x 'conflicts' "$AUTH/claude/patch" ~/.claude/patch
 # pi 扩展（无本机产物，直接比）
 diff -r "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions
+# 第七类（npm 清单）：生成式核验
+python3 ~/.claude/patch/npm-manifest/refresh.py --check
 ```
 
 **全局 vs 某项目副本**：分发层已终结（见同步情形 2），此核对项取消。
@@ -108,15 +114,15 @@ diff -r "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions
 | hooks 目录下的 `__pycache__/`、`*.bak-*` | 字节码缓存、编辑备份等本机产物（不进镜像） | 保留，不核对 |
 | patch 目录下的 `*.log`、`.lock`、`conflicts/` | 动作日志、并发锁、锚点丢失现场等本机产物（不进镜像） | 保留，不核对 |
 
-除这几类外，六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）的 diff 报任何差异都说明同步没做对，必须修到一致。
+除这几类外，六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）的 diff 报任何差异都说明同步没做对，必须修到一致（第七类不适用 diff，用 `--check`）。
 
 ## 一致性巡检（一键扫全部）
 
-改动影响面大时，跑这个巡检一次性看六部分的状态：
+改动影响面大时，跑这个巡检一次性看六部分 + 第七类清单的状态：
 
 ```bash
 AUTH=~/Developer/CapabilityManagerAgent
-echo "=== 全局 vs 本项目镜像（六部分）==="
+echo "=== 全局 vs 本项目镜像（六部分 + npm 清单）==="
 diff "$AUTH/claude/CLAUDE.md" ~/.claude/CLAUDE.md >/dev/null 2>&1 && echo "CLAUDE.md ✅" || echo "CLAUDE.md ❌"
 for s in "$AUTH/claude/skills/"*/; do
   name=$(basename "$s")
@@ -126,6 +132,7 @@ diff -r "$AUTH/claude/docs" ~/.claude/docs >/dev/null 2>&1 && echo "docs ✅" ||
 diff -r -x '__pycache__' -x '*.bak*' "$AUTH/claude/hooks" ~/.claude/hooks >/dev/null 2>&1 && echo "hooks ✅" || echo "hooks ❌"
 diff -r -x '*.log' -x '.lock' -x 'conflicts' "$AUTH/claude/patch" ~/.claude/patch >/dev/null 2>&1 && echo "patch ✅" || echo "patch ❌"
 diff -r "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions >/dev/null 2>&1 && echo "pi 扩展 ✅" || echo "pi 扩展 ❌"
+python3 ~/.claude/patch/npm-manifest/refresh.py --check >/dev/null 2>&1 && echo "npm 清单 ✅" || echo "npm 清单 ❌（用 refresh.py 刷新）"
 echo "=== 全局 vs 各项目副本：已取消（分发层 2026-09-13 终结、副本清空）==="
 ```
 

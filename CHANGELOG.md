@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.21] - 2026-10-11
+
+capability-manager skill 对齐第七类同步对象（pi 第三方包清单）：SKILL.md / sync-flow / content-lifecycle 的同步范围、验证与巡检口径补上 npm 清单（`refresh.py` 刷新、`--check` 核验）；详见下方 2026-10-11 分节。
+
 ## [1.5.20] - 2026-10-11
 
 新增「pi 第三方包清单」镜像（第七类同步对象）：第三方 npm 包的备份与迁移清单（`pi/agent/npm/`）+ 刷新脚本 `patch/npm-manifest/refresh.py`；详见下方 2026-10-11 分节。
@@ -155,6 +159,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **为什么改**：2026-10-11 用户提出——同步到本仓库的目的除「自研能力开源」外还有「智能体系统在用通用能力的备份」：以防笔记本损坏换新机时能方便找回与迁移。第三方包源码不适合直接入库（体积 / 平台耦合 / 更新成本），但「版本号 + 项目地址」清单可以；要求把本机 `~/.pi/agent/npm/` 的在用状态纳入同步。
 - **改了什么**：① 新增镜像目录 `pi/agent/npm/`——`package.json` / `package-lock.json`（本机 `~/.pi/agent/npm/` 副本：声明 + 精确锁，含版本、下载地址与完整性哈希）、`PACKAGES.md`（生成的人读清单：包名 / 精确版本 / 来源 / License / 用途）、`README.md`（用途与换机恢复步骤：装 pi 本体 → 逐个 `pi install` 精确版本 → 拷回 `claude/` 与 `pi/agent/extensions/` 自研能力 → 凭证与数据另行处理）。② 新增 `claude/patch/npm-manifest/refresh.py`（刷新脚本：复制两 json + 生成 PACKAGES.md；`--check` 校验镜像与当前本机一致）。③ `claude/docs/capability-sync.md` 纳入第七类同步对象（生成式内容、校验用 `--check`；更新时机 = 装 / 删 / 升级 pi 包后），并顺带补全 patch 目录描述（session-sweep）与 pi 扩展数量说明（14 个、以目录实际为准）。
 - **验证**：refresh.py 同步运行通过、`--check` 通过；docs 与 patch 镜像 diff 逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异）。本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（capability-manager skill 对齐第七类同步对象：pi 第三方包清单）
+
+- **为什么改**：2026-10-11 第七类同步对象（pi 第三方包清单——`pi/agent/npm/` + `patch/npm-manifest/refresh.py`）落地后，本项目专属 skill `capability-manager`（Prometheus 的操作手册）的同步范围、验证与巡检口径仍只提「六部分」，漏掉「装 / 删 / 升级 pi 包后刷新清单」与「npm 清单用 `--check` 核验」两条动作；按 2026-10-09 命名 / 单一出口对齐的先例一并补齐。
+- **改了什么**（`.claude/skills/capability-manager/`，项目专属 skill、不进全局 / 不进镜像）：
+  - `SKILL.md`：description、「同步范围」「claude/ 镜像说明」「diff 验证护栏」「场景 A 镜像步」「场景 B diff 步」「详见」七处补上第七类（刷新用 `refresh.py`、核验用 `--check`、生成式不比对逐字节）。
+  - `references/sync-flow.md`：范围行、镜像行、「单一出口说明」后新增第七类说明；情形 1 末补刷新命令；一致性核对补 `--check` 命令；合法差异段、巡检脚本（新增 npm 清单 ✅/❌ 检查）同步。
+  - `references/content-lifecycle.md`：通用原则段补第七类；判断矩阵新增「pi 第三方包清单（第七类，生成式）」行；「六部分之外」改「非同步对象」（避免与第七类混淆）。
+- **验证**：description 长度检查通过（`check_description.py`，569/1024、exit 0）；逐文件 grep 复核第七类引用齐备。
 
 ## 2026-10-09
 
