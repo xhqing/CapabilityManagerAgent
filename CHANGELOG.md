@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.18] - 2026-10-11
+
+agent-wait-banner 重做（v3）：提醒改挂 footer 状态行（不再注入消息首行横幅）、显示时机改为「有未完活动且会话静止」、修复「intercom 回信不清窗」与「结束后提醒残留」缺陷、新增后台任务上报通道（`agent-wait-banner:activity`）；CLAUDE.md 规则节同步改写（pi 端自动显示、CC 端保留手写）；详见下方 2026-10-11 分节。
+
 ## [1.5.17] - 2026-10-11
 
 注册表镜像：DayTradingAgent（Victor）登记新子项目 TradingProofs（交易数学的 Lean 4 + Mathlib 机器可验证证明，2026-10-11 立项）；详见下方 2026-10-11 分节。
@@ -123,6 +127,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **为什么改**：2026-10-11 用户把交易数学形式化项目单独立项，交给 DayTradingAgent（Victor）负责、作为其子项目——把交易数学（从 `notes/cumulative-return-derivation.md` 的固定比例下注推导开始）做成 Lean 4 + Mathlib 的机器可验证证明；作为 Victor 的子项目登记进注册表（DayTradingAgent 此前在映射表中无子项目行）。
 - **改了什么**：`agents-registry.md` 超集映射表在 ProductProducerAgent → agent-team-playbook-src 行后加一行：DayTradingAgent（Victor）→ TradingProofs（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离；2026-10-11 立项；按 2026-10-09 新式脚手架不建 `.claude/`，超集以 CLAUDE.md 全文随附落地）。
 - **镜像同步**：`claude/docs/agents-registry.md` 已由 Victor 会话按「全局权威优先、自动同步」覆盖，diff 与全局逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异：anysearch `.env`、backup `endpoints.json`、scroll-reverser `local/config.md`、`__pycache__` 产物）。本条 CHANGELOG 由 Victor 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（agent-wait-banner 重做：提醒移至 footer 状态行、修复回信清窗缺陷、接入后台任务上报）
+
+- **为什么改**：2026-10-11 用户对 pi 会话的「大红横幅」提出四个问题——① 有内容正在动态输出时提醒是多余的（用户看得到活动、不会关窗口）；② 输出完、任务真正结束提醒还挂着（DayTradingAgent 实测：send 给 Prometheus 的回信早已到达并确认，界面横幅因「回信不清窗」持续残留）；③ 文案「正在等待其它智能体回复中」不严谨（实际场景还涉及后台任务）；④ 提醒位置可换（footer 或动态栏）。
+- **改了什么**：① `~/.pi/agent/extensions/agent-wait-banner.ts` 重做：显示位置从「消息首行自动横幅 + 编辑器上方 widget」改为 **footer 状态行**（`ctx.ui.setStatus`）；文案改为「🟥🟥🟥 还有后台进程在运行中，请稍等 🟥🟥🟥」；不再向消息内容注入任何横幅。② 显示时机改为「还有未完活动 **且** 会话静止（agent_start..agent_settled 之外）」——agent 干活期间隐藏、停下后若仍有活动则显示、活动全部结束立即撤下。③ 修复清窗缺陷（问题②的根因）：旧版只认 role=user 的 message_start，而 intercom 回信以 custom message 注入、不触发该事件，send 窗口永不关闭；新版扫会话条目（`custom_message` / `intercom_message`）按条数销掉 send 窗口，另加「委派工具失败（tool_result isError）即撤销窗口」与 30 秒兜底轮询。④ 新增活动上报通道：pi.events 事件 `agent-wait-banner:activity`（载荷 `{ source, active }`），项目扩展可把自家后台任务接进提醒（首个接入：DayTradingAgent 的 `background_run` 后台任务，运行中显示、全部结束撤）。⑤ 全局 CLAUDE.md「大红提醒」规则节同步改写：pi 端明确为「扩展自动显示、agent 无需手写横幅」；无该机制的 harness（CC 端）保留手写要求；文案与机制描述更新（标题改为「等待回复 / 后台任务运行期间的大红提醒」）。
+- **验证**：扩展加载验证（tsx + pi -p 会话均通过）；tmux 实测会话四条链路全过——background_run 任务运行中显示 / 任务结束撤销 / send 待回信显示 / 回信到达撤销（测试会话 pi-bgtest 已清理）。
+- **镜像同步**：`claude/CLAUDE.md` 与 `pi/agent/extensions/agent-wait-banner.ts` 已按「全局权威优先、自动同步」覆盖，diff 逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异）。本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-09
 
