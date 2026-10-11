@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.19] - 2026-10-11
+
+新增全局 pi 扩展 background-tasks（后台任务工具：`background_run` / `background_list` / `background_stop`、完成通知唤醒、会话退出清理、与 footer 提醒联动；自 DayTradingAgent 项目级上移为全局通用能力）；详见下方 2026-10-11 分节。
+
 ## [1.5.18] - 2026-10-11
 
 agent-wait-banner 重做（v3）：提醒改挂 footer 状态行（不再注入消息首行横幅）、显示时机改为「有未完活动且会话静止」、修复「intercom 回信不清窗」与「结束后提醒残留」缺陷、新增后台任务上报通道（`agent-wait-banner:activity`）；CLAUDE.md 规则节同步改写（pi 端自动显示、CC 端保留手写）；详见下方 2026-10-11 分节。
@@ -134,6 +138,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：① `~/.pi/agent/extensions/agent-wait-banner.ts` 重做：显示位置从「消息首行自动横幅 + 编辑器上方 widget」改为 **footer 状态行**（`ctx.ui.setStatus`）；文案改为「🟥🟥🟥 还有后台进程在运行中，请稍等 🟥🟥🟥」；不再向消息内容注入任何横幅。② 显示时机改为「还有未完活动 **且** 会话静止（agent_start..agent_settled 之外）」——agent 干活期间隐藏、停下后若仍有活动则显示、活动全部结束立即撤下。③ 修复清窗缺陷（问题②的根因）：旧版只认 role=user 的 message_start，而 intercom 回信以 custom message 注入、不触发该事件，send 窗口永不关闭；新版扫会话条目（`custom_message` / `intercom_message`）按条数销掉 send 窗口，另加「委派工具失败（tool_result isError）即撤销窗口」与 30 秒兜底轮询。④ 新增活动上报通道：pi.events 事件 `agent-wait-banner:activity`（载荷 `{ source, active }`），项目扩展可把自家后台任务接进提醒（首个接入：DayTradingAgent 的 `background_run` 后台任务，运行中显示、全部结束撤）。⑤ 全局 CLAUDE.md「大红提醒」规则节同步改写：pi 端明确为「扩展自动显示、agent 无需手写横幅」；无该机制的 harness（CC 端）保留手写要求；文案与机制描述更新（标题改为「等待回复 / 后台任务运行期间的大红提醒」）。
 - **验证**：扩展加载验证（tsx + pi -p 会话均通过）；tmux 实测会话四条链路全过——background_run 任务运行中显示 / 任务结束撤销 / send 待回信显示 / 回信到达撤销（测试会话 pi-bgtest 已清理）。
 - **镜像同步**：`claude/CLAUDE.md` 与 `pi/agent/extensions/agent-wait-banner.ts` 已按「全局权威优先、自动同步」覆盖，diff 逐字节一致；六部分整体 diff 复核一致（仅既有的本机豁免差异）。本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（新增全局 pi 扩展 background-tasks：后台任务工具，自 DayTradingAgent 上移）
+
+- **为什么改**：2026-10-11 用户指出「后台跑命令」是通用能力、应放全局（原为 DayTradingAgent 项目级扩展）——上移后全部 pi 会话可用（长构建 / 批量任务等「后台跑 → 完成唤醒」循环不再只有一个项目有），并与全局 `agent-wait-banner` footer 提醒联动天然打通。
+- **改了什么**：新增 `~/.pi/agent/extensions/background-tasks.ts`——`background_run` / `background_list` / `background_stop` 三工具（补 pi 无内建后台 bash，语义对齐 CC 的 run_in_background / TaskStop）、完成时 `[后台任务完成]` 通知唤醒、会话退出清理遗留任务、`:activity` 活动上报供 footer 提醒；日志落「会话工作目录 tmp/pi-bg/」。DayTradingAgent 侧同步：删原项目级扩展、密采样停盯提醒迁入其 `trade-guards` 的 TaskStop 桥、CLAUDE.md / SKILL.md / host-integration.md 与其 CHANGELOG 同步（详见该项目 CHANGELOG）。
+- **验证**：桥冒烟 21/21（全局路径加载 + 三工具 + 上报）；pi -p 双环境加载；tmux 实测（EA 目录、非 DayTradingAgent）后台任务运行中 footer 提醒显示 / 结束撤销。
+- **镜像同步**：`pi/agent/extensions/background-tasks.ts` 新增并同步（diff 逐字节一致）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-09
 
