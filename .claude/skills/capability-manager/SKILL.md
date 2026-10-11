@@ -1,13 +1,13 @@
 ---
 name: capability-manager
-description: 维护智能体团队的通用能力底座，是 Prometheus（通用能力管家）的操作手册。覆盖全局 ~/.claude/ 与 ~/.pi/agent/extensions/ 下 skills / CLAUDE.md / docs / hooks / patch / pi 扩展 六部分的增删改，全局权威源 ~/.claude/ ↔ 本项目开源镜像 claude/ 的同步与一致性核对（单一出口，各 agent 项目不再分发副本），以及团队智能体注册表维护与新 agent 项目脚手架。当用户要求：新增 / 修改 / 下线某个全局 skill、改全局 CLAUDE.md 或 docs 参考文档或 settings.json、把某个通用能力同步到本项目镜像、核对全局与镜像是否一致（diff）、给团队注册表新增或调整 agent、搭新 agent 项目脚手架，或任何涉及「~/.claude 通用能力维护 / 镜像同步 / 团队注册表」的工作时，都必须用本 skill——即便用户没明说「capability-manager」，只要意图落在上述场景即触发。触发后按对应场景执行流程、跑通用护栏（全局权威优先落地、敏感信息禁写、暂存区禁 AI 增删改、diff 验证逐字节一致、记本项目 CHANGELOG）。
+description: 维护智能体团队的通用能力底座，是 Prometheus（通用能力管家）的操作手册。覆盖全局 ~/.claude/ 与 ~/.pi/agent/extensions/ 下 skills / CLAUDE.md / docs / hooks / patch / pi 扩展 六部分及 pi 第三方包清单（第七类，生成式）的增删改，全局权威源 ~/.claude/ ↔ 本项目开源镜像 claude/ 的同步与一致性核对（单一出口，各 agent 项目不再分发副本），以及团队智能体注册表维护与新 agent 项目脚手架。当用户要求：新增 / 修改 / 下线某个全局 skill、改全局 CLAUDE.md 或 docs 参考文档或 settings.json、把某个通用能力同步到本项目镜像、核对全局与镜像是否一致（diff）、给团队注册表新增或调整 agent、搭新 agent 项目脚手架，或任何涉及「~/.claude 通用能力维护 / 镜像同步 / 团队注册表」的工作时，都必须用本 skill——即便用户没明说「capability-manager」，只要意图落在上述场景即触发。触发后按对应场景执行流程、跑通用护栏（全局权威优先落地、敏感信息禁写、暂存区禁 AI 增删改、diff 验证逐字节一致、记本项目 CHANGELOG）。
 ---
 
 # Capability Manager（Prometheus 的操作手册）
 
 本 skill 是 **Prometheus（通用能力管家）** 的操作手册。当用户要维护整个智能体团队共享的「通用能力底座」时，按场景给出可执行的步骤、护栏与命令模板。
 
-> **本 skill 自身的位置（特殊定位）**：capability-manager 是 Prometheus（本项目 agent）的**项目级专属 skill**，放在本项目 `.claude/skills/` 下，**不进通用能力同步体系**——它管理通用能力，但自己不是通用 skill（不属于下文「六部分」同步对象）。这是它与 anysearch / commit 等通用 skill 的区别。
+> **本 skill 自身的位置（特殊定位）**：capability-manager 是 Prometheus（本项目 agent）的**项目级专属 skill**，放在本项目 `.claude/skills/` 下，**不进通用能力同步体系**——它管理通用能力，但自己不是通用 skill（不属于下方六部分与第七类清单的同步对象）。这是它与 anysearch / commit 等通用 skill 的区别。
 
 ## 核心定位：全局权威 + 两路流出
 
@@ -22,12 +22,12 @@ description: 维护智能体团队的通用能力底座，是 Prometheus（通�
 ```
 
 - **全局 `~/.claude/` 是权威源**：所有项目运行时实际加载的中心，是「活」的源头。改动从这里开始。
-- **本项目 `claude/`（不带点）是开源镜像**：把全局内容开源出去的快照。因目录名不是 `.claude`，Claude Code 不自动加载它；它纯粹用于开源。与全局逐字节一致（六部分：skills / CLAUDE.md / docs / hooks / patch / pi 扩展）。
+- **本项目 `claude/`（不带点）是开源镜像**：把全局内容开源出去的快照。因目录名不是 `.claude`，Claude Code 不自动加载它；它纯粹用于开源。与全局逐字节一致（六部分：skills / CLAUDE.md / docs / hooks / patch / pi 扩展；另含第七类生成式清单 `pi/agent/npm/`——pi 第三方包的备份与迁移）。
 - **各 agent 项目的 `.claude/`（历史）**：早期曾有「全局 → 各 agent 项目 `.claude/` 副本」分发层，2026-09-13 起已终结（单一出口、副本全部清空）——各 agent 运行时同样直接加载全局 `~/.claude/`，不再有项目副本这一层。
 
 **权威方向单向流出**：改动先在全局落地 → 同步到本项目 `claude/` 镜像。**绝不能反过来只改镜像**——那样会与权威源分叉。全局 `~/.claude/docs/capability-sync.md` 有完整说明。
 
-**同步范围（六部分）**：`skills/`（通用 skill）、`CLAUDE.md`、`docs/`（拆出的参考文档：agents-registry / new-agent-scaffold / capability-sync）、`hooks/`（强制守卫脚本：pre-tool-use-guard.sh、test-cases-guard.py）、`patch/`（自研辅助机制，当前为 patch/skill-custom/ 定制恢复器）、pi 扩展（`~/.pi/agent/extensions/` 下的工具强制 `.ts`，镜像到本项目 `pi/agent/extensions/`）——这六部分在全局是权威、本项目对应目录是镜像（前五部分：`~/.claude/` ↔ `claude/`；pi 扩展：`~/.pi/agent/extensions/` ↔ `pi/agent/extensions/`），逐字节一致。**不含**：`commands/`（各处自行管理，不进同步）、项目级专属 skill（如本 capability-manager、各 agent 的 trade / vend 等专属 skill）、`settings.json`（全局维护，但不进开源镜像）、镜像对象目录下的本机产物（hooks 的 `__pycache__/`、`*.bak-*`；patch 的 `*.log`、`.lock`、`conflicts/`——不进镜像、不参与 diff）。
+**同步范围（六部分）**：`skills/`（通用 skill）、`CLAUDE.md`、`docs/`（拆出的参考文档：agents-registry / new-agent-scaffold / capability-sync）、`hooks/`（强制守卫脚本：pre-tool-use-guard.sh、test-cases-guard.py）、`patch/`（自研辅助机制，当前为 patch/skill-custom/ 定制恢复器）、pi 扩展（`~/.pi/agent/extensions/` 下的工具强制 `.ts`，镜像到本项目 `pi/agent/extensions/`）——这六部分在全局是权威、本项目对应目录是镜像（前五部分：`~/.claude/` ↔ `claude/`；pi 扩展：`~/.pi/agent/extensions/` ↔ `pi/agent/extensions/`），逐字节一致。**不含**：`commands/`（各处自行管理，不进同步）、项目级专属 skill（如本 capability-manager、各 agent 的 trade / vend 等专属 skill）、`settings.json`（全局维护，但不进开源镜像）、镜像对象目录下的本机产物（hooks 的 `__pycache__/`、`*.bak-*`；patch 的 `*.log`、`.lock`、`conflicts/`——不进镜像、不参与 diff）。**另有第七类（生成式清单）**：pi 在用第三方 npm 包的备份清单——`~/.pi/agent/npm/` 的 `package.json` / `package-lock.json` + 生成的 `PACKAGES.md`，由 `patch/npm-manifest/refresh.py` 刷新到本项目 `pi/agent/npm/`；属生成式内容，用 `--check` 核验、不做逐字节 diff；装 / 删 / 升级 pi 包后自动刷新（不问用户）。
 
 ### 与 CLAUDE.md 的分工（为什么需要这个 skill）
 
@@ -40,7 +40,7 @@ description: 维护智能体团队的通用能力底座，是 Prometheus（通�
 - **先落全局、再镜像 claude/**：任何内容改动先在全局 `~/.claude/` 改，确认无误后用 `cp` 覆盖到本项目 `claude/` 对应位置。绝不在镜像里直接改。（`~/.claude/docs/capability-sync.md`）
 - **敏感信息禁写**：往任何会被 git 跟踪的文件里写内容前，先判断是否含密钥 / 账户号 / token 等；有则用占位符，真实值只写进 `.gitignore` 忽略的本机文件。（CLAUDE.md「敏感信息禁止写入」节）
 - **暂存区禁 AI 增删改**：本 skill **绝不执行** `git add` / `git rm --cached` / `git reset HEAD` / `git mv` 等任何会动暂存区的命令。改完的内容留给用户自己 `git add`，提交走 `/commit`。（CLAUDE.md「Git 暂存区禁止 AI 自主增删改」节）
-- **diff 验证一致性**：内容改动同步到镜像后，跑 `diff -r ~/.claude/<部分> claude/<部分>` 确认逐字节一致（被 `.gitignore` 隔离的敏感文件是唯一允许的差异）。不一致就说明同步没做对，必须修到一致。（capability-sync.md「怎么验证」）
+- **diff 验证一致性**：内容改动同步到镜像后，跑 `diff -r ~/.claude/<部分> claude/<部分>` 确认逐字节一致（被 `.gitignore` 隔离的敏感文件是唯一允许的差异）。不一致就说明同步没做对，必须修到一致；第七类 npm 清单用 `python3 ~/.claude/patch/npm-manifest/refresh.py --check` 核验。（capability-sync.md「怎么验证」）
 - **记本项目的 CHANGELOG**：每一次文件增删改都在本项目根 `CHANGELOG.md` 记一条，写清「为什么改 + 改了什么」。同步这件事本身也只记本项目的 CHANGELOG，不记各业务项目的。（CLAUDE.md「CHANGELOG 记录纪律」节 +「同步动作只记本项目的 CHANGELOG」）
 - **TODO 闭环**：改完查项目根 `TODO.md`，若改动对应某条待办，按规则标记（`✅**已完成**` / `✅**已更新**`）并补时间戳，不删原条目。
 
@@ -58,7 +58,7 @@ description: 维护智能体团队的通用能力底座，是 Prometheus（通�
 2. **在全局 `~/.claude/` 改**：改 `~/.claude/skills/`、`~/.claude/CLAUDE.md`（全局规则就在 CLAUDE.md 对应章节内；或 `~/.claude/settings.json`）对应文件。
    - 若是**改 skill 内容**（SKILL.md 正文 / description / references 结构），先读 skill-creator 方法论（`~/.claude/skills/skill-creator/`）再动手——这是 CLAUDE.md「写 skill 内容须依据 skill-creator」的硬要求。
    - 若是**新增 / 下线一整个 skill**，涉及多位置联动（镜像、README 与相关文档），完整流程见 [`references/content-lifecycle.md`](references/content-lifecycle.md)。
-3. **镜像到本项目**（仅六部分：skills / CLAUDE.md / docs / hooks / patch / pi 扩展；前五部分 `cp` 到 `claude/` 对应文件，pi 扩展 `cp` 到 `pi/agent/extensions/`）。settings.json 不镜像。
+3. **镜像到本项目**（六部分：skills / CLAUDE.md / docs / hooks / patch / pi 扩展；前五部分 `cp` 到 `claude/` 对应文件，pi 扩展 `cp` 到 `pi/agent/extensions/`；另第七类清单装 / 删 / 升级 pi 包后跑 `refresh.py`）。settings.json 不镜像。
 4. **diff 验证**：`diff -r` 确认全局与镜像逐字节一致。
 5. **记 CHANGELOG + TODO 闭环**。
 
@@ -77,11 +77,11 @@ description: 维护智能体团队的通用能力底座，是 Prometheus（通�
    - **本项目 `claude/` → 全局**（反向对齐）：若镜像被临时直接改过、领先于全局，把镜像覆盖回全局一次性对齐，之后继续全局优先。
    （历史的「全局 → 各 agent 项目副本」分发层已终结——2026-09-13 副本清空，不再有此情形。）
 2. **执行同步**：用 `cp` 覆盖目标位置（命令模板与合法差异清单见 [`references/sync-flow.md`](references/sync-flow.md)）。
-3. **diff 验证**：全局 vs 本项目镜像：`diff -r ~/.claude/<部分> ~/Developer/CapabilityManagerAgent/claude/<部分>`。
+3. **diff 验证**：全局 vs 本项目镜像：`diff -r ~/.claude/<部分> ~/Developer/CapabilityManagerAgent/claude/<部分>`；npm 清单（第七类）：`python3 ~/.claude/patch/npm-manifest/refresh.py --check`。
 4. **处理差异**：diff 报差异 → 判断是「同步没做对」还是「合法差异」（如 scroll-reverser 的 `local/`、backup 的 `endpoints/` 等本机数据子目录，被 `.gitignore` 隔离）。前者修到一致，后者保留。
 5. **记 CHANGELOG**：同步动作只记本项目 CHANGELOG。
 
-详见 [`references/sync-flow.md`](references/sync-flow.md)（含六部分同步的完整命令、合法差异清单、一致性巡检脚本）。
+详见 [`references/sync-flow.md`](references/sync-flow.md)（含六部分与 npm 清单的同步命令、合法差异清单、一致性巡检脚本）。
 
 ---
 
