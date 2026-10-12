@@ -23,7 +23,7 @@
  *   PI_AGENT_BIN      启动新会话用的 pi 命令（默认 "pi"）
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -63,6 +63,32 @@ function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * 2026-10-12 新规：后台会话只能以 Agent 项目根目录为工作目录开启——只有 Agent 项目根目录
+ * 才有会话启动时加载的项目级智能体专属文件（CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。
+ */
+function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: string } {
+	const expanded = dir === "~" ? homedir() : dir.startsWith("~/") ? join(homedir(), dir.slice(2)) : dir;
+	let stat;
+	try {
+		stat = statSync(expanded);
+	} catch {
+		return { ok: false, detail: `目标目录不存在：「${dir}」` };
+	}
+	if (!stat.isDirectory()) return { ok: false, detail: `目标不是目录：「${dir}」` };
+	const markers = [join(expanded, "CLAUDE.md"), join(expanded, "AGENTS.md"), join(expanded, ".claude", "CLAUDE.md")];
+	if (!markers.some((m) => existsSync(m))) {
+		return {
+			ok: false,
+			detail:
+				`拒绝唤醒：目录「${dir}」不是 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。` +
+				`按 2026-10-12 新规，后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的智能体专属文件；` +
+				`子项目的工作请在对应 Agent 项目的会话里按路径操作。`,
+		};
+	}
+	return { ok: true };
+}
+
 async function listSessions(pi: ExtensionAPI, signal?: AbortSignal): Promise<SessionInfo[]> {
 	const cli = findIntercomCli();
 	const result = await pi.exec(cli, ["list", "--json"], { signal, timeout: 15_000 });
@@ -92,6 +118,8 @@ async function wakeSession(
 	if (await isOnline(pi, name, signal)) {
 		return { ok: true, detail: `会话「${name}」已在线` };
 	}
+	const check = checkAgentProjectDir(dir);
+	if (!check.ok) return { ok: false, detail: check.detail };
 	const tmuxSession = `pi-${name}`;
 	const has = await pi.exec("tmux", ["has-session", "-t", tmuxSession], { signal, timeout: 5_000 });
 	if (has.code !== 0) {
@@ -203,10 +231,10 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		name: "agent_wake",
 		label: "Agent Wake",
 		description:
-			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。",
+			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。dir 必须是目标 agent 的 Agent 项目根目录（新规 2026-10-12：后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的项目级智能体专属文件；非 Agent 项目目录会被拒绝）。",
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话名字（pi-intercom 别名，与 /alias 或 pi -n 设置一致）" }),
-			dir: Type.String({ description: "目标会话的启动工作目录（绝对路径或 ~ 开头）" }),
+			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——根目录含 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md；绝对路径或 ~ 开头）" }),
 			wait_seconds: Type.Optional(
 				Type.Number({ description: `等待注册的最长秒数（默认 ${DEFAULT_WAIT_SECONDS}）`, minimum: 3, maximum: 120 }),
 			),
@@ -238,7 +266,7 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话名字（pi-intercom 别名）" }),
 			message: Type.String({ description: "消息内容（对方看不到本会话上下文，请自带背景与明确请求）" }),
-			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（建议总是提供）" })),
+			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——根目录含 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md；建议总是提供）" })),
 			mode: Type.Optional(
 				StringEnum(["ask", "send"] as const, { description: "ask=阻塞等回复（默认）；send=仅通知、以本会话身份发送" }),
 			),

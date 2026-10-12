@@ -9,7 +9,7 @@
 | 权威源 | `~/.claude/`（前五部分）+ `~/.pi/agent/extensions/`（pi 扩展） | 唯一事实来源；所有项目运行时加载它；改动从这里开始 |
 | 本项目开源镜像 | `~/Developer/CapabilityManagerAgent/claude/` + `pi/agent/extensions/` | 把全局开源出去的快照（六部分；另含第七类生成式清单 `pi/agent/npm/`） |
 
-> **单一出口说明**：各 agent 项目**不再**分发通用能力副本——分发层 2026-09-13 已终结、项目副本已全部清空；各 agent 运行时直接加载全局 `~/.claude/`。Agent 项目与其**子项目**之间的 `.claude/` 超集关系是另一回事（见 `agents-registry.md`），本文件不涉及。
+> **单一出口说明**：各 agent 项目**不再**分发通用能力副本——分发层 2026-09-13 已终结、项目副本已全部清空；各 agent 运行时直接加载全局 `~/.claude/`。另（2026-10-12 修订）：智能体专属文件（`CLAUDE.md` / `AGENTS.md` / `.claude/` / 项目级 `.pi/`）自本日起只属于 Agent 项目、子项目不再携带（见 `agents-registry.md`「智能体专属文件归属与子项目映射」节）；本文件不涉及。
 
 > **第七类（生成式清单）**：`~/.pi/agent/npm/`（pi 自动维护的 package.json / package-lock.json）→ `pi/agent/npm/`（两 json 副本 + 生成的 `PACKAGES.md`），由 `~/.claude/patch/npm-manifest/refresh.py` 刷新、`--check` 核验；属生成式内容，不做逐字节 diff。
 
@@ -64,7 +64,7 @@ done
 
 早期曾有一个「把通用 skill 分发到各 agent 项目 `.claude/` 副本」的层，**2026-09-13 起已终结**——单一出口模式下各项目不再分发副本、副本已全部清空，各 agent 运行时直接加载全局 `~/.claude/`。本情形不再执行；如遇历史残留副本，按「清理而非同步」处理（删掉副本、回归加载全局）。
 
-> 另一码事：**Agent 项目 `.claude/` → 其子项目 `.claude/`** 的超集同步（如 BackendEngineerAgent → CC-BRIDGE）**仍在**——那由各 Agent 项目自己的规则与 `agents-registry.md`「超集关系映射」管，不属本文件的通用能力同步范畴。
+> 另（2026-10-12 修订）：原「Agent 项目 `.claude/` → 其子项目 `.claude/`」超集同步**已废止**——智能体专属文件（`CLAUDE.md` / `AGENTS.md` / `.claude/` / 项目级 `.pi/`）只有 Agent 项目允许拥有、非 Agent 项目（含子项目）一律不得存在；存量清理与细则见 `agents-registry.md`「智能体专属文件归属与子项目映射」节，不属本文件的通用能力同步范畴。
 
 ## 同步情形 3：本项目镜像 → 全局（反向对齐）
 

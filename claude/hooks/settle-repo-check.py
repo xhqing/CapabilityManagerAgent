@@ -12,7 +12,7 @@
 
 逻辑：
   - 由 cwd（Agent 项目目录，或某个子项目目录）在 ~/.claude/docs/agents-registry.md 的
-    「超集关系映射」表里定位所属 Agent 与它的全部子项目；
+    「子项目映射」表里定位所属 Agent 与它的全部子项目；
   - 逐个 `git status --porcelain`（目录不存在 / 非 git 的跳过）；
   - cwd 不属于任何 Agent / 子项目 → 无此项、静默通过（exit 0）。
 """
@@ -28,12 +28,12 @@ DEV = os.path.expanduser("~/Developer")
 
 
 def registry_rows():
-    """从注册表「超集关系映射」表取 [(Agent 项目名, 子项目目录名)]。"""
+    """从注册表「子项目映射」表取 [(Agent 项目名, 子项目目录名)]。"""
     try:
         text = open(REG, encoding="utf-8").read()
     except OSError:
         return []
-    m = re.search(r"\*\*超集关系映射.*?\n\n(\|.*?)\n\n", text, re.S)
+    m = re.search(r"\*\*子项目映射.*?\n\n(\|.*?)\n\n", text, re.S)
     if not m:
         return []
     rows = []
@@ -47,12 +47,16 @@ def registry_rows():
 
 
 def find_agent(cwd, rows):
-    """cwd 是 Agent 项目 → 它自己；cwd 是某个子项目 → 归其 Agent；都不匹配 → None。"""
+    """cwd 是 Agent 项目 → 它自己；cwd 是某个子项目 → 归其 Agent；都不匹配 → None。
+
+    大小写不敏感匹配：目录名与注册表写法可能不一致（如 dir `CC-Bridge` vs 表 `CC-BRIDGE`）。
+    """
     name = os.path.basename(os.path.normpath(cwd))
-    if name in {a for a, _ in rows}:
-        return name
+    for a, _ in rows:
+        if a.lower() == name.lower():
+            return a
     for agent, proj in rows:
-        if proj == name:
+        if proj.lower() == name.lower():
             return agent
     return None
 
