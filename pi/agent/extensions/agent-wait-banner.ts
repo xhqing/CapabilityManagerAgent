@@ -32,6 +32,7 @@
  *          后台任务接进提醒（当前接入：DayTradingAgent 的 `background_run`）。
  *   - **清窗**：
  *       - 用户输入（message_start role=user）→ 全部清空（自愈兜底）；
+ *       - send 类消息写明「无需回复」（无需回信）→ 不点亮提醒（主动判断，见文末修订）；
  *       - send 窗口超时（默认 15 分钟，见文末 2026-10-12 修订）→ 自动撤销；
  *       - intercom 回信到达（会话条目出现新的 `custom_message` / `intercom_message`）
  *         → 按条数销掉 send 窗口（旧版漏掉的正是这条）；
@@ -40,13 +41,16 @@
  *
  * 注意：pi 扩展在会话启动时加载——已在运行的会话仍持旧版，本次修正在下一个新会话生效。
  *
- * ## 2026-10-12 修订（send 窗口加超时）
+ * ## 2026-10-12 修订（主动判断 + send 窗口加超时）
  *
  * 用户反馈：fire-and-forget 的 send 类委派（发出时已说明「无需回复」）等不到回信时，
  * 提醒会一直挂在 footer——用户等了一下午，被误导以为还有后台进程在跑。用户定调：
- * **没有真实待办，提醒就不应该存在**。本版给 send 窗口加最长保留时间（默认 15 分钟，
- * 环境变量 `PI_WAIT_BANNER_TTL_MS` 可覆盖），超时自动撤销；回信 / 用户输入 / 工具
- * 失败三条清窗逻辑不变，宁可少提醒、不误报。
+ * **没有真实待办，提醒就不应该存在——应该主动判断出来、主动撤销**。本版两条改动：
+ *   1) **主动判断**：send 类委派的消息里写明「无需回复」（fire-and-forget 标记，
+ *      匹配见 `isNoReplyMessage`）→ 不点亮提醒（本来就没有要等的东西）；需要
+ *      回信的正常点亮，收到回信/用户输入/委派失败照旧立即撤销。
+ *   2) **兜底超时**：send 窗口最长保留 15 分钟（`PI_WAIT_BANNER_TTL_MS` 可覆盖），
+ *      超时自动撤销（防「标记写漏或无法判断」时长期误报）。
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -76,6 +80,18 @@ function isAskLike(toolName: string, input: Record<string, unknown>): boolean {
 	if (toolName === "agent_call") return input.mode !== "send"; // 默认（未传 mode）= ask
 	if (toolName === "intercom") return input.action === "ask";
 	return false;
+}
+
+/**
+ * send 类委派是否「无需回信」（fire-and-forget）——消息里写明「无需回复」等标记即视为
+ * 没有要等的东西，不点亮提醒（2026-10-12 用户定调：没有真实待办，提醒就不应该存在）。
+ */
+function isNoReplyMessage(input: Record<string, unknown>): boolean {
+	const msg = typeof input.message === "string" ? input.message : "";
+	if (!msg) return false;
+	const zh = /(无需|不用|不必|不需要)[^。\n]{0,6}(回复|回信|进一步动作)/;
+	const en = /no need to reply|no reply (needed|required|expected)|do not reply|don'?t reply/i;
+	return zh.test(msg) || en.test(msg);
 }
 
 export default function agentWaitBanner(pi: ExtensionAPI) {
@@ -163,7 +179,8 @@ export default function agentWaitBanner(pi: ExtensionAPI) {
 			const args = input ?? {};
 			const key = toolCallId ?? `anon-${Date.now()}-${pendingSends.size + pendingAsks.size}`;
 			if (isSendLike(toolName, args)) {
-				pendingSends.set(key, Date.now());
+				// 主动判断：消息里写明「无需回复」的 fire-and-forget 委派，没有要等的东西，不计入等待窗口
+				if (!isNoReplyMessage(args)) pendingSends.set(key, Date.now());
 			} else if (isAskLike(toolName, args)) {
 				pendingAsks.add(key);
 			}
