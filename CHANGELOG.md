@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.28] - 2026-10-12
+
+pi 第三方包清单刷新：移除 pi-workspace-history（本机卸载该扩展，镜像三件套同步更新）；详见下方 2026-10-12 分节。
+
 ## [1.5.27] - 2026-10-12
 
 ai-edit-diff 改造：diff 默认不自动打开，改为按需 `open_diff` 工具——询问「哪个 VSCode 窗口 + 哪个文件」、用户授权后在指定窗口打开（tmux 全链路实测通过）；详见下方 2026-10-12 分节。
@@ -201,6 +205,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**（`pi/agent/extensions/ai-edit-diff.ts`）：① 默认不打开——`agent_end` 不再自动打开 diff（也不再发「已打开 N 个」消息），改为把「本轮改动前快照」登记进「最近改动」（跨轮、上限 50、同文件保留最新）；② 新增 `open_diff` 工具——用户按需触发时：选文件（候选多于一个时）→ 选目标窗口（窗口多于一个时；列窗读 VSCode `windowsState`）→ 确认授权 → `code --folder-uri <folder> --diff <快照> <当前>` 在指定窗口打开（含无差异/文件不可读的预检与无 UI 会话的降级提示）；③ 启动提示文案同步更新。功能 B（用户改动通知 AI）不变。
 - **验证**：tmux 测试会话全链路实测通过——AI 改文件（快照登记）→ 调用 `open_diff` → 窗口选择对话框（3 窗口）→ 确认授权 → diff 精确开在指定的 vscode-window-test 窗口（`code --status` 窗口标题验证），未开在最近活跃窗口；默认路径（无 open_diff 调用）无任何自动打开。
 - **镜像同步**：`pi/agent/extensions/ai-edit-diff.ts` 已按「全局权威优先」覆盖，diff 逐字节一致；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（pi 第三方包清单刷新：移除 pi-workspace-history）
+
+- **为什么改**：2026-10-12 用户判定本机 pi 扩展 `pi-workspace-history`（工作区历史：每轮快照、`/undo` / `/redo`，第三方 npm 包 0.5.0）不再需要，指示卸载并清理残余数据。本机第三方包状态变化后，按第七类同步对象（pi 第三方包清单）规矩刷新镜像。
+- **改了什么**：① 本机侧：`pi remove npm:pi-workspace-history`——全局 `~/.pi/agent/settings.json` 的 packages 条目移除、包与依赖树清理；扩展运行时数据 `~/.pi/agent/state/workspace-history/`（约 37MB，3 个工作区快照，经用户确认）清除。② 镜像侧：`pi/agent/npm/` 三件套由 `refresh.py` 重新生成——`package.json` 依赖声明、`package-lock.json` 锁记录、`PACKAGES.md` 清单中的该包条目均移除；`refresh.py` 的 PURPOSES 用途表保留该包条目（仅在包存在时被引用、不进任何生成文件，便于日后重装复用）。
+- **验证**：`python3 ~/.claude/patch/npm-manifest/refresh.py --check` 通过（镜像三件套与当前本机一致）；PACKAGES.md 生成内容与镜像文件逐字节比对一致。
+- **镜像同步**：本仓库 `pi/agent/npm/` 三件套已刷新；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 

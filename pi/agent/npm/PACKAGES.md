@@ -9,4 +9,3 @@
 | `pi-intercom` | 0.17.0 | https://www.npmjs.com/package/pi-intercom | MIT | 会话间通信：多 pi 会话消息互通（agent_call / intercom 工具；作者 nicobailon） |
 | `pi-mcp-adapter` | 5.2.0 | https://github.com/nicobailon/pi-mcp-adapter | MIT | MCP 服务器接入：把 MCP 工具接入 pi（MCP 网关） |
 | `pi-provider-volcengine-agent-plan` | 0.4.1 | https://github.com/zhcsyncer/pi-extensions | MIT | 火山引擎（Volcengine）模型 provider：Agent Plan 套餐接入 |
-| `pi-workspace-history` | 0.5.0 | https://github.com/wcldyx/pi-workspace-history | MIT | 工作区历史：每轮快照、/undo /redo、/diff 查看、/tree 恢复 |

@@ -4,7 +4,6 @@
   "dependencies": {
     "pi-intercom": "^0.17.0",
     "pi-mcp-adapter": "^5.2.0",
-    "pi-provider-volcengine-agent-plan": "^0.4.1",
-    "pi-workspace-history": "^0.5.0"
+    "pi-provider-volcengine-agent-plan": "^0.4.1"
   }
 }
