@@ -13,7 +13,7 @@
 | 全团队通用 skill | ✅ 改 | ✅ 镜像 | ❌（分发层已终结——单一出口，项目不留副本） |
 | hooks 强制守卫脚本（pre-tool-use-guard.sh / test-cases-guard.py） | ✅ 改 | ✅ 镜像 | ❌（各项目不装，仅全局 settings.json 注册生效） |
 | patch 自研辅助机制（patch/skill-custom/ 等） | ✅ 改 | ✅ 镜像 | ❌（属本机机制，各项目不装） |
-| pi 端扩展（`~/.pi/agent/extensions/` 的工具强制 `.ts`） | ✅ 改 | ✅ 镜像（`pi/agent/extensions/`） | ❌（pi 用户级加载，各项目不装） |
+| pi 端扩展（`~/.pi/agent/extensions/` 的工具强制 `.ts`；项目专用扩展不经镜像） | ✅ 改 | ✅ 镜像（`pi/agent/extensions/`） | ❌（pi 用户级加载，各项目不装） |
 | pi 第三方包清单（第七类，生成式） | ✅（本机 `~/.pi/agent/npm/`，pi 自动维护） | ✅ 由 `refresh.py` 刷新 | ❌ |
 | 特定 agent 专属 skill | ❌（不进全局） | ❌（不进镜像） | 只放该项目的 `.claude/skills/`（capability-manager / trade 等） |
 | `settings.json` | ✅ 改 | ❌ 不镜像 | ❌ |

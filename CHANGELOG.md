@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.24] - 2026-10-12
+
+capability-manager skill 口径对齐：pi 扩展镜像剔除项目专用扩展（同步命令 / 巡检 / 合法差异表补排除项，与 capability-sync.md 口径一致）；详见下方 2026-10-12 分节。
+
 ## [1.5.23] - 2026-10-12
 
 镜像口径明确化：pi 扩展不含项目专用扩展（判定标准 + 现例 `user-edit-notify.ts`）；详见下方 2026-10-12 分节。
@@ -155,6 +159,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：`claude/docs/capability-sync.md` 两处——「范围」段 pi 扩展括注补「项目专用扩展不纳入镜像」判定标准（含特定项目硬编码路径 / 仅单项目会话激活）与现例（含「如需纳入应先改造为通用形式」引导）；「怎么验证」段允许差异清单补该项、pi 扩展 diff 命令补 `-x 'user-edit-notify.ts'` 排除。
 - **验证**：`diff -r -x 'user-edit-notify.ts' ~/.pi/agent/extensions pi/agent/extensions` 通过（14 个通用扩展无差异）；`claude/docs/capability-sync.md` 与全局 diff 逐字节一致。
 - **镜像同步**：`claude/docs/capability-sync.md` 已按「全局权威优先」覆盖；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（capability-manager skill 口径对齐：pi 扩展镜像剔除项目专用扩展）
+
+- **为什么改**：2026-10-12 `capability-sync.md` 明确「pi 扩展镜像不含项目专用扩展」后，本项目专属 skill `capability-manager` 的操作命令仍按旧口径全量处理——`cp ~/.pi/agent/extensions/*.ts` 会把 EA 专用的 `user-edit-notify.ts` 复制进镜像（违反新规）、两处 `diff -r` 与巡检脚本会对其误报 ❌。与 v1.5.21 第七类对齐同一手法，一并补齐。
+- **改了什么**（`.claude/skills/capability-manager/`，项目专属 skill、不进全局 / 不进镜像）：
+  - `references/sync-flow.md`：情形 1 的 pi 扩展 cp 改为带排除的循环（`user-edit-notify.ts` 列为排除项、注明新增项目专用扩展时补行）；一致性核对与巡检脚本的 pi 扩展 diff 补 `-x 'user-edit-notify.ts'`；合法差异表新增「pi 扩展目录下的项目专用扩展」一行。
+  - `SKILL.md`：同步范围 bullet 的 pi 扩展括注补「项目专用扩展（含项目硬编码 / 仅单项目激活）不进镜像」。
+  - `references/content-lifecycle.md`：判断矩阵 pi 端扩展行补「项目专用扩展不经镜像」。
+- **验证**：按 skill 内新巡检命令试跑通过（`diff -r -x 'user-edit-notify.ts' …` ✅）；逐文件 grep 复核排除项覆盖 cp / diff / 巡检 / 表格 / 说明共六处。
 
 ## 2026-10-11
 
