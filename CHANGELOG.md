@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.32] - 2026-10-12
+
+capability-sync 文档补「CHANGELOG 追加自查」（防日期节错位与标题重复）；源自两批同步的同类结构问题（均由 Prometheus 在提交前修正）；详见下方 2026-10-12 分节。
+
 ## [1.5.31] - 2026-10-12
 
 agent-wait-banner 再修订：新增「主动判断」——send 类委派消息里写明「无需回复」即不点亮提醒（没有要等的就不提醒）；CLAUDE.md 同步；详见下方 2026-10-12 分节。
@@ -250,6 +254,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：① `pi/agent/extensions/agent-wait-banner.ts`：新增 `isNoReplyMessage()`——send / handover 类委派的消息文本里写明「无需回复」（含「不用回复 / 不必回复 / 不需要回复 / 无需回信 / 无需进一步动作 / no need to reply / no reply needed 等」变体）即视为 fire-and-forget，**不登记等待窗口、不点亮提醒**；需要回信的照常点亮，收到回信 / 用户输入 / 委派失败照旧立即撤销；15 分钟超时保留作兜底（标记写漏或无法判断时）。② 全局 `CLAUDE.md`：显示时机处补「主动判断」描述，新增「发出 send 类委派时的写法」子条（不需回信的写明「无需回复」），工具强制条修订史补 2026-10-12 两点。
 - **验证**：bun mock harness 17 项断言全过（新增：「无需回复 / 不用回复 / no need to reply / 无需你进一步动作」四种变体不点亮；对照组——需要回信的 send 正常点亮）。
 - **镜像同步**：`pi/agent/extensions/agent-wait-banner.ts` 与 `claude/CLAUDE.md` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（capability-sync 文档：补 CHANGELOG 追加自查）
+
+- **为什么改**：2026-10-12 连续两批镜像同步（1.5.30 / 1.5.31），Kit 会话暂记 CHANGELOG 条目时出现同一结构问题——新条目被插到上一日期节（`## 2026-10-11`）之下、并重复一个日期标题；均由 Prometheus 在提交前修正。为防复发，把「追加后的自查」写进同步文档。
+- **改了什么**：`claude/docs/capability-sync.md`「怎么验证」段新增一条——追加 CHANGELOG 条目后自查：新条目须落在当前日期节内（行号在下一个日期标题之前）、日期标题不重复（`grep -c '^## <日期>$' CHANGELOG.md` 应为 1）；并记下成因（插入锚点处把日期标题重写了一遍；正确写法是「新条目 + 原锚点文本原样」）。
+- **验证**：自查命令在现仓库实跑通过（日期标题 10-12 / 10-11 各 1 次）；本次新增条目按新写法插入，位于 10-12 节末尾（`## 2026-10-11` 之前）。
+- **镜像同步**：`claude/docs/capability-sync.md` 已按「全局权威优先」覆盖，diff 逐字节一致；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
