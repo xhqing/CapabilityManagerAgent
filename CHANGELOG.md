@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.34] - 2026-10-12
+
+镜像新增 image-marker 扩展：粘贴图片在输入框里显示为 `[Image #1]` 标记（回车提交时还原成真实路径，对模型 / 工具透明），替代原来的一长串临时文件绝对路径；详见下方 2026-10-12 分节。
+
 ## [1.5.33] - 2026-10-12
 
 ai-edit-diff 两项修正：① 通知措辞——来源不明时不再默认归因「用户修改」，改用中性措辞「来源未识别」（实践中大部分是其它会话改的）；② 复合命令（`cp … && diff …`）不再被误判为只读——写动作正确登记快照/声明，自己改自己的文件不再误报；详见下方 2026-10-12 分节。
@@ -272,6 +276,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：`pi/agent/extensions/ai-edit-diff.ts`：① 轮询首个发现者的归因由 `{kind:"user"}` 改为 `{kind:"unknown"}`（有 claim 的仍精确归到具体会话）；② 通知标题三分类改为「由会话「名字」修改」/「来源未识别」（旧记录兼容仍可显示「由用户修改」，但新产生的不再默认归因）；③ 未知来源时正文增加说明行「变更来源：未识别——不是本会话所为（可能是其它会话，也可能是用户手动改）」；④ bash 读写判定加密：出现写类命令（cp/mv/rm/sed/tee/touch/mkdir/ln/dd/truncate/chmod/chown/install）或文件重定向即按写处理（先剔除 `2>/dev/null`、`2>&1` 等无害重定向），不再被命令里的 `diff` 等只读字样带偏；⑤ 头部注释补本次改造记录。
 - **验证**：bun mock harness 21 项断言全过（含新增：来源不明改用中性措辞、标题不出现「用户」字样；复合命令 `cp … && diff …` 写自己碰过的文件不自报、meta 正确归因到本会话）。
 - **镜像同步**：`pi/agent/extensions/ai-edit-diff.ts` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（镜像新增 image-marker 扩展：粘贴图片显示为 [Image #N]）
+
+- **为什么改**：2026-10-12 用户反馈——pi 里 Ctrl+V 粘贴剪贴板图片时，输入框中插入的是临时文件的绝对路径（`/var/folders/.../pi-clipboard-<uuid>.png`），又长又占地方，贴几张图就看不清自己到底贴了什么；希望像 Claude Code 那样显示成简洁的带编号标记（`[Image #1]`）。该显示优化与具体项目无关、任何用 pi 的人都用得上，属通用能力，故纳入镜像。
+- **改了什么**：① 全局新增 `~/.pi/agent/extensions/image-marker.ts`（约 180 行，含中文头注）。② 镜像新增 `pi/agent/extensions/image-marker.ts`（与全局逐字节一致）。③ 本 CHANGELOG 记条目、VERSION 与两个 README 版本徽章同步 bump 到 1.5.34。
+- **实现要点**：搭 pi-tui Editor 自带的「粘贴折叠 + 提交时展开」机制（即贴大段文本显示 `[paste #1 +30 lines]` 的那套），而不是另起一套渲染：`insertTextAtCursor()` 把 Ctrl+V 插入的图片路径换成 `[Image #N]`、`handlePaste()` 覆盖终端括号粘贴（Cmd+V 直通 / 复制文件后贴路径）、`expandPasteMarkers()` 在回车提交（`submitValue()`）与 `getExpandedText()` 时把标记还原成真实路径、`submitValue()` 提交后把编号归零（下一条消息重新从 #1 开始，与 Claude Code 一致）、`setTextInternal()` 在文本被回填（历史上下翻阅 / 恢复排队消息 / fork 选中消息 / 外部编辑器返回）时重新折叠。只对「整段文本就是一张已存在图片文件的路径」生效（单行、图片扩展名、文件真实存在），普通文本粘贴 / 命令 / 代码片段不受影响；连着贴两张图自动空格分隔，展开后是两条独立路径（不会粘成 `a.pngb.png` 一条无效路径）。
+- **验证**：tmux 真实 pi 会话全链路实测七项全过——① 单张图片显示 `[Image #1]` 且提交后会话记录（jsonl）里是真实临时路径；② 同一条消息连贴两张显示 `[Image #1] [Image #2]`、展开为以空格分隔的两条路径；③ 回车提交后编号归零（下一条消息重新从 #1 开始）；④ 历史记录上翻回填时重新折叠成标记；⑤ 普通文本粘贴不折叠；⑥ 非图片文件路径（`/etc/hosts`）不折叠；⑦ 带引号的图片路径折叠、展开后仍是原样的带引号文本。
+- **镜像同步**：`pi/agent/extensions/image-marker.ts` 已按「全局权威优先」覆盖，`diff -r ~/.pi/agent/extensions pi/agent/extensions` 逐字节一致（16 个通用扩展无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
