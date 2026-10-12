@@ -32,12 +32,21 @@
  *          后台任务接进提醒（当前接入：DayTradingAgent 的 `background_run`）。
  *   - **清窗**：
  *       - 用户输入（message_start role=user）→ 全部清空（自愈兜底）；
+ *       - send 窗口超时（默认 15 分钟，见文末 2026-10-12 修订）→ 自动撤销；
  *       - intercom 回信到达（会话条目出现新的 `custom_message` / `intercom_message`）
  *         → 按条数销掉 send 窗口（旧版漏掉的正是这条）；
  *       - 委派工具本身失败（tool_result isError：目标不存在等）→ 撤销对应窗口；
  *       - ask 结束（tool_execution_end）→ 清对应 ask。
  *
  * 注意：pi 扩展在会话启动时加载——已在运行的会话仍持旧版，本次修正在下一个新会话生效。
+ *
+ * ## 2026-10-12 修订（send 窗口加超时）
+ *
+ * 用户反馈：fire-and-forget 的 send 类委派（发出时已说明「无需回复」）等不到回信时，
+ * 提醒会一直挂在 footer——用户等了一下午，被误导以为还有后台进程在跑。用户定调：
+ * **没有真实待办，提醒就不应该存在**。本版给 send 窗口加最长保留时间（默认 15 分钟，
+ * 环境变量 `PI_WAIT_BANNER_TTL_MS` 可覆盖），超时自动撤销；回信 / 用户输入 / 工具
+ * 失败三条清窗逻辑不变，宁可少提醒、不误报。
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -48,6 +57,12 @@ const STATUS_KEY = "agent-wait-banner";
 const ACTIVITY_EVENT = "agent-wait-banner:activity";
 /** 提醒文案。 */
 const BANNER_TEXT = "🟥🟥🟥 还有后台进程在运行中，请稍等 🟥🟥🟥";
+/**
+ * send 类委派窗口的最长保留时间：超过仍未收到回信就自动撤销。
+ * 目的（2026-10-12 用户定调）：没有真实待办时提醒不应存在——fire-and-forget 委派
+ * 无人回信时不能让提醒一直误导用户。可用 PI_WAIT_BANNER_TTL_MS 覆盖（毫秒）。
+ */
+const SEND_TTL_MS = Number(process.env.PI_WAIT_BANNER_TTL_MS) || 15 * 60_000;
 
 /** 该调用是否属「send 类委派」：发出后等对方回信（不阻塞）。 */
 function isSendLike(toolName: string, input: Record<string, unknown>): boolean {
@@ -120,9 +135,18 @@ export default function agentWaitBanner(pi: ExtensionAPI) {
 		}
 	};
 
+	// 过期撤销：send 窗口超过 TTL 仍未收到回信 → 视为「不再等我」，撤下提醒。
+	const pruneExpiredSends = (): void => {
+		const now = Date.now();
+		for (const [key, sentAt] of pendingSends) {
+			if (now - sentAt > SEND_TTL_MS) pendingSends.delete(key);
+		}
+	};
+
 	// 统一刷新：传入 ctx 时更新引用；先核对回信、再渲染。
 	const refresh = (ctx?: ExtensionContext): void => {
 		if (ctx) latestCtx = ctx;
+		pruneExpiredSends();
 		if (latestCtx) reconcileReplies(latestCtx);
 		render();
 	};

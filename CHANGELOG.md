@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.30] - 2026-10-12
+
+agent-wait-banner 修订：send 窗口加 15 分钟超时上限——没有真实待办时大红提醒不再一直挂着（用户曾被「幻影后台」误导）；全局 CLAUDE.md 规则同步；详见下方 2026-10-12 分节。
+
 ## [1.5.29] - 2026-10-12
 
 ai-edit-diff 改造：文件变更通知升级为「跨会话广播」——碰过文件的活跃会话（前台 + 后台）都会收到变更通知（用户改动 / 其它会话改动都通知；附来源与改动前快照，自己的改动不自报）；user-edit-notify 退役文件删除、capability-sync 文档同步；详见下方 2026-10-12 分节。
@@ -228,6 +232,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：① bun mock 多会话 harness（18 项断言全过）：用户/会话改动都通知到所有碰过文件的会话、没碰过的不通知、归因正确、自己的改动不自报、重复轮询去重、删除与重建、会话重启后的「补课」通知。② tmux 双真实会话（AIT-A / AIT-B）全链路实测：两会话读同一文件 → 外部修改 → 两会话都收到「由用户手动修改」通知并自动重读；A 会话用工具追加内容 → B 收到「由会话「AIT-A」修改」通知、A 自己无通知。
 - **其它同步**：`user-edit-notify.ts`（旧独立扩展，同日早先退役为 `.disabled`）已彻底删除；`claude/docs/capability-sync.md` 内「现已退役为 .disabled」的描述同步更正为「同日退役并删除」。
 - **镜像同步**：`pi/agent/extensions/ai-edit-diff.ts` 与 `claude/docs/capability-sync.md` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（agent-wait-banner：send 窗口加 15 分钟超时上限）
+
+- **为什么改**：2026-10-12 用户反馈：footer 的大红提醒「还有后台进程在运行中，请稍等」挂了一下午——实际没有任何后台任务（`background_list` 为空），只是本会话此前用 send 模式（fire-and-forget、且明确「无需回复」）委派过消息，扩展把「send 未收到回信」计为活动窗口，而无人回信时该窗口永不销。用户定调：**没有真实待办，提醒就不应该存在**。
+- **改了什么**：① `pi/agent/extensions/agent-wait-banner.ts`：新增 `SEND_TTL_MS`（默认 15 分钟，环境变量 `PI_WAIT_BANNER_TTL_MS` 可覆盖）；`refresh()` 先做超时撤销（`pruneExpiredSends()`）再渲染——send 窗口超过上限仍未收到回信即自动撤下提醒；原有清窗（回信到达 / 用户输入 / 委派失败）不变；头部注释补 2026-10-12 修订说明。② 全局 `CLAUDE.md`「等待回复 / 后台任务运行期间的大红提醒」条目：显示时机处补 send 窗口 15 分钟上限（含 `PI_WAIT_BANNER_TTL_MS` 可调），工具强制条的修订历史补 2026-10-12 一笔。
+- **验证**：bun mock harness 15 项断言全过——send 显示 / 超时自动撤销（TTL=1.2s 实测）/ 回信清窗 / 用户输入清窗 / ask 生命周期 / 干活中隐藏与恢复 / 外部活动上报 / 委派失败撤销。
+- **镜像同步**：`pi/agent/extensions/agent-wait-banner.ts` 与 `claude/CLAUDE.md` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
