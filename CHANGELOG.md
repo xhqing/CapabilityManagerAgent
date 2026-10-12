@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.27] - 2026-10-12
+
+ai-edit-diff 改造：diff 默认不自动打开，改为按需 `open_diff` 工具——询问「哪个 VSCode 窗口 + 哪个文件」、用户授权后在指定窗口打开（tmux 全链路实测通过）；详见下方 2026-10-12 分节。
+
 ## [1.5.26] - 2026-10-12
 
 镜像新增 ai-edit-diff 扩展（通用「改动可视化 / 双向知情」，user-edit-notify 的通用化改造版）；user-edit-notify 排除模式兼容 `.disabled` 退役文件；详见下方 2026-10-12 分节。
@@ -190,6 +194,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：① 镜像新增 `pi/agent/extensions/ai-edit-diff.ts`（与全局逐字节一致）。② `claude/docs/capability-sync.md`：范围段「项目专用扩展」现例更新（注明 user-edit-notify 已退役为 `.disabled`、其通用化版 ai-edit-diff 已纳入镜像）；验证段排除模式兼容化（`-x 'user-edit-notify.ts*'`，含 `.disabled`）。③ capability-manager 的 `references/sync-flow.md` 四处同步（cp 循环排除模式、两处 diff 命令、合法差异表）。
 - **验证**：`diff -r -x 'user-edit-notify.ts*' ~/.pi/agent/extensions pi/agent/extensions` 通过（15 个通用扩展逐字节一致）；docs diff 一致。
 - **镜像同步**：由 Kit 会话完成；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（ai-edit-diff 改造：diff 按需打开——询问窗口/文件 + 授权后打开）
+
+- **为什么改**：2026-10-12 用户反馈「diff 视图不应默认每次修改都打开；应在用户需要时询问：在 VSCode 的哪一个窗口、打开哪一个文件的 diff；用户授权后才在特定窗口打开特定文件的 diff」。原实现每轮结束自动打开（最多 8 个标签），会打扰用户正在工作的窗口。
+- **改了什么**（`pi/agent/extensions/ai-edit-diff.ts`）：① 默认不打开——`agent_end` 不再自动打开 diff（也不再发「已打开 N 个」消息），改为把「本轮改动前快照」登记进「最近改动」（跨轮、上限 50、同文件保留最新）；② 新增 `open_diff` 工具——用户按需触发时：选文件（候选多于一个时）→ 选目标窗口（窗口多于一个时；列窗读 VSCode `windowsState`）→ 确认授权 → `code --folder-uri <folder> --diff <快照> <当前>` 在指定窗口打开（含无差异/文件不可读的预检与无 UI 会话的降级提示）；③ 启动提示文案同步更新。功能 B（用户改动通知 AI）不变。
+- **验证**：tmux 测试会话全链路实测通过——AI 改文件（快照登记）→ 调用 `open_diff` → 窗口选择对话框（3 窗口）→ 确认授权 → diff 精确开在指定的 vscode-window-test 窗口（`code --status` 窗口标题验证），未开在最近活跃窗口；默认路径（无 open_diff 调用）无任何自动打开。
+- **镜像同步**：`pi/agent/extensions/ai-edit-diff.ts` 已按「全局权威优先」覆盖，diff 逐字节一致；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
