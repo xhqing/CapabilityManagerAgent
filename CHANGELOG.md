@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.22] - 2026-10-12
+
+scroll-reverser skill 补「beta 自动更新后重启中断」失灵形态（用户报「滚动方向总是不对」的实测诊断与修复）；详见下方 2026-10-12 分节。
+
 ## [1.5.21] - 2026-10-11
 
 capability-manager skill 对齐第七类同步对象（pi 第三方包清单）：SKILL.md / sync-flow / content-lifecycle 的同步范围、验证与巡检口径补上 npm 清单（`refresh.py` 刷新、`--check` 核验）；详见下方 2026-10-11 分节。
@@ -131,6 +135,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-12
+
+### 变更（scroll-reverser skill：补「beta 自动更新后重启中断」失灵形态）
+
+- **为什么改**：2026-10-12 用户报「滚动方向总是不对」。Kit 会话按该 skill 流程诊断：app 进程不在运行、主开关 `InvertScrollingOn=0`；plist 佐证 `SUUpdateRelaunchingMarker=1`、`SULastCheckTime` 为前一日晚间——与 10-11 beta 通道自动更新（build 10528 → 10558）后重启流程未完成相符。该形态（自动更新后 app 未重启回来）是 skill 失灵流程第 1 步「app 没在运行」此前未记述的实例（原只写「重启后自启失败」）。
+- **改了什么**：`claude/skills/scroll-reverser/SKILL.md` 第 1 步括注补「beta 自动更新后重启中断也曾见」一句；本机快照 `~/.claude/skills/scroll-reverser/local/config.md`（本机私有数据、不进镜像）同步更新——版本 10528 → 10558、追加 2026-10-12 诊断与修复记录及单次观察（含 `SUUpdateRelaunchingMarker` 残留待留意）。
+- **验证**：修复实测通过——启动 app + `set enabled to true` 后 `enabled=true`、`InvertScrollingOn=1`；干净重启 app 复验：进程在、开关保持 true、其余配置键均符合本机应然值。
+- **镜像同步**：`claude/skills/scroll-reverser/SKILL.md` 已按「全局权威优先」覆盖，diff 与全局逐字节一致（本机数据 config.md 按规矩不进镜像）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-11
 
