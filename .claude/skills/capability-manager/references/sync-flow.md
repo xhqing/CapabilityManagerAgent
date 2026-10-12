@@ -56,7 +56,7 @@ for f in ~/.pi/agent/extensions/*.ts; do
 done
 ```
 
-**本机数据差异（重要）**：个别 skill 目录下有自己的本机数据（如 `scroll-reverser/local/` 的配置、`backup/endpoints/` 的端点注册表），**被 `.gitignore` 隔离、不参与「逐字节一致」核对**（属合法差异，见下文）。整目录 `cp -R` 时保留它们、不要删。
+**本机数据差异（重要）**：个别 skill 目录下有自己的本机数据（如 `backup/endpoints/` 的端点注册表），**被 `.gitignore` 隔离、不参与「逐字节一致」核对**（属合法差异，见下文）。整目录 `cp -R` 时保留它们、不要删。
 
 **第七类（npm 第三方包清单）**：装 / 删 / 升级 pi 包后，跑 `python3 ~/.claude/patch/npm-manifest/refresh.py` 刷新本项目 `pi/agent/npm/`（生成式内容：`package.json` / `package-lock.json` 副本 + 生成的 `PACKAGES.md`；不参与逐字节 diff，校验用 `--check`）。
 
@@ -113,7 +113,7 @@ python3 ~/.claude/patch/npm-manifest/refresh.py --check
 
 | 差异 | 原因 | 处理 |
 |---|---|---|
-| skill 目录下的本机数据（`scroll-reverser/local/`、`backup/endpoints/` 等） | 本机私人 / 运行数据，被 `.gitignore` 隔离 | 保留，不同步 |
+| skill 目录下的本机数据（`backup/endpoints/` 等） | 本机私人 / 运行数据，被 `.gitignore` 隔离 | 保留，不同步 |
 | `settings.local.json` | 本机配置（不入库） | 保留，不同步 |
 | `commands/`、`settings.json` | 不在六部分同步范围（全局有、本项目镜像无） | 正常，不核对 |
 | hooks 目录下的 `__pycache__/`、`*.bak-*` | 字节码缓存、编辑备份等本机产物（不进镜像） | 保留，不核对 |
