@@ -8,7 +8,7 @@
 - **翻译场景的译法**：从其它语言**译入中文**（「中文」默认即指标准普通话和简体中文文字）时，必须采用**非直译的意译**——按中国人的阅读习惯和文化背景重新组织句子，不逐词逐句硬译，消除翻译腔；**译入英文**时，默认使用**标准且地道的美式英语**表达，同样不逐字硬译。用户明确指定其它目标变体或译法（如英式英语、明确要求直译）时，从其指定。
 - 回复**排版工整**：标题层级清晰，列表规整，段落之间空行分隔，代码块与表格格式正确，便于阅读。
 - 标点符号一律使用**简体中文标点**：逗号用「，」、句号用「。」、冒号用「：」、顿号用「、」、问号用「？」、感叹号用「！」，不要用英文标点（如 `,` `.` `:` `?` `!`）。中英文混排时，英文单词或数字与中文之间可留一个空格，但中文语句内部一律用中文标点。
-- **缩写约定**：用户输入「**CC**」即指 Claude Code，输入「**VSC**」即指 VSCode，输入「**VSCE**」即指 VSCode 扩展，输入「**CB**」即指 CodeBuddy，输入「**GH**」即指 GitHub，输入「**DSH**」即指 DeepSeek Harness（DeepSeek 开源的 agent harness，npm 包 `@deepseek-ai/dsh`），输入「**QSAgent**」即指 QuantStrategistAgent（Markowitz 的量化策略项目体系：主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader，仓库结构详见超集映射表），输入「**DTAgent**」即指 DayTradingAgent（Victor 的日内交易盯盘项目）。缩写**大小写不敏感**——大小写同义（如「cc 会话」= Claude Code 会话）。遇到这些缩写直接按此解读，无需确认；若某缩写在上下文中明显指别的含义（如命令位置的 `gh` 指 GitHub CLI、编译器语境的 `cc` 指 C 编译器），按上下文实际含义辨别。
+- **缩写约定**：用户输入「**CC**」即指 Claude Code，输入「**VSC**」即指 VSCode，输入「**VSCE**」即指 VSCode 扩展，输入「**CB**」即指 CodeBuddy，输入「**GH**」即指 GitHub，输入「**DSH**」即指 DeepSeek Harness（DeepSeek 开源的 agent harness，npm 包 `@deepseek-ai/dsh`），输入「**QSAgent**」即指 QuantStrategistAgent（Markowitz 的量化策略项目体系：主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader，仓库结构详见子项目映射表），输入「**DTAgent**」即指 DayTradingAgent（Victor 的日内交易盯盘项目）。缩写**大小写不敏感**——大小写同义（如「cc 会话」= Claude Code 会话）。遇到这些缩写直接按此解读，无需确认；若某缩写在上下文中明显指别的含义（如命令位置的 `gh` 指 GitHub CLI、编译器语境的 `cc` 指 C 编译器），按上下文实际含义辨别。
 
 ## 输出风格
 
@@ -117,7 +117,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **新建 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
 - **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
-- **Agent 项目与子项目的 `.claude/` 超集关系**：Agent 项目 `.claude/` 下任何内容变更后**自动同步**到其全部子项目（无需询问）；映射表与细则见 `~/.claude/docs/agents-registry.md`。
+- **智能体专属文件只属于 Agent 项目（2026-10-12 用户修订，取代原「子项目超集」规则）**：`CLAUDE.md`、`AGENTS.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，**只有 Agent 项目（团队 agent 项目）允许拥有；非 Agent 项目（含各 Agent 负责的子项目）一律不得存在**（存量发现即清理，独有内容先迁回负责的 Agent 项目再删）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，只能以该 Agent 项目的根目录为工作目录**——只有 Agent 项目根目录才有会话启动时加载的项目级智能体专属文件；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.claude/docs/agents-registry.md`。
 
 ## Skill 编写纪律
 
@@ -207,7 +207,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 需要其他 agent（另一条 pi 会话）配合时，用 `agent_call` 工具直接联系对方，不要人工传话、不要让用户中转。要点：
 
-- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的项目仓库路径，如 `~/Developer/FullStackEngineerAgent`）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
+- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的 Agent 项目目录，如 `~/Developer/FullStackEngineerAgent`——2026-10-12 新规：后台会话只能以 Agent 项目根目录为工作目录，不得用子项目目录，只有那里才有会话启动时加载的智能体专属文件）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
 - **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
 - **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
 - **联系不上不硬等**：`ask` 超时或唤醒失败时，如实向用户报告「暂时联系不上 XX」，不无限重试、不静默卡住；可改用 `send` 留言、或等对方上线后再联系。
@@ -235,7 +235,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 每个 Agent 会话**结束任务之前**（向用户交付 / 收尾汇报之前），必须检查**自己负责的全部子项目仓库**是否干净；**不干净的全部要处理干净**才能收尾——不是只报告，也不是留给「下次自然提交」。
 
 - **干净口径**：`git status --porcelain` 无输出（无未提交 / 未暂存改动、无未跟踪文件）；与远端无落后的未拉取分叉；本地领先的提交该推就推（经各仓库自己的 PR + CI 流程）。
-- **检查范围**：该 Agent 负责的子项目清单——各 Agent 项目 `CLAUDE.md` 的「子项目清单」节与全局 `~/.claude/docs/agents-registry.md` 的「超集关系映射」表（两者須一致）。
+- **检查范围**：该 Agent 负责的子项目清单——各 Agent 项目 `CLAUDE.md` 的「子项目清单」节与全局 `~/.claude/docs/agents-registry.md` 的「子项目映射」表（两者須一致）。
 - **处理方式**：按该仓库自己的流程处理——`/add` 预检 → `/commit`（该链条该 bump / 发版就照常走）；多仓库逐个处理；查不到、拿不准是不是在途 WIP 的，向用户说明后再动。
 - **为什么**：子项目随附版同步、文档补记这类零散改动会长期烂在各个工作区里（2026-10-09 实测：全队 22 个子项目仓库有 16 个不干净，其中 Atlas 名下 8 个只挂着上一轮同步改动未提交）。收尾自检让每个 Agent 交付时，名下所有仓库都处于「干净 + 与远端同步」的终态。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/settle-repo-check.ts`（`agent_settled` 钩子自动巡检本会话所在 Agent 项目的子项目仓库：发现不干净时通知用户，并就同一批不干净仓库向会话注入一次提醒促其处理）；CC 端 Stop hook `~/.claude/hooks/settle-repo-check.py`（同类巡检，未干净时阻断收尾一次、让 Claude 先处理；`stop_hook_active` 时放行防循环）。两端判定逻辑同源（同一个 Python 脚本）。

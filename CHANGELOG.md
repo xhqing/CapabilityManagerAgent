@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.35] - 2026-10-12
+
+智能体专属文件归属新规（2026-10-12 用户修订，取代「子项目超集」规则）镜像同步：五文件（`CLAUDE.md` / `agents-registry.md` / `new-agent-scaffold.md` / `settle-repo-check.py` / `agent-call.ts`）；capability-manager 的 sync-flow 两处「超集」表述对齐；TODO T1 闭环归档；详见下方 2026-10-12 分节。
+
 ## [1.5.34] - 2026-10-12
 
 镜像新增 image-marker 扩展：粘贴图片在输入框里显示为 `[Image #1]` 标记（回车提交时还原成真实路径，对模型 / 工具透明），替代原来的一长串临时文件绝对路径；详见下方 2026-10-12 分节。
@@ -284,6 +288,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **实现要点**：搭 pi-tui Editor 自带的「粘贴折叠 + 提交时展开」机制（即贴大段文本显示 `[paste #1 +30 lines]` 的那套），而不是另起一套渲染：`insertTextAtCursor()` 把 Ctrl+V 插入的图片路径换成 `[Image #N]`、`handlePaste()` 覆盖终端括号粘贴（Cmd+V 直通 / 复制文件后贴路径）、`expandPasteMarkers()` 在回车提交（`submitValue()`）与 `getExpandedText()` 时把标记还原成真实路径、`submitValue()` 提交后把编号归零（下一条消息重新从 #1 开始，与 Claude Code 一致）、`setTextInternal()` 在文本被回填（历史上下翻阅 / 恢复排队消息 / fork 选中消息 / 外部编辑器返回）时重新折叠。只对「整段文本就是一张已存在图片文件的路径」生效（单行、图片扩展名、文件真实存在），普通文本粘贴 / 命令 / 代码片段不受影响；连着贴两张图自动空格分隔，展开后是两条独立路径（不会粘成 `a.pngb.png` 一条无效路径）。
 - **验证**：tmux 真实 pi 会话全链路实测七项全过——① 单张图片显示 `[Image #1]` 且提交后会话记录（jsonl）里是真实临时路径；② 同一条消息连贴两张显示 `[Image #1] [Image #2]`、展开为以空格分隔的两条路径；③ 回车提交后编号归零（下一条消息重新从 #1 开始）；④ 历史记录上翻回填时重新折叠成标记；⑤ 普通文本粘贴不折叠；⑥ 非图片文件路径（`/etc/hosts`）不折叠；⑦ 带引号的图片路径折叠、展开后仍是原样的带引号文本。
 - **镜像同步**：`pi/agent/extensions/image-marker.ts` 已按「全局权威优先」覆盖，`diff -r ~/.pi/agent/extensions pi/agent/extensions` 逐字节一致（16 个通用扩展无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（智能体专属文件归属新规镜像同步 + sync-flow 对齐 + TODO T1 闭环）
+
+- **为什么改**：2026-10-12 用户把原「子项目 `.claude/` 超集」规则改为两条新规——① 智能体专属文件（`CLAUDE.md` / `AGENTS.md` / `.claude/` / 项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件）只有 Agent 项目允许拥有、非 Agent 项目（含子项目）一律不得存在；② 后台开启 pi 会话（intercom / `agent_call` / `agent_wake`）只能以 Agent 项目根目录为工作目录。Kit 会话完成全局侧细则与镜像同步（五文件，diff 逐字节一致），本仓复核并完成我这侧的对齐与闭环。
+- **改了什么**：
+  - 镜像（Kit 同步、本会话复核）：`claude/CLAUDE.md`（团队结构参考节新规 + 缩写约定 / 会话收尾检查 / agent_call 措辞同步）、`claude/docs/agents-registry.md`（「智能体专属文件归属与子项目映射（2026-10-12 修订）」节取代原超集节；映射表改名「子项目映射」）、`claude/docs/new-agent-scaffold.md`（新增「非 Agent 项目不得有智能体专属文件」条）、`claude/hooks/settle-repo-check.py`（表名正则改「子项目映射」+ 目录名大小写不敏感匹配修正）、`pi/agent/extensions/agent-call.ts`（唤醒前校验目标目录为 Agent 项目目录：根目录含 `CLAUDE.md` / `AGENTS.md` / `.claude/CLAUDE.md`，否则拒绝启动并报错）。
+  - `capability-manager/references/sync-flow.md` 两处「超集」表述按新规改写（「单一出口说明」与「情形 2」末段：子项目不再携带智能体专属文件，指向 `agents-registry.md` 新节）。
+  - TODO 闭环：T1（sync-flow 过时项）经核查其内容已由 v1.5.15 / v1.5.21 / 本批全部修复——移入新建 `TODO-archive.md` 标 `✅已完成`（正文逐字保留，已与原文比对一致）；`TODO.md` 清空。
+- **验证**：六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）+ 第七类 npm 清单（`--check` 通过）全量 diff 复核——仅既有豁免差异（anysearch `.env`、backup `endpoints.json`、`__pycache__` 等）；五文件与全局逐字节一致；CHANGELOG 追加自查通过（本条目位于 2026-10-12 节内、日期标题唯一）。
 
 ## 2026-10-11
 

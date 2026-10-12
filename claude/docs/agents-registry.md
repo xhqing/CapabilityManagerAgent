@@ -45,11 +45,16 @@
 
 **授权边界（重要，防过度泛化）**：本条的免确认授权**仅限「向注册表追加新 agent 行 + 补一句位置说明」这一类编辑**，**不扩展**到全局 `~/.claude/CLAUDE.md` 或本文件的其它任何修改——例如改语言偏好、git 规则、输出风格、脚手架约定，或对**已有** agent 行的重命名 / 调整职责 / 删除等，仍一律按「先征得同意」处理，不因本条规定而自动授权。改全局元规范默认要谨慎，只有「新建 agent 时追加注册表行」这一个窄口子放开。
 
-## Agent 项目与子项目的 `.claude/` 超集关系
+## 智能体专属文件归属与子项目映射（2026-10-12 修订）
 
-**Agent 项目**（团队 agent，见上方注册表）若负责维护**子项目**（用户的后端项目等由该 Agent 负责的项目），两者 `.claude/` 目录之间维护**超集关系**：**Agent 项目 `.claude/` 是权威源，子项目 `.claude/` 是它的超集**——Agent 项目 `.claude/` 下除 `CLAUDE.md` 外的每个文件，在子项目 `.claude/` 下都必须存在且逐字节一致；`CLAUDE.md` 的**内容**同样新增到子项目（实现方式不限、效果等价即可，见下）。子项目 `.claude/` 下 Agent 项目没有的内容（如 CC-BRIDGE 的 `rules/cc-bridge-install.md`、子项目原有的 `CLAUDE.md` 内容）**保留不动**（超集只增不减）。目的是保证用户只操作子项目时，子项目的 `.claude/` 也包含 Agent 项目的完整内容，体现该项目归该 Agent 负责。
+**智能体专属文件**指「会话启动时按工作目录加载、用于表征智能体身份 / 给智能体下指令」的项目级文件与目录，当前包括：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`（Claude Code 项目级配置：CLAUDE.md / settings / rules / skills / memory 等）、项目级 `.pi/`（pi 项目级配置：skills / extensions / prompts / SYSTEM.md / settings 等）。**这类文件只有 Agent 项目（团队 agent 项目，见上方注册表）允许拥有；非 Agent 项目（含各 Agent 负责的子项目、以及其它任何非 Agent 项目）一律不得存在**——2026-10-12 用户修订，取代此前的「子项目 `.claude/` 超集」规则（历史版本见本文件 git 历史）。
 
-**超集关系映射（完整清单，权威）**：当前全部 Agent → 子项目超集映射如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `.claude/CLAUDE.md` 的「子项目清单」节，保持一致。
+- **为什么**：会话启动时，agent 规则文件按工作目录加载——pi 加载 `CLAUDE.md` / `AGENTS.md`（当前目录 + 逐级上级目录 + 全局 `~/.pi/agent/`）与工作目录下 `.pi/` 的项目级配置；Claude Code 加载工作目录的项目级 `CLAUDE.md` / `.claude/`。子项目不再携带这些文件后，以子项目为工作目录开会话就看不到 agent 身份与规则；想让会话带上完整的 agent 身份与规则，工作目录必须落在 Agent 项目根。
+- **后台开启会话只能以 Agent 项目根目录为工作目录**：凡通过 intercom / `agent_call` / `agent_wake` 等为某个 agent 开启（或唤醒）后台 pi 会话，工作目录只能是该 agent 的 **Agent 项目根目录**；不得以其子项目 / 任意非 Agent 项目目录开启。子项目的工作（读文件、跑命令、开发、提交）一律在 Agent 项目的会话里按路径跨目录操作（如 `git -C <子项目目录>`）。
+- **存量清理**：非 Agent 项目里已有的 `CLAUDE.md`、`AGENTS.md`、`.claude/`、项目级 `.pi/` 一律清理删除；删除前先检查有无「不属于 agent 身份规则」的独有内容（子项目专属说明、上游开发指南、项目专属 skill 等）——有保留价值的先迁到负责的 Agent 项目里（或子项目的普通文档，如 README / docs），再删。各 Agent 项目「子项目清单」节的表述同步改为本新规。
+- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前校验目标目录必须是 Agent 项目目录（根目录含 `CLAUDE.md` / `AGENTS.md` / `.claude/CLAUDE.md`，否则拒绝启动并报错）；`~/.claude/hooks/settle-repo-check.py`（收尾巡检）按下方「子项目映射」表定位子项目。
+
+**子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md`（或 `.claude/CLAUDE.md`）的「子项目清单」节，保持一致。
 
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
@@ -70,17 +75,12 @@
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | DeviceStewardAgent（Alfred） | ResourceMonitor | 整机资源监控 + AI 清理建议的 VSCode 扩展（TypeScript） |
-| QuantStrategistAgent（Markowitz） | Intraday | Markowitz 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证；quant skill 位于其 `.claude/skills/quant/`） |
+| QuantStrategistAgent（Markowitz） | Intraday | Markowitz 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
 | QuantStrategistAgent（Markowitz） | Swing | 日 K 趋势跟随策略工具集（美股大盘股，Python，完整文档 + 回测验证 + 可信度标定） |
 | QuantStrategistAgent（Markowitz） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
 | ProductProducerAgent（Wright） | GitComic | Git 漫画书产品线仓库（试读 PDF + 引流图卡，en/zh 双语，后续全本迭代在该仓进行；制作资产与交付物在本机被忽略的 artifacts/） |
 | ProductProducerAgent（Wright） | agent-team-playbook-src | The Agent Team Playbook 产品私有源仓库（en/zh 源树 + spec；付费内容不公开，tag + gh release 附分语言 zip 管版本；与公开落地页仓 agent-team-playbook 区分——那是 Mason 的 GitHub Pages 部署仓） |
-| DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项；按 2026-10-09 新式脚手架不建 `.claude/`，超集以 CLAUDE.md 全文随附落地） |
+| DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
 
-- **触发**：Agent 项目 `.claude/` 下任何内容变更（新增 / 修改 / 删除文件）后，**自动同步**到其所有子项目，无需询问；删除的文件同步删除子项目中的对应文件。
-- **子项目清单**：由各 Agent 项目在自己的 `.claude/CLAUDE.md` 中维护（须与上方「超集关系映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
-- **`CLAUDE.md` 内容同样超集（实现方式不限，效果等价即可）**：Agent 项目 `CLAUDE.md` 的**内容**也必须完整进入子项目（子项目会话中能加载 / 看到 Agent 的全部规则），但**不要求逐字节一致、不要求放在同名文件**。**做法是「新增」而不是「覆盖」**：子项目原有的 `CLAUDE.md` 内容**保持不变**，把 Agent 项目 `CLAUDE.md` 的内容**新增**进去——最简单的做法是**直接把 Agent 项目 `CLAUDE.md` 的内容加进子项目的 `CLAUDE.md`**（Agent 内容置于子项目原有内容之前或之后均可）；也可以放到子项目 `rules/` 下新建的 rule 文件、再在子项目 CLAUDE.md 里加 `@` 引用（效果等价）。无论哪种方式，建议带一句指代说明（如「以下为 BackendEngineerAgent（Anvil）CLAUDE.md 全文，其中『本项目』均指 BackendEngineerAgent」），避免内容在子项目语境下指代混淆。**两者内容放到一起后不能有逻辑冲突**（如身份矛盾、规则打架、职责冲突）；若发现逻辑冲突，**以子项目原有的内容为准**，且**必须向用户汇报冲突内容**（冲突双方各是什么、按子项目为准的处理结果）。Agent 项目 `CLAUDE.md` 内容更新时，同步新增 / 更新子项目对应内容，子项目原有内容始终保留不动。
-- **验证**：同步后用 `diff` 核对，确认子项目 `.claude/` 仍为 Agent 项目 `.claude/` 的超集。
-- **记录**：源变更记 Agent 项目自己的 CHANGELOG；同步动作本身不重复记子项目 CHANGELOG。
-- **敏感信息**：`settings.local.json` 等本机配置同样同步；若子项目 `.gitignore` 缺少对应忽略规则，同步时一并补上。
-- **边界**：本规则适用于「Agent 项目负责子项目」的情形；当前全部映射见上方「超集关系映射」表。
+- **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（或 `.claude/CLAUDE.md`）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
+- **边界**：本规则适用于「Agent 项目负责子项目」的情形；当前全部映射见上方「子项目映射」表。
