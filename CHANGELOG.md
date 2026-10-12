@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.26] - 2026-10-12
+
+镜像新增 ai-edit-diff 扩展（通用「改动可视化 / 双向知情」，user-edit-notify 的通用化改造版）；user-edit-notify 排除模式兼容 `.disabled` 退役文件；详见下方 2026-10-12 分节。
+
 ## [1.5.25] - 2026-10-12
 
 scroll-reverser skill 移出通用能力范围（转为 ExecutiveAssistantAgent 项目专属 skill）：全局与镜像同步删除、capability-manager 引用更新；详见下方 2026-10-12 分节。
@@ -179,6 +183,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：① 全局下线：删除 `~/.claude/skills/scroll-reverser/` 与 `~/.pi/agent/skills/scroll-reverser/`（内容已完整迁至 `~/Developer/ExecutiveAssistantAgent/.pi/skills/scroll-reverser/`；本机数据 `local/config.md` 随迁、由 EA 的 `.gitignore` 忽略，仅 `local/README.md` 入库作说明）。② 镜像同步删除：本仓库 `claude/skills/scroll-reverser/` 移除；`.gitignore` 中该 skill 的 `local/` 忽略条目一并清理。③ 引用清理：capability-manager 的 `SKILL.md` 与 `references/sync-flow.md` 三处「本机数据差异」示例由 scroll-reverser 改为 backup/endpoints（该 skill 已不在同步范围，示例随之更新）。
 - **验证**：全局与镜像两侧均不再含 scroll-reverser（diff 复核）；EA 侧 `.pi/skills/scroll-reverser/` 结构完整（SKILL.md / references/guide.md / local/README.md 入库、local/config.md 被忽略）。
 - **镜像同步**：本仓库删除与引用更新已由 Kit 会话完成；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（镜像新增 ai-edit-diff 扩展；user-edit-notify 排除模式兼容 .disabled）
+
+- **为什么改**：2026-10-12 Prometheus 复核时发现全局新增通用扩展 `ai-edit-diff.ts`（「改动可视化 / 双向知情」，与 git 无关、任何项目可用——10-11 建立、是 EA 专用 `user-edit-notify.ts` 的通用化改造版，10-12 已活跃投产）尚未镜像；同发现 `user-edit-notify.ts` 已退役更名 `.disabled`，使 v1.5.23 写入的排除模式 `-x 'user-edit-notify.ts'` 不再命中（复核会误报差异）。按「通用扩展进镜像、项目专用扩展排除」口径一并处理。
+- **改了什么**：① 镜像新增 `pi/agent/extensions/ai-edit-diff.ts`（与全局逐字节一致）。② `claude/docs/capability-sync.md`：范围段「项目专用扩展」现例更新（注明 user-edit-notify 已退役为 `.disabled`、其通用化版 ai-edit-diff 已纳入镜像）；验证段排除模式兼容化（`-x 'user-edit-notify.ts*'`，含 `.disabled`）。③ capability-manager 的 `references/sync-flow.md` 四处同步（cp 循环排除模式、两处 diff 命令、合法差异表）。
+- **验证**：`diff -r -x 'user-edit-notify.ts*' ~/.pi/agent/extensions pi/agent/extensions` 通过（15 个通用扩展逐字节一致）；docs diff 一致。
+- **镜像同步**：由 Kit 会话完成；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
