@@ -21,6 +21,10 @@
  * 建立：2026-10-11（用户需求：Agent 改动可视化 + 用户改动通知 + 通用化）
  * 改造：2026-10-12（用户需求：diff 默认不自动打开；改为用户按需触发、选定窗口与文件并授权）
  * 改造：2026-10-12（用户需求：跨会话广播——碰过文件的活跃会话都要收到变更通知，无论改动人/会话是谁）
+ * 改造：2026-10-12（用户反馈：措辞要准确——归因不明时不要默认写成「用户修改」（实践中大部分
+ *       是其它会话改的），改用中性措辞「来源未识别」并注明推测范围）
+ * 改造：2026-10-12（修复：复合命令（`cp … && diff …`）曾被误判为只读——写动作没登记快照/声明，
+ *       自己改自己的文件也会收到误报；判定改为「出现写类命令/重定向即按写处理」）
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -396,14 +400,17 @@ export default function (pi: ExtensionAPI) {
       info.changedBy.kind === "session"
         ? `由会话「${name}」修改`
         : info.changedBy.kind === "user"
-          ? "由用户手动修改"
-          : "检测到外部修改";
+          ? "由用户修改"
+          : "来源未识别";
     const lines = [
       `【文件变更通知 · ${who}】`,
       `文件：${p}`,
       ...(info.deleted ? ["状态：文件已被删除（快照为删除前内容）"] : []),
       ...(info.snap ? [`改动前快照：${info.snap}`] : []),
       `变更时间：${formatTime(info.changedAt)}`,
+      ...(info.changedBy.kind === "unknown"
+        ? ["变更来源：未识别——不是本会话所为（可能是其它会话，也可能是用户手动改）。"]
+        : []),
       "⚠️ 该文件此前的内容可能仍留在你的上下文中，且已过时。在后续回答或操作前，请重新读取该文件，不要基于旧内容回答或处理。",
       "这次变更不是你做的——它是最新基线，不要覆盖；继续操作前先读取最新内容。",
     ];
@@ -428,10 +435,11 @@ export default function (pi: ExtensionAPI) {
       snap = meta.snapshot;
       changedAt = meta.changedAt;
     } else {
-      // 我是第一个发现者 → 补记一份（快照取自镜像里的旧内容）
+      // 我是第一个发现者 → 补记一份（快照取自镜像里的旧内容）；
+      // 归因不明时用中性来源（不默认写成「用户」——实践中大部分是其它会话改的）
       const old = mirrorGet(p);
       snap = old !== null && old.length <= MAX_FILE_BYTES ? writeSnapshot(p, old) : null;
-      changedBy = claim ? { kind: "session", id: claim.id, name: claim.name } : { kind: "user" };
+      changedBy = claim ? { kind: "session", id: claim.id, name: claim.name } : { kind: "unknown" };
       changedAt = Date.now();
       writeMeta(p, { path: p, hash, snapshot: snap, changedAt, changedBy });
     }
@@ -489,7 +497,15 @@ export default function (pi: ExtensionAPI) {
         const cmd = String(input.command ?? "");
         if (cmd) {
           const paths = extractPaths(cmd);
-          const isReadCmd = /\b(cat|head|tail|less|grep|rg|wc|file|stat|ls|diff)\b/.test(cmd);
+          // 判定「纯读」要严格：命令里出现写类命令（cp/mv/sed/tee/重定向…）就按写处理——
+          // 复合命令（如 `cp a b && diff a b`）里一个 `diff` 字样曾让整条命令被误判为只读，
+          // 导致写动作没登记快照/声明，自己改自己的文件还会收到误报（2026-10-12 实测）。
+          const cleaned = cmd
+            .replace(/2\s*>>?\s*\/dev\/null/g, "")
+            .replace(/2>&1/g, "")
+            .replace(/>>?\s*\/dev\/null/g, "");
+          const hasWriteHint = /(^|[\s;&|])(cp|mv|rm|sed|tee|touch|mkdir|ln|dd|truncate|chmod|chown|install)\b|>>?/.test(cleaned);
+          const isReadCmd = !hasWriteHint && /\b(cat|head|tail|less|grep|rg|wc|file|stat|ls|diff)\b/.test(cmd);
           for (const p of paths) {
             if (!shouldTrack(p)) continue;
             if (isReadCmd) {
