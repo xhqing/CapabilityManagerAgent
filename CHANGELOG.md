@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.23] - 2026-10-12
+
+镜像口径明确化：pi 扩展不含项目专用扩展（判定标准 + 现例 `user-edit-notify.ts`）；详见下方 2026-10-12 分节。
+
 ## [1.5.22] - 2026-10-12
 
 scroll-reverser skill 补「beta 自动更新后重启中断」失灵形态（用户报「滚动方向总是不对」的实测诊断与修复）；详见下方 2026-10-12 分节。
@@ -144,6 +148,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：`claude/skills/scroll-reverser/SKILL.md` 第 1 步括注补「beta 自动更新后重启中断也曾见」一句；本机快照 `~/.claude/skills/scroll-reverser/local/config.md`（本机私有数据、不进镜像）同步更新——版本 10528 → 10558、追加 2026-10-12 诊断与修复记录及单次观察（含 `SUUpdateRelaunchingMarker` 残留待留意）。
 - **验证**：修复实测通过——启动 app + `set enabled to true` 后 `enabled=true`、`InvertScrollingOn=1`；干净重启 app 复验：进程在、开关保持 true、其余配置键均符合本机应然值。
 - **镜像同步**：`claude/skills/scroll-reverser/SKILL.md` 已按「全局权威优先」覆盖，diff 与全局逐字节一致（本机数据 config.md 按规矩不进镜像）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（镜像口径明确化：pi 扩展镜像不含项目专用扩展）
+
+- **为什么改**：2026-10-12 Prometheus 七类复核时发现全局 `~/.pi/agent/extensions/user-edit-notify.ts`（EA（ExecutiveAssistantAgent）专用的主文件编辑通知扩展——监听 EA 项目 `tmp/video/voice-script.md`、仅 EA 会话激活、含硬编码本机路径，2026-10-11 建）未镜像、上报待确认。Kit 会话核查判定：该扩展属「项目专用机制」而非通用能力（现有 14 个镜像扩展均无项目硬编码），直接镜像对 clone 者无意义、且带出 EA 项目工作流细节，故不纳入镜像；同时将判定明确进同步口径，避免每次复核重复报警。
+- **改了什么**：`claude/docs/capability-sync.md` 两处——「范围」段 pi 扩展括注补「项目专用扩展不纳入镜像」判定标准（含特定项目硬编码路径 / 仅单项目会话激活）与现例（含「如需纳入应先改造为通用形式」引导）；「怎么验证」段允许差异清单补该项、pi 扩展 diff 命令补 `-x 'user-edit-notify.ts'` 排除。
+- **验证**：`diff -r -x 'user-edit-notify.ts' ~/.pi/agent/extensions pi/agent/extensions` 通过（14 个通用扩展无差异）；`claude/docs/capability-sync.md` 与全局 diff 逐字节一致。
+- **镜像同步**：`claude/docs/capability-sync.md` 已按「全局权威优先」覆盖；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
