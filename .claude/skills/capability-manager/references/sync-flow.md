@@ -46,9 +46,14 @@ mkdir -p "$AUTH/claude/patch/skill-custom"
 cp -R ~/.claude/patch/skill-custom/snippets "$AUTH/claude/patch/skill-custom/"
 cp ~/.claude/patch/skill-custom/restore.py ~/.claude/patch/skill-custom/README.md "$AUTH/claude/patch/skill-custom/"
 
-# pi 扩展（pi 端工具强制扩展，与 hooks 是同一套工具强制的 pi 侧实现；无本机产物）
+# pi 扩展（工具强制 / 机制类扩展；项目专用扩展不进镜像——判定见 capability-sync.md「范围」段）
 mkdir -p "$AUTH/pi/agent/extensions"
-cp ~/.pi/agent/extensions/*.ts "$AUTH/pi/agent/extensions/"
+for f in ~/.pi/agent/extensions/*.ts; do
+  case "$(basename "$f")" in
+    user-edit-notify.ts) continue ;;   # 项目专用扩展（EA 专用）；新增项目专用扩展时在此补一行
+  esac
+  cp "$f" "$AUTH/pi/agent/extensions/"
+done
 ```
 
 **本机数据差异（重要）**：个别 skill 目录下有自己的本机数据（如 `scroll-reverser/local/` 的配置、`backup/endpoints/` 的端点注册表），**被 `.gitignore` 隔离、不参与「逐字节一致」核对**（属合法差异，见下文）。整目录 `cp -R` 时保留它们、不要删。
@@ -96,8 +101,8 @@ diff -r "$AUTH/claude/docs" ~/.claude/docs
 diff -r -x '__pycache__' -x '*.bak*' "$AUTH/claude/hooks" ~/.claude/hooks
 # patch：排除本机产物（*.log / .lock / conflicts）后再比
 diff -r -x '*.log' -x '.lock' -x 'conflicts' "$AUTH/claude/patch" ~/.claude/patch
-# pi 扩展（无本机产物，直接比）
-diff -r "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions
+# pi 扩展（排除项目专用扩展后比）
+diff -r -x 'user-edit-notify.ts' "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions
 # 第七类（npm 清单）：生成式核验
 python3 ~/.claude/patch/npm-manifest/refresh.py --check
 ```
@@ -113,6 +118,7 @@ python3 ~/.claude/patch/npm-manifest/refresh.py --check
 | `commands/`、`settings.json` | 不在六部分同步范围（全局有、本项目镜像无） | 正常，不核对 |
 | hooks 目录下的 `__pycache__/`、`*.bak-*` | 字节码缓存、编辑备份等本机产物（不进镜像） | 保留，不核对 |
 | patch 目录下的 `*.log`、`.lock`、`conflicts/` | 动作日志、并发锁、锚点丢失现场等本机产物（不进镜像） | 保留，不核对 |
+| pi 扩展目录下的项目专用扩展（当前：`user-edit-notify.ts`，EA 专用） | 含项目硬编码路径 / 仅单项目会话激活，不进镜像（判定见 capability-sync.md「范围」段） | 全局侧存在、镜像侧没有属正常；比对用 `-x` 排除 |
 
 除这几类外，六部分（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）的 diff 报任何差异都说明同步没做对，必须修到一致（第七类不适用 diff，用 `--check`）。
 
@@ -131,7 +137,7 @@ done
 diff -r "$AUTH/claude/docs" ~/.claude/docs >/dev/null 2>&1 && echo "docs ✅" || echo "docs ❌"
 diff -r -x '__pycache__' -x '*.bak*' "$AUTH/claude/hooks" ~/.claude/hooks >/dev/null 2>&1 && echo "hooks ✅" || echo "hooks ❌"
 diff -r -x '*.log' -x '.lock' -x 'conflicts' "$AUTH/claude/patch" ~/.claude/patch >/dev/null 2>&1 && echo "patch ✅" || echo "patch ❌"
-diff -r "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions >/dev/null 2>&1 && echo "pi 扩展 ✅" || echo "pi 扩展 ❌"
+diff -r -x 'user-edit-notify.ts' "$AUTH/pi/agent/extensions" ~/.pi/agent/extensions >/dev/null 2>&1 && echo "pi 扩展 ✅" || echo "pi 扩展 ❌"
 python3 ~/.claude/patch/npm-manifest/refresh.py --check >/dev/null 2>&1 && echo "npm 清单 ✅" || echo "npm 清单 ❌（用 refresh.py 刷新）"
 echo "=== 全局 vs 各项目副本：已取消（分发层 2026-09-13 终结、副本清空）==="
 ```
