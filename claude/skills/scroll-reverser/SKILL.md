@@ -26,7 +26,7 @@ Scroll Reverser 是免费开源（Apache-2.0）的 macOS 工具，用来反转�
 pgrep -fl "Scroll Reverser"
 ```
 
-没有输出 → app 没在运行（重启后自启失败是常见失灵形态）。启动它：
+没有输出 → app 没在运行（重启后自启失败是常见失灵形态；beta 自动更新后重启中断也曾见）。启动它：
 
 ```bash
 open -a "Scroll Reverser"
