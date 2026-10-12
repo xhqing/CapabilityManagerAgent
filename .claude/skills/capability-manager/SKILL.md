@@ -78,7 +78,7 @@ description: 维护智能体团队的通用能力底座，是 Prometheus（通�
    （历史的「全局 → 各 agent 项目副本」分发层已终结——2026-09-13 副本清空，不再有此情形。）
 2. **执行同步**：用 `cp` 覆盖目标位置（命令模板与合法差异清单见 [`references/sync-flow.md`](references/sync-flow.md)）。
 3. **diff 验证**：全局 vs 本项目镜像：`diff -r ~/.claude/<部分> ~/Developer/CapabilityManagerAgent/claude/<部分>`；npm 清单（第七类）：`python3 ~/.claude/patch/npm-manifest/refresh.py --check`。
-4. **处理差异**：diff 报差异 → 判断是「同步没做对」还是「合法差异」（如 scroll-reverser 的 `local/`、backup 的 `endpoints/` 等本机数据子目录，被 `.gitignore` 隔离）。前者修到一致，后者保留。
+4. **处理差异**：diff 报差异 → 判断是「同步没做对」还是「合法差异」（如 backup 的 `endpoints/` 等本机数据子目录，被 `.gitignore` 隔离）。前者修到一致，后者保留。
 5. **记 CHANGELOG**：同步动作只记本项目 CHANGELOG。
 
 详见 [`references/sync-flow.md`](references/sync-flow.md)（含六部分与 npm 清单的同步命令、合法差异清单、一致性巡检脚本）。

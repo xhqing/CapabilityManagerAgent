@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.25] - 2026-10-12
+
+scroll-reverser skill 移出通用能力范围（转为 ExecutiveAssistantAgent 项目专属 skill）：全局与镜像同步删除、capability-manager 引用更新；详见下方 2026-10-12 分节。
+
 ## [1.5.24] - 2026-10-12
 
 capability-manager skill 口径对齐：pi 扩展镜像剔除项目专用扩展（同步命令 / 巡检 / 合法差异表补排除项，与 capability-sync.md 口径一致）；详见下方 2026-10-12 分节。
@@ -168,6 +172,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
   - `SKILL.md`：同步范围 bullet 的 pi 扩展括注补「项目专用扩展（含项目硬编码 / 仅单项目激活）不进镜像」。
   - `references/content-lifecycle.md`：判断矩阵 pi 端扩展行补「项目专用扩展不经镜像」。
 - **验证**：按 skill 内新巡检命令试跑通过（`diff -r -x 'user-edit-notify.ts' …` ✅）；逐文件 grep 复核排除项覆盖 cp / diff / 巡检 / 表格 / 说明共六处。
+
+### 变更（scroll-reverser skill 移出通用能力范围：转为 EA 项目专属 skill）
+
+- **为什么改**：2026-10-12 用户决定把 scroll-reverser skill 从全局通用能力转为 ExecutiveAssistantAgent（Kit）的**项目专属 skill**——它维护的是本机这台 Mac 的滚动方向工具，归 EA 项目语义上更贴切；迁移后不再占用全局能力、不再参与镜像同步链，后续维护随 EA 仓库走。
+- **改了什么**：① 全局下线：删除 `~/.claude/skills/scroll-reverser/` 与 `~/.pi/agent/skills/scroll-reverser/`（内容已完整迁至 `~/Developer/ExecutiveAssistantAgent/.pi/skills/scroll-reverser/`；本机数据 `local/config.md` 随迁、由 EA 的 `.gitignore` 忽略，仅 `local/README.md` 入库作说明）。② 镜像同步删除：本仓库 `claude/skills/scroll-reverser/` 移除；`.gitignore` 中该 skill 的 `local/` 忽略条目一并清理。③ 引用清理：capability-manager 的 `SKILL.md` 与 `references/sync-flow.md` 三处「本机数据差异」示例由 scroll-reverser 改为 backup/endpoints（该 skill 已不在同步范围，示例随之更新）。
+- **验证**：全局与镜像两侧均不再含 scroll-reverser（diff 复核）；EA 侧 `.pi/skills/scroll-reverser/` 结构完整（SKILL.md / references/guide.md / local/README.md 入库、local/config.md 被忽略）。
+- **镜像同步**：本仓库删除与引用更新已由 Kit 会话完成；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
 
