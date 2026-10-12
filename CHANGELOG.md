@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.31] - 2026-10-12
+
+agent-wait-banner 再修订：新增「主动判断」——send 类委派消息里写明「无需回复」即不点亮提醒（没有要等的就不提醒）；CLAUDE.md 同步；详见下方 2026-10-12 分节。
+
 ## [1.5.30] - 2026-10-12
 
 agent-wait-banner 修订：send 窗口加 15 分钟超时上限——没有真实待办时大红提醒不再一直挂着（用户曾被「幻影后台」误导）；全局 CLAUDE.md 规则同步；详见下方 2026-10-12 分节。
@@ -238,6 +242,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **为什么改**：2026-10-12 用户反馈：footer 的大红提醒「还有后台进程在运行中，请稍等」挂了一下午——实际没有任何后台任务（`background_list` 为空），只是本会话此前用 send 模式（fire-and-forget、且明确「无需回复」）委派过消息，扩展把「send 未收到回信」计为活动窗口，而无人回信时该窗口永不销。用户定调：**没有真实待办，提醒就不应该存在**。
 - **改了什么**：① `pi/agent/extensions/agent-wait-banner.ts`：新增 `SEND_TTL_MS`（默认 15 分钟，环境变量 `PI_WAIT_BANNER_TTL_MS` 可覆盖）；`refresh()` 先做超时撤销（`pruneExpiredSends()`）再渲染——send 窗口超过上限仍未收到回信即自动撤下提醒；原有清窗（回信到达 / 用户输入 / 委派失败）不变；头部注释补 2026-10-12 修订说明。② 全局 `CLAUDE.md`「等待回复 / 后台任务运行期间的大红提醒」条目：显示时机处补 send 窗口 15 分钟上限（含 `PI_WAIT_BANNER_TTL_MS` 可调），工具强制条的修订历史补 2026-10-12 一笔。
 - **验证**：bun mock harness 15 项断言全过——send 显示 / 超时自动撤销（TTL=1.2s 实测）/ 回信清窗 / 用户输入清窗 / ask 生命周期 / 干活中隐藏与恢复 / 外部活动上报 / 委派失败撤销。
+- **镜像同步**：`pi/agent/extensions/agent-wait-banner.ts` 与 `claude/CLAUDE.md` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
+
+### 变更（agent-wait-banner：新增「无需回复」主动判断）
+
+- **为什么改**：2026-10-12 用户对 1.5.30 的超时方案继续追加要求：「没有后台进程要等的话，应该主动判断出来，然后主动把这个提醒撤销」——不应只靠 15 分钟兜底超时，能当场判定「没有要等的东西」时就该不点亮提醒。
+- **改了什么**：① `pi/agent/extensions/agent-wait-banner.ts`：新增 `isNoReplyMessage()`——send / handover 类委派的消息文本里写明「无需回复」（含「不用回复 / 不必回复 / 不需要回复 / 无需回信 / 无需进一步动作 / no need to reply / no reply needed 等」变体）即视为 fire-and-forget，**不登记等待窗口、不点亮提醒**；需要回信的照常点亮，收到回信 / 用户输入 / 委派失败照旧立即撤销；15 分钟超时保留作兜底（标记写漏或无法判断时）。② 全局 `CLAUDE.md`：显示时机处补「主动判断」描述，新增「发出 send 类委派时的写法」子条（不需回信的写明「无需回复」），工具强制条修订史补 2026-10-12 两点。
+- **验证**：bun mock harness 17 项断言全过（新增：「无需回复 / 不用回复 / no need to reply / 无需你进一步动作」四种变体不点亮；对照组——需要回信的 send 正常点亮）。
 - **镜像同步**：`pi/agent/extensions/agent-wait-banner.ts` 与 `claude/CLAUDE.md` 已按「全局权威优先」覆盖，diff 逐字节一致（扩展目录全量核对无差异）；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus 执行。
 
 ## 2026-10-11
