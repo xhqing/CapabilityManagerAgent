@@ -72,6 +72,7 @@
 | ExecutiveAssistantAgent（Kit） | CyberRipple | 组织总览仓库（AI Agent 团队总览 README 中英双语；交由 Kit 负责，远程仓库待建） |
 | ExecutiveAssistantAgent（Kit） | blog | 个人博客仓库（docsify 静态博客，github.com/xhqing/blog，线上 xhqing.github.io/blog） |
 | ExecutiveAssistantAgent（Kit） | copybridge | macOS 剪贴板桥接工具（在 VSCode 资源管理器复制的文件可直接粘贴到 Finder / 微信 / 浏览器等系统任意 App：后台修复 VSCode 私有剪贴板格式；2026-10-08 建立、2026-10-09 登记） |
+| ExecutiveAssistantAgent（Kit） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 ExecutiveAssistantAgent 项目 `tmp/video`，绑定 GitHub 私有远程持续备份；2026-10-13 设立） |
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | DeviceStewardAgent（Alfred） | ResourceMonitor | 整机资源监控 + AI 清理建议的 VSCode 扩展（TypeScript） |

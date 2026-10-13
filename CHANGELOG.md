@@ -207,6 +207,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`check_description.py` 四个受影响 skill 描述均 PASS（commit 1006/1024）；`diff -r ~/.claude/skills claude/skills` 与 `diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 仅剩已知私有 / 本机产物差异（anysearch `.env`、backup `endpoints.json`、`__pycache__`），六文件逐字节一致。
 - **镜像同步**：六文件已按「全局权威优先」覆盖；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（agents-registry 子项目映射表：新增 ExecutiveAssistantAgent → xhs-mentor-scam）
+
+- **为什么改**：用户 2026-10-13 指定——小红书陪跑反诈视频项目（独立仓库位于 ExecutiveAssistantAgent 项目 `tmp/video`）归 Kit（ExecutiveAssistantAgent）负责；按「新增 / 变更子项目时同步更新映射表与对应 Agent 项目子项目清单」规则登记（Agent 项目侧同步见该仓库 CHANGELOG）。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：`docs/agents-registry.md` 子项目映射表 ExecutiveAssistantAgent（Kit）名下新增 `xhs-mentor-scam` 行（小红书「陪跑 / 带教」反诈视频项目材料，私人仓库；独立 git 仓库位于 ExecutiveAssistantAgent 项目 `tmp/video`，绑定 GitHub 私有远程持续备份）。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；新条目落在 `## 2026-10-13` 日期节内、日期标题不重复。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit 会话暂记，提交流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-12
 
 ### 变更（scroll-reverser skill：补「beta 自动更新后重启中断」失灵形态）
