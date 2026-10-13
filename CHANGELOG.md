@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.36] - 2026-10-13
+
+发版门禁收紧：自动发版链只在自最新 tag 含 fix / feat 类改动时触发（2026-10-13 用户立），纯文档 / 杂事类不发版、不 bump；镜像同步六文件（`CLAUDE.md` + `skills/` 的 commit / bump / release / add / dev-workflow）；详见下方 2026-10-13 分节。
+
 ## [1.5.35] - 2026-10-12
 
 智能体专属文件归属新规（2026-10-12 用户修订，取代「子项目超集」规则）镜像同步：五文件（`CLAUDE.md` / `agents-registry.md` / `new-agent-scaffold.md` / `settle-repo-check.py` / `agent-call.ts`）；capability-manager 的 sync-flow 两处「超集」表述对齐；TODO T1 闭环归档；详见下方 2026-10-12 分节。
@@ -187,6 +191,21 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-13
+
+### 变更（发版门禁收紧：仅 fix / feat 类改动触发自动发版）
+
+- **为什么改**：2026-10-12 pi 仓库一个「文档迁移 + 版本号 bump」的纯文件改动 PR 合并后触发了自动发版链（发出 v0.0.5）——用户 2026-10-13 裁定：「以后这种文件改动不应该触发发版流程，只有 fix 和 feat 核心功能的修复和新增核心功能才触发发版」。原门禁只看「自最新 tag 有新提交」，文档 / 杂事类提交也会驱动 bump + Release：发版噪音大、版本号被非功能改动推着走。
+- **改了什么**（全局 `~/.claude/` 权威源）：
+  - `skills/commit/SKILL.md`：第 10 步新增「内容性质判定」关卡（判定与动作改三步）——机械层扫 fix / feat conventional 前缀（`git log --no-merges <tag>..HEAD`），无命中再走语义层判读（明确为功能修复 / 新增才命中、拿不准按不命中；发版链内部延续豁免防死锁）；纯文档 / 杂事类不发版、不触发 bump，汇报说明。9j 版本滞后检测同口径分流（非功能类新提交不算「滞后」问题）；核心定位 / 汇报 / 例外清单与 description 同步。
+  - `skills/bump/SKILL.md`：description 与「边界」补自动衔接门禁（仅自最新 tag 含 fix / feat 类改动时由第 10 步衔接；用户主动 `/bump` 不受限）。
+  - `skills/release/SKILL.md`：description 与「授权语义」补同一门禁与边界（门禁只约束来源 2 自动衔接；用户主动 `/release` 不受限——显式发版意图即授权）。
+  - `skills/add/SKILL.md`：自动衔接 commit 链条说明补发版条件收紧注记。
+  - `skills/dev-workflow/SKILL.md`：第 10 步入口表述同步（「有新提交（含 fix / feat 类改动）但未 bump」）。
+  - `CLAUDE.md`：「Git 写操作必须先征得同意」段三处自动发版链描述补门禁。
+- **验证**：`check_description.py` 四个受影响 skill 描述均 PASS（commit 1006/1024）；`diff -r ~/.claude/skills claude/skills` 与 `diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 仅剩已知私有 / 本机产物差异（anysearch `.env`、backup `endpoints.json`、`__pycache__`），六文件逐字节一致。
+- **镜像同步**：六文件已按「全局权威优先」覆盖；本条 CHANGELOG 由 Kit 会话暂记，提交与发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-12
 
