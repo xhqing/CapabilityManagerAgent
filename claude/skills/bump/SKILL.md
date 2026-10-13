@@ -1,6 +1,6 @@
 ---
 name: bump
-description: 发版前的版本号 bump 专用流程：对齐 main → 建 bump 分支改齐所有版本号文件（VERSION/package.json/CHANGELOG/README 徽章等）→ 自动衔接 /add（预检 + git add，候选为本次改动文件；预检完全干净时继续自动衔接 /commit → PR + CI 合并 → 自动衔接 /release 完成发版，2026-10-02 起）。当用户说 bump 版本、升级版本号、准备发版、发版前对齐版本、/release 前需要 bump 时必须使用，或由 commit skill 第 10 步检测出「需要 bump」时自动衔接（不询问、不提示）。不负责打 tag 与发 Release（/release 职责）；不在功能分支上 bump、不直接 push main（remote main 已锁定直推，2026-09-21 起 bump 经 PR + CI 进 main）。
+description: 发版前的版本号 bump 专用流程：对齐 main → 建 bump 分支改齐所有版本号文件（VERSION/package.json/CHANGELOG/README 徽章等）→ 自动衔接 /add（预检 + git add，候选为本次改动文件；预检完全干净时继续自动衔接 /commit → PR + CI 合并 → 自动衔接 /release 完成发版，2026-10-02 起）。当用户说 bump 版本、升级版本号、准备发版、发版前对齐版本、/release 前需要 bump 时必须使用，或由 commit skill 第 10 步检测出「需要 bump」时自动衔接（不询问、不提示；2026-10-13 起该自动衔接仅在自最新 tag 含 fix / feat 类改动时发生——纯文档 / 杂事类不发版、不 bump）。不负责打 tag 与发 Release（/release 职责）；不在功能分支上 bump、不直接 push main（remote main 已锁定直推，2026-09-21 起 bump 经 PR + CI 进 main）。
 ---
 
 # Bump：发版前的版本号对齐（三段式发版的第一段）
@@ -51,3 +51,4 @@ description: 发版前的版本号 bump 专用流程：对齐 main → 建 bump 
 - 不打 tag、不发 Release（由链条中的 commit skill 第 10 步自动衔接 `/release` 完成——2026-10-02 起；`/release` 会自行对齐 main 并校验）；
 - 不在功能分支上 bump、不直接 push main（远端已锁定，2026-09-21 起）、不修改 CHANGELOG 已发布版本的历史条目；
 - 改动只限版本号载体文件（VERSION / package.json / package-lock.json / CHANGELOG 版本条目 / manifest / README 版本声明与徽章），不夹带其它改动。
+- 由 commit skill 第 10 步发起的自动衔接只在「自最新 tag 以来含 fix / feat 类改动」时发生（2026-10-13 用户立：仅核心功能修复 / 新增触发发版，纯文档 / 杂事类不发版、不 bump）；发版链内部延续（如 bump → add → commit → 第 10 步收尾）不受门禁二次拦截；用户主动 `/bump` 不受此限。
