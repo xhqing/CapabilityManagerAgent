@@ -194,6 +194,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 ## 2026-10-13
 
+### 变更（agents-registry 子项目映射表：Atlas 子项目 codef 更名 codefs）
+
+- **为什么改**：用户 2026-10-13 决定把 codef 项目（命令 / 脚本 / GitHub 仓库 / 本地开发目录）统一更名 codefs，登记侧（全局映射表与分支保护清单）需随更。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：`docs/agents-registry.md` 子项目映射表 Atlas 行名称与开发目录路径更新（`codef` / `~/Developer/codef` → `codefs` / `~/Developer/codefs`）；`docs/repo-branch-protection.md` 已开保护仓库清单同步仓库名（`xhqing/codef` → `xhqing/codefs`）。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 与 `diff ~/.claude/docs/repo-branch-protection.md claude/docs/repo-branch-protection.md` 逐字节一致；新条目落在 `## 2026-10-13` 日期节内、日期标题不重复。
+- **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Atlas 会话记录（codefs 改名同步），提交流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ### 变更（发版门禁收紧：仅 fix / feat 类改动触发自动发版）
 
 - **为什么改**：2026-10-12 pi 仓库一个「文档迁移 + 版本号 bump」的纯文件改动 PR 合并后触发了自动发版链（发出 v0.0.5）——用户 2026-10-13 裁定：「以后这种文件改动不应该触发发版流程，只有 fix 和 feat 核心功能的修复和新增核心功能才触发发版」。原门禁只看「自最新 tag 有新提交」，文档 / 杂事类提交也会驱动 bump + Release：发版噪音大、版本号被非功能改动推着走。
