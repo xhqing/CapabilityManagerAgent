@@ -237,6 +237,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：通知的产生条件（谁、何时收到）不变，只改消息内容与判断辅助；「一律重读」改为「先判断」——若接收会话误判「无关」，代价是暂时不更新旧内容认知，但之后真正用到该文件时读到的即最新内容、且此后每次变更仍会再通知，不会永久错过；跨项目 / 弱关联文件正是此前的主要噪音来源，默认不读符合预期。旧 touched 记录无 src 字段向后兼容（按未知处理，只影响提示措辞）。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit 会话暂记，版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 移除（win-ai-monitor skill 删除——Win 设备弃用）
+
+- **为什么改**：2026-10-14 用户明确「win-ai 那个全局 skill 可以删除掉，现在不用那台 Win 设备了」——局域网 Windows 机器（win-ai / win-ai-admin）及其远程操作 / GUI 投递 / CDP 自动化等用途全部弃用，该设备专属 skill 失去存在意义；连带清理全局 CLAUDE.md 中的 win-ai 专属条文（skill 引用与「Windows SSH（win-ai）红线」节），避免留下悬空引用与失效规矩。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：① 删除全局 skill `~/.claude/skills/win-ai-monitor/`（`~/.pi/agent/skills/` 为指向全局的符号链接，自动跟随）；② 全局 `CLAUDE.md`——「工作规则」开头括号句删去「win-ai SSH 的完整细则随 win-ai-monitor skill 加载」，整节删除「### Windows SSH（win-ai）红线」（连接规范 3 条）；③ 镜像同步：删除 `claude/skills/win-ai-monitor/`、覆盖 `claude/CLAUDE.md`。全局与镜像两侧 live 配置全量 grep 确认无 win-ai 残留（仅剩历史归档性质的 file-history 与 CHANGELOG 记录）。
+- **验证**：两侧 `skills/` 目录均无 win-ai-monitor；`diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 逐字节一致；新条目落在 `## 2026-10-14` 日期节内、日期标题不重复。
+- **回归风险评估**：win-ai-monitor 记载的是该设备专属的 SSH / 桌面代理 / CDP 经验，设备弃用后无调用场景；CLAUDE.md 删掉的是 win-ai 专属红线，通用规则（文件操作、tmp、汇报前验证、运行隔离、VSCode 远程窗口等）不受影响；如需恢复，skill 与旧版条文均在本仓库 git 历史中（删除前快照另存于本机 ai-edit-diff snapshots）。
+- **镜像同步**：目录删除 + 单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-13
 
 ### 变更（agents-registry 子项目映射表：Atlas 子项目更名回退 codefs → codef）
