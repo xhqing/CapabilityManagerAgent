@@ -4,11 +4,13 @@
  * 功能：
  *  A) AI 改动 → 登记「改动前快照」（默认不打开任何窗口、不打扰）；用户需要时由 AI 调用
  *     `open_diff` 按需打开 diff（左：改动前快照 / 右：当前内容；先选文件与 VSCode 窗口、经用户确认）。
- *  B) 文件变更通知 → 任何来源的变更（用户手动改 / 某个会话改），都会通知给**所有碰过该文件的
- *     活跃会话**（前台与后台一视同仁），让每个会话都及时更新对该文件的最新认知；通知附带变更
- *     来源、「改动前快照」与「相关性判断依据」（文件名 / 文件所属项目位置 / 本会话此前是否
- *     读过它），由接收会话**先判断当前任务是否用得到该文件**——大概率无关则跳过读取（避免
- *     无关信息干扰当前任务），相关或拿不准才重新读取、避免覆盖。
+ *  B) 文件变更通知 → 任何来源的变更（用户手动改 / 某个会话改），都会通知给**正在干活
+ *     （任务进行中）且碰过该文件的会话**（前台与后台一视同仁），让每个会话都及时更新对该
+ *     文件的最新认知；通知附带变更来源、「改动前快照」与「相关性判断依据」（文件名 / 文件
+ *     所属项目位置 / 本会话此前是否读过它），由接收会话**先判断当前任务是否用得到该文件**
+ *     ——大概率无关则跳过读取（避免无关信息干扰当前任务），相关或拿不准才重新读取、避免覆盖。
+ *     **已完成当前任务、在等用户过目/指示的会话不接收通知**（2026-10-14 用户立）：变更只消化
+ *     进它的已知状态，不打扰、不唤醒，等用户下一步指示后新任务用到该文件时自然读到最新内容。
  *
  * 机制（跨会话通过共享状态目录协调，无守护进程）：
  *  - mirror/  ：各文件最近一次已知内容（全局共享基线；采集"改动前快照"用）
@@ -37,6 +39,11 @@
  *       当前任务），相关或拿不准才重新读取。配套：touched 记录新增「触碰来源」src
  *       （read/edit/bash-read/bash-write/unknown，只升不降）；新增项目根定位——按 .git /
  *       CLAUDE.md / AGENTS.md / package.json 等「项目标识文件」判断文件是否属于本会话当前项目）
+ * 改造：2026-10-14（用户立：通知只发给「任务进行中」的会话——已结束当前回合、在等用户过目/
+ *       指示的会话不再接收通知：变更只消化进已知状态，不打扰也不唤醒。判定用 ctx.isIdle()
+ *       ——agent run / 自动重试 / 自动压缩重试 / 排队续跑期间为 false（任务未结束），完全静止
+ *       为 true；同时去掉通知消息的 triggerTurn——原先空闲会话会被变更通知直接唤醒、多跑一轮
+ *       无谓回合，正是本次要消除的打扰）
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -385,6 +392,7 @@ export default function (pi: ExtensionAPI) {
   let sessionId = "";
   let sessionCwd = "";
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let latestCtx: any = null; // 最近一次事件的 ctx（轮询里判断「任务是否进行中」用）
 
   const sessionName = (): string | undefined => {
     try {
@@ -394,6 +402,17 @@ export default function (pi: ExtensionAPI) {
     }
   };
   const whoami = (): ChangedBy => ({ kind: "session", id: sessionId, name: sessionName() ?? sessionId.slice(0, 8) });
+
+  // 会话是否「正在干活」（任务进行中）——agent run / 自动重试 / 自动压缩重试 / 排队续跑期间
+  // ctx.isIdle() 为 false；已结束当前回合、等用户（或等外部回信/后台任务）时为 true。
+  // 变更通知只发给正在干活的会话；等用户的会话不打扰（2026-10-14 用户立）。
+  const isAgentWorking = (): boolean => {
+    try {
+      return latestCtx ? !latestCtx.isIdle() : false;
+    } catch {
+      return false;
+    }
+  };
 
   // ===== 会话「碰过」的文件：path -> {hash, mtime, size, ts}（自己的已知状态） =====
   const touched = new Map<string, TouchRec>();
@@ -572,10 +591,10 @@ export default function (pi: ExtensionAPI) {
       "③ 需要用到、或拿不准 → 先重新读取该文件的最新内容，再基于它回答或操作；不要继续沿用旧内容。",
       "④ 若之后要修改该文件 → 先读取最新内容再改（这次变更不是你做的，避免覆盖）。",
     ];
-    pi.sendMessage(
-      { customType: "file-change-notify", content: lines.join("\n"), display: true },
-      { triggerTurn: true },
-    );
+    // 不设 triggerTurn（2026-10-14 去掉）：调用方只在会话「任务进行中」时发送本通知，消息以
+    // steer 排队、在下一个 LLM 调用前自然投递；去掉 triggerTurn 是为了彻底关掉通知把空闲会话
+    // 唤醒跑一轮的可能（即使时序上恰好空闲，消息也只静静排队、不触发新回合）。
+    pi.sendMessage({ customType: "file-change-notify", content: lines.join("\n"), display: true });
   };
 
   /** 处理一处变更：归因（meta/claim）→ 通知 → 更新自己已知状态。 */
@@ -605,8 +624,11 @@ export default function (pi: ExtensionAPI) {
     const priorSrc = touched.get(p)?.src; // 变更前本会话与它的来往（通知里给「上下文提示」用）
     touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
 
-    // 通知（自己之外的一切来源：用户、其它会话、未知）
-    if (!(changedBy.kind === "session" && changedBy.id === sessionId)) {
+    // 通知（自己之外的一切来源：用户、其它会话、未知）——只发给「任务进行中」的会话：
+    // 正在干活的会话需要及时更新对该文件的信息、继续完成任务；已完成当前任务、在等用户
+    // 过目/指示的会话不接收通知（变更只消化进已知状态），等它重新开始任务、用到该文件时
+    // 自然读到最新内容（2026-10-14 用户立）。
+    if (isAgentWorking() && !(changedBy.kind === "session" && changedBy.id === sessionId)) {
       notify(p, { deleted: cur === null, snap, changedBy, changedAt, priorSrc });
     }
   };
@@ -791,6 +813,7 @@ export default function (pi: ExtensionAPI) {
     try { sessionId = String(ctx?.sessionManager?.getSessionId?.() ?? ""); } catch {}
     if (!sessionId) sessionId = `pid-${process.pid}`;
     try { sessionCwd = String(ctx?.cwd ?? process.cwd()); } catch {}
+    latestCtx = ctx ?? null; // 保存 ctx：轮询检测到变更时用 ctx.isIdle() 判断会话是否「任务进行中」
     for (const d of [MIRROR_DIR, SNAP_DIR, META_DIR, TOUCH_DIR, CLAIM_DIR]) {
       try { fs.mkdirSync(d, { recursive: true }); } catch {}
     }
@@ -803,10 +826,12 @@ export default function (pi: ExtensionAPI) {
       }
     } catch {}
     loadTouched();
-    poll(); // 立即跑一轮：恢复会话时能立刻补上「缺席期间」发生过的变更
+    // 立即跑一轮：恢复会话时把「缺席期间」的变更消化进已知状态；此刻会话还没开始任务
+    // （等用户输入），检测到变更也不发通知（2026-10-14 起）
+    poll();
     pollTimer = setInterval(poll, POLL_MS);
     if (ctx?.ui?.notify) {
-      ctx.ui.notify("已启用「改动可视化」：碰过文件的活跃会话都会收到文件变更通知；AI 改动可用 open_diff 按需查看 diff。", "info");
+      ctx.ui.notify("已启用「改动可视化」：正在干活的会话收到文件变更通知（已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 按需查看 diff。", "info");
     }
   });
 
@@ -817,6 +842,7 @@ export default function (pi: ExtensionAPI) {
     roundChanges.clear();
     roundSources.clear();
     recentChanges.length = 0;
+    latestCtx = null;
     active = false;
   });
 }
