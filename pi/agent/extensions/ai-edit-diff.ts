@@ -19,7 +19,8 @@
  *  - claims/  ：会话工具正在改某文件的短时声明（把变更归因到会话，而不是"用户"）
  *  每个会话轮询自己碰过的文件：内容哈希与「自己已知」不一致即为变更 → 归因（meta/claim）→
  *  通知本会话 → 更新自己已知的哈希与 stat 快照（mtime+size 未变则跳过读取，省 IO）。
- *  自己工具的改动不通知自己，但会写 meta/mirror 供其他会话感知。
+ *  自己工具的改动不通知自己——工具运行期与后台任务窗口内的变更一律静默并入自己已知状态
+ *  （2026-10-15 立规，见文末改造说明），但会写 meta/mirror 供其他会话感知。
  *
  * 特点：不依赖 git；任何目录、任何项目均可工作；二进制/大文件/垃圾目录自动跳过。
  * 建立：2026-10-11（用户需求：Agent 改动可视化 + 用户改动通知 + 通用化）
@@ -44,6 +45,29 @@
  *       ——agent run / 自动重试 / 自动压缩重试 / 排队续跑期间为 false（任务未结束），完全静止
  *       为 true；同时去掉通知消息的 triggerTurn——原先空闲会话会被变更通知直接唤醒、多跑一轮
  *       无谓回合，正是本次要消除的打扰）
+ * 改造：2026-10-15（用户立规：**自己的工具改动 / 新增文件不要通知自己**——「自己发起的改动或
+ *       新增自己知道」。原实现只靠「工具声明（claim）+ 改动前快照落盘」一条路静默同步，覆盖
+ *       不全，四类情况仍会让轮询把「自己的改动」当外部变更、以「来源未识别」通知自己：
+ *       ① 新增文件、镜像缺失时没有快照，收尾落盘根本不处理该路径；② 命令被误判为只读
+ *       （如 `npx prettier --write a.md` 因含 "file" 字样命中只读判定）、或脚本写了命令文本里
+ *       没出现的文件（git checkout / 构建脚本 / 格式化工具等）；③ 长任务超过声明 60 秒有效期；
+ *       ④ 后台任务在工具窗口之外写文件。现改为四层保障：
+ *       a) 工具运行登记——write/edit 的 path、bash/background_run 从命令里解析出的路径、未知
+ *          工具输入里像路径的字符串，都在工具开始时登记；登记不要求文件已存在（覆盖新增文件），
+ *          并记下 preHash 供收尾判断「是否真变了」；
+ *       b) 运行期抑制——本会话任一可能写文件的工具执行期间（长任务声明持续刷新、不再过期），
+ *          轮询检测到的变更一律视作「自己的」→ 静默同步、不通知；
+ *       c) 结束收尾——按 preHash 判定真变了的路径写 meta（归属自己）并更新镜像与自己已知状态；
+ *          再做一次「清扫」：运行窗口内自己碰过的文件里任何变化都静默同步（脚本写文件等
+ *          「路径不在工具输入里」的情况）；
+ *       d) 后台任务窗口——background_run 起（经 pi.events 的 agent-wait-banner:activity 得知，
+ *          与 background-tasks 扩展联动）至任务结束、上限 10 分钟：窗口内的变更同样静默同步
+ *          （后台进程在工具窗口之外写文件）。
+ *       例外：变更记录明确指向**别的会话或用户**时照常通知——跨会话知情不受影响；本会话只有
+ *       在「变更来源不是自己」时才收到通知。
+ *       代价：工具运行期间（及后台窗口内）外部来源对本会话跟踪文件的改动会被一并静默吞掉，
+ *       这是「自己的改动不通知自己」换来的边界；窗口通常很短（毫秒～秒级），长任务期间的
+ *       外部改动可能就此错过——之后真正读取该文件时读到的仍是最新内容。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -85,6 +109,10 @@ const TOUCH_MAX = 300;                   // 每个会话跟踪的文件上限（
 const POLL_MS = Math.max(200, Number(process.env.AI_EDIT_DIFF_POLL_MS) || 2500); // 轮询间隔
 const CLAIM_TTL_MS = 60_000;             // 工具声明的有效期（超时视为失效）
 const SNAP_KEEP_MS = 30 * 24 * 3600 * 1000; // 快照保留期（更早的清掉）
+const BG_SUPPRESS_MAX_MS = 10 * 60 * 1000;  // 「自己的后台任务」静默窗口上限（超过恢复正常通知）
+const RUN_STALE_MS = 3 * 3600 * 1000;       // 工具运行登记的最大存活期（防 tool_execution_end 丢失泄漏）
+/** 只读工具：其运行期间检测到的变更一律视为外部（不静默吞掉），也不参与收尾清扫。 */
+const READONLY_TOOLS = new Set(["read", "open_diff", "background_list", "background_stop", "agent_call", "agent_wake", "intercom"]);
 const MISSING = "__missing__";           // 文件不存在的特殊哈希
 
 const md5 = (s: string) => crypto.createHash("md5").update(s).digest("hex");
@@ -153,6 +181,11 @@ const SRC_RANK: Record<TouchSrc, number> = { read: 3, edit: 3, "bash-read": 2, "
 /** 会话碰过的文件（持久化，重启恢复后仍记得）。 */
 interface TouchRec { hash: string; ts: number; mtimeMs?: number; size?: number; src?: TouchSrc }
 interface TouchStore { id: string; name?: string; cwd: string; updatedAt: number; files: Record<string, TouchRec> }
+
+/** 工具运行中登记的「该工具可能碰过」的路径。 */
+interface RegInfo { kind: "read" | "write"; src: TouchSrc; preHash: string | null }
+/** 一次工具执行（tool_call → tool_execution_end），用于「自己的改动不通知自己」的抑制与收尾。 */
+interface ToolRun { name: string; startedAt: number; suppress: boolean; paths: Map<string, RegInfo> }
 
 const metaFile = (p: string) => path.join(META_DIR, md5(p) + ".json");
 const claimFile = (p: string) => path.join(CLAIM_DIR, md5(p) + ".json");
@@ -245,12 +278,17 @@ function openDiffInWindow(uri: string, left: string, right: string): Promise<{ o
   });
 }
 
-function shouldTrack(p: string): boolean {
+/** 静态路径过滤（不要求文件当前存在——「新增文件」登记时文件还不存在）。 */
+function pathEligible(p: string): boolean {
   if (!p || !path.isAbsolute(p)) return false;
-  const ext = path.extname(p).toLowerCase();
-  if (!TEXT_EXT.has(ext)) return false;
+  if (!TEXT_EXT.has(path.extname(p).toLowerCase())) return false;
   for (const seg of SKIP_SEGMENTS) if (p.includes(seg)) return false;
   if (p.startsWith(STATE_DIR)) return false;
+  return true;
+}
+
+function shouldTrack(p: string): boolean {
+  if (!pathEligible(p)) return false;
   try {
     const st = fs.statSync(p);
     return st.isFile() && st.size <= MAX_FILE_BYTES;
@@ -307,6 +345,35 @@ function extractPaths(cmd: string, sessionCwd: string): string[] {
       else if (dir !== null) out.add(path.resolve(dir, p));
     }
   }
+  return [...out];
+}
+
+/** 把工具输入里的路径统一解析成绝对路径（相对路径按会话工作目录解析）。 */
+function resolvePath(raw: string, sessionCwd: string): string {
+  if (raw.startsWith("~/")) return path.join(os.homedir(), raw.slice(2));
+  if (path.isAbsolute(raw)) return raw;
+  return path.resolve(sessionCwd || process.cwd(), raw);
+}
+
+// 从「未知工具」的输入里搜集像文件路径的字符串（保守）：键名带 path/file/dir 的字符串值，或
+// 绝对路径 / ~ 开头、且扩展名属于可跟踪文本类型的值。用途：把 MCP 文件写入等自定义工具的
+// 改动也归入「自己的改动」、在收尾时静默同步——宁可多登记一点（登记只会静默同步、不产生通知）。
+function extractInputPaths(input: unknown, sessionCwd: string): string[] {
+  const out = new Set<string>();
+  const take = (s: string, key?: string) => {
+    const v = s.trim();
+    if (!v || v.length > 500 || v.includes("\n")) return;
+    if (!((key && /path|file|dir/i.test(key)) || path.isAbsolute(v) || v.startsWith("~/"))) return;
+    const cand = resolvePath(v, sessionCwd);
+    if (TEXT_EXT.has(path.extname(cand).toLowerCase())) out.add(cand);
+  };
+  const walk = (v: unknown, key: string | undefined, depth: number) => {
+    if (depth > 4 || v === null || v === undefined) return;
+    if (typeof v === "string") { take(v, key); return; }
+    if (Array.isArray(v)) { for (const x of v) walk(x, undefined, depth + 1); return; }
+    if (typeof v === "object") { for (const [k, x] of Object.entries(v as Record<string, unknown>)) walk(x, k, depth + 1); }
+  };
+  walk(input, undefined, 0);
   return [...out];
 }
 
@@ -418,6 +485,32 @@ export default function (pi: ExtensionAPI) {
   const touched = new Map<string, TouchRec>();
   let touchedDirty = false;
 
+  // ===== 工具运行登记（「自己的改动不通知自己」的核心状态） =====
+  // 每个正在执行的工具登记：运行期间本会话「可能写文件」的工具在跑 → 检测到的变更视为自己的；
+  // 结束时按登记收尾（快照落盘 / 静默同步 / 清扫运行窗口内的变化）。
+  const runs = new Map<string, ToolRun>();
+  let lastClaimRefresh = 0;
+  let bgWindowStart: number | null = null; // 后台任务静默窗口起点（无后台任务时为 null）
+  const anySelfToolRunning = (): boolean => {
+    const now = Date.now();
+    for (const run of runs.values()) if (run.suppress && now - run.startedAt < RUN_STALE_MS) return true;
+    return false;
+  };
+  const inBgWindow = (): boolean => bgWindowStart !== null && Date.now() - bgWindowStart <= BG_SUPPRESS_MAX_MS;
+  const pruneRuns = () => {
+    const now = Date.now();
+    for (const [id, run] of runs) if (now - run.startedAt > RUN_STALE_MS) runs.delete(id);
+  };
+  // 长任务期间持续刷新「某会话正在改它」的声明（声明 60 秒过期；20 秒刷一次够用）
+  const refreshRunClaims = () => {
+    if (runs.size === 0 || Date.now() - lastClaimRefresh < 20_000) return;
+    lastClaimRefresh = Date.now();
+    for (const run of runs.values()) {
+      if (!run.suppress) continue;
+      for (const [p, reg] of run.paths) if (reg.kind === "write") writeClaim(p);
+    }
+  };
+
   const touchSet = (p: string, hash: string, mtimeMs?: number, size?: number, src?: TouchSrc) => {
     const prev = touched.get(p);
     // 来源只升不降：保留最强的「本会话与它有过来往」信号（直接读 / 改 > 命令访问 > 旧记录未知）
@@ -506,14 +599,14 @@ export default function (pi: ExtensionAPI) {
 
   // ===== 工具侧：改动前快照 / 声明 / 读基线 =====
 
-  /** 采集「改动前快照」：仅在本轮该文件第一次被工具触碰时执行。 */
-  const takeSnapshot = (p: string, src: TouchSrc) => {
+  /** 采集「改动前快照」：仅在本轮该文件第一次被工具触碰时执行（pre 为登记时已读到的状态，可省一次读取）。 */
+  const takeSnapshot = (p: string, src: TouchSrc, pre?: ReadState) => {
     if (roundChanges.has(p)) {
       const prevSrc = roundSources.get(p);
       if (!prevSrc || SRC_RANK[src] > SRC_RANK[prevSrc]) roundSources.set(p, src);
       return;
     }
-    const st = readState(p);
+    const st = pre ?? readState(p);
     if (st.kind !== "content") return;
     roundSources.set(p, src);
     if (mirrorGet(p) === null) {
@@ -532,31 +625,108 @@ export default function (pi: ExtensionAPI) {
   };
 
   /** 「AI 读过该文件」→ 刷新镜像与自己已知状态（基线 = 刚看到的内容）。 */
-  const baselineOnRead = (p: string, src: TouchSrc) => {
-    const st = readState(p);
+  const baselineOnRead = (p: string, src: TouchSrc, pre?: ReadState) => {
+    const st = pre ?? readState(p);
     if (st.kind !== "content") return;
     mirrorSet(p, st.text);
     const s = statState(p);
     touchSet(p, md5(st.text), s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined, src);
   };
 
-  /** 把本轮工具改动落盘：更新镜像、写共享 meta（含改动前快照）、更新自己已知状态。 */
-  const flushPaths = (paths: string[]) => {
-    for (const p of paths) {
+  /** 登记一个「本工具可能碰过」的路径（解析相对路径；不要求文件已存在，覆盖新增文件）。
+   *  写类额外采「改动前快照」+ 写声明；读类刷新读基线。 */
+  const registerRunPath = (run: ToolRun, raw: string, kind: "read" | "write", src: TouchSrc) => {
+    if (!raw) return;
+    const p = resolvePath(raw, sessionCwd);
+    if (!pathEligible(p) || run.paths.has(p)) return;
+    const st = readState(p);
+    const preHash = st.kind === "content" ? md5(st.text) : st.kind === "missing" ? MISSING : null;
+    run.paths.set(p, { kind, src, preHash });
+    if (kind === "write") {
+      takeSnapshot(p, src, st);
+      writeClaim(p);
+    } else {
+      baselineOnRead(p, src, st);
+    }
+  };
+
+  /** 静默同步：把路径最新状态并入自己已知状态（不通知；writeMetaRec 仅收尾认定「确实变了」时为真）。 */
+  const quietSyncPath = (p: string, cur: string | null, hash: string, s: StatState, writeMetaRec: boolean) => {
+    if (cur !== null) mirrorSet(p, cur);
+    touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
+    if (writeMetaRec && sessionId) {
       const snap = roundChanges.get(p) ?? null;
-      const st = readState(p);
-      if (st.kind === "skip") continue; // 读不了：保留待下次重试
-      const hash = st.kind === "missing" ? MISSING : md5(st.text);
-      if (st.kind === "content") mirrorSet(p, st.text);
       writeMeta(p, { path: p, hash, snapshot: snap, changedAt: Date.now(), changedBy: whoami() });
+      if (snap && cur !== null && readSnapshot(snap) !== cur) pushRecent(p, snap);
+    }
+  };
+
+  /** 收尾同步一个路径（工具结束 / 兜底落盘）：镜像 / meta / 自己已知状态 / diff 登记一起处理。
+   *  有登记时按 preHash 判断「是否真的变了」——没变就不写 meta（如 touch 之类的空写命令，
+   *  避免替早先的外部改动「认领」归属）；无登记（兜底）时退回与快照 / 自己已知状态比较。 */
+  const endSyncPath = (p: string, reg?: RegInfo) => {
+    const owned = !reg || reg.kind === "write"; // 只有写类登记才动快照（读类可能撞上并行工具的快照）
+    const snap = owned ? roundChanges.get(p) ?? null : null;
+    const st = readState(p);
+    if (st.kind === "skip") return; // 读不了：保留待下次重试（roundChanges 不删）
+    const hash = st.kind === "missing" ? MISSING : md5(st.text);
+    const prevRec = touched.get(p);
+    const changed = reg
+      ? reg.preHash === null
+        ? reg.kind === "write"
+        : reg.preHash !== hash
+      : snap !== null || (prevRec !== undefined && prevRec.hash !== hash);
+    if (st.kind === "missing" && reg && reg.preHash === MISSING) {
+      // 登记时与结束时都不存在（命令文本里提到过、并未产生文件）→ 不值得跟踪
+      if (owned) { roundChanges.delete(p); roundSources.delete(p); }
       dropClaim(p);
+      return;
+    }
+    if (st.kind === "content") mirrorSet(p, st.text);
+    if (changed && sessionId) {
+      writeMeta(p, { path: p, hash, snapshot: snap, changedAt: Date.now(), changedBy: whoami() });
+    }
+    // 跟踪范围：变了的、读类、此前已在跟踪的、无登记（兜底）——都更新；
+    // 只是「出了个名字」、内容没变、此前也未跟踪的写类路径不纳入（避免无关通知）。
+    if (changed || !reg || reg.kind === "read" || prevRec !== undefined) {
       const s = statState(p);
-      touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined, roundSources.get(p) ?? "edit");
-      if (snap && st.kind === "content") {
-        if (readSnapshot(snap) !== st.text) pushRecent(p, snap);
+      touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined,
+        reg?.src ?? roundSources.get(p) ?? "edit");
+    }
+    if (snap && st.kind === "content" && readSnapshot(snap) !== st.text) pushRecent(p, snap);
+    if (owned) { roundChanges.delete(p); roundSources.delete(p); }
+    dropClaim(p);
+  };
+
+  /** 收尾清扫：工具运行窗口内，自己碰过的文件里任何变化都视作本工具所为——静默同步、不通知。
+   *  覆盖「脚本写了命令文本里没出现的文件」这类路径不在工具输入里的情况（如构建 / git checkout）。
+   *  变更记录明确指向别的会话 / 用户时不吞（留给正常轮询通知）；窗口起点之前就存在的变更
+   *  （如休眠期间的用户编辑）也不吞。 */
+  const sweepSelfChanges = (since: number) => {
+    for (const [p, rec] of [...touched]) {
+      const s = statState(p);
+      if (s.kind === "skip") continue;
+      if (s.kind === "missing") {
+        if (rec.hash !== MISSING) quietSyncPath(p, null, MISSING, s, true);
+        continue;
       }
-      roundChanges.delete(p);
-      roundSources.delete(p);
+      if (s.mtimeMs < since - 2000) continue; // 窗口起点之前的写入：不是自己的改动
+      if (rec.hash !== MISSING && rec.mtimeMs === s.mtimeMs && rec.size === s.size) continue;
+      const st = readState(p);
+      if (st.kind !== "content" || st.text.length > MAX_FILE_BYTES) continue;
+      const hash = md5(st.text);
+      if (hash === rec.hash) {
+        touchSet(p, hash, s.mtimeMs, s.size);
+        continue;
+      }
+      const meta = readMeta(p);
+      if (
+        meta && meta.hash === hash &&
+        (meta.changedBy.kind === "user" || (meta.changedBy.kind === "session" && meta.changedBy.id !== sessionId))
+      ) {
+        continue; // 记录明确指向别的来源 → 不是自己的改动
+      }
+      quietSyncPath(p, st.text, hash, s, true);
     }
   };
 
@@ -597,45 +767,68 @@ export default function (pi: ExtensionAPI) {
     pi.sendMessage({ customType: "file-change-notify", content: lines.join("\n"), display: true });
   };
 
-  /** 处理一处变更：归因（meta/claim）→ 通知 → 更新自己已知状态。 */
-  const handleChange = (p: string, cur: string | null, hash: string, s: StatState) => {
-    // 自己的工具正在改它（声明还是我自己的）→ 等工具结束落盘，不通知自己
-    const claim = readClaim(p);
-    if (claim && claim.id === sessionId) return;
+  /** 外部变更 → 更新自己已知状态并通知（自己的改动绝不走这里，见 handleChange 的前两层判断）；
+   *  通知只发给「任务进行中」的会话（2026-10-14 立）：空闲 / 等用户时不打扰，变更只消化进状态。 */
+  const notifyExternal = (
+    p: string, cur: string | null, hash: string, s: StatState,
+    info: { changedBy: ChangedBy; snap: string | null; changedAt: number },
+  ) => {
+    if (info.changedBy.kind === "session" && info.changedBy.id === sessionId) return; // 自己的改动绝不通知自己
+    if (cur !== null) mirrorSet(p, cur);
+    const priorSrc = touched.get(p)?.src; // 变更前本会话与它的来往（通知里给「上下文提示」用）
+    touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
+    if (isAgentWorking()) {
+      notify(p, { deleted: cur === null, snap: info.snap, changedBy: info.changedBy, changedAt: info.changedAt, priorSrc });
+    }
+  };
 
+  /** 处理一处变更：先判断「是不是自己的」——自己的（记录指向自己 / 工具在跑 / 后台窗口内）
+   *  一律静默同步、不通知；外部来源才归因 + 通知（跨会话知情不受影响）。 */
+  const handleChange = (p: string, cur: string | null, hash: string, s: StatState) => {
+    const claim = readClaim(p);
     const meta = readMeta(p);
+    const metaMatches = !!meta && meta.hash === hash;
+    const mine = !!metaMatches && !!meta && meta.changedBy.kind === "session" && meta.changedBy.id === sessionId;
+    const external = !!metaMatches && !!meta && !mine &&
+      (meta.changedBy.kind === "user" || (meta.changedBy.kind === "session" && meta.changedBy.id !== sessionId));
+
+    // ① 记录明确指向外部（别的会话 / 用户）→ 外部变更，照常走通知
+    if (external && meta) {
+      notifyExternal(p, cur, hash, s, { changedBy: meta.changedBy, snap: meta.snapshot, changedAt: meta.changedAt });
+      return;
+    }
+
+    // ② 自己的改动——记录指向自己、自己的工具正在跑（含长任务；声明持续刷新、不再过期）、
+    //    或自己发起的后台任务窗口内 → 静默同步，不通知自己（2026-10-15 用户立规）
+    if (mine || (claim && claim.id === sessionId) || anySelfToolRunning() || inBgWindow()) {
+      quietSyncPath(p, cur, hash, s, false);
+      return;
+    }
+
+    // ③ 非自己的变更：记录为「未识别」→ 用记录的归属与快照；首次发现 → 补记（快照取自镜像
+    //    旧内容；归因不明时用中性来源——不默认写成「用户」，实践中大部分是其它会话改的）→ 通知
     let changedBy: ChangedBy;
     let snap: string | null;
     let changedAt: number;
-    if (meta && meta.hash === hash) {
+    if (metaMatches && meta) {
       changedBy = meta.changedBy;
       snap = meta.snapshot;
       changedAt = meta.changedAt;
     } else {
-      // 我是第一个发现者 → 补记一份（快照取自镜像里的旧内容）；
-      // 归因不明时用中性来源（不默认写成「用户」——实践中大部分是其它会话改的）
       const old = mirrorGet(p);
       snap = old !== null && old.length <= MAX_FILE_BYTES ? writeSnapshot(p, old) : null;
       changedBy = claim ? { kind: "session", id: claim.id, name: claim.name } : { kind: "unknown" };
       changedAt = Date.now();
       writeMeta(p, { path: p, hash, snapshot: snap, changedAt, changedBy });
     }
-    if (cur !== null) mirrorSet(p, cur);
-    const priorSrc = touched.get(p)?.src; // 变更前本会话与它的来往（通知里给「上下文提示」用）
-    touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
-
-    // 通知（自己之外的一切来源：用户、其它会话、未知）——只发给「任务进行中」的会话：
-    // 正在干活的会话需要及时更新对该文件的信息、继续完成任务；已完成当前任务、在等用户
-    // 过目/指示的会话不接收通知（变更只消化进已知状态），等它重新开始任务、用到该文件时
-    // 自然读到最新内容（2026-10-14 用户立）。
-    if (isAgentWorking() && !(changedBy.kind === "session" && changedBy.id === sessionId)) {
-      notify(p, { deleted: cur === null, snap, changedBy, changedAt, priorSrc });
-    }
+    notifyExternal(p, cur, hash, s, { changedBy, snap, changedAt });
   };
 
   // ===== 轮询：检测「自己碰过的文件」发生的一切变更（用户 / 其它会话） =====
   const poll = () => {
     if (!active) return;
+    pruneRuns();
+    refreshRunClaims();
     for (const [p, rec] of [...touched]) {
       const s = statState(p);
       if (s.kind === "skip") continue;
@@ -659,61 +852,93 @@ export default function (pi: ExtensionAPI) {
     saveTouched();
   };
 
-  // ===== 事件：工具调用（改动前快照 / 声明 / 读基线） =====
+  // ===== 事件：工具调用（运行登记 / 改动前快照 / 声明 / 读基线） =====
   pi.on("tool_call", async (event: any) => {
     if (!active) return;
-    const name = event.toolName;
+    const name = String(event.toolName ?? "");
     const input = event.input || {};
     try {
-      if (name === "write" || name === "edit") {
+      if (name === "read") {
+        // 只读工具：刷新读基线即可（不建运行登记——读不会改文件，其期间的变化一律视为外部）
         const p = String(input.path ?? "");
-        if (p && shouldTrack(p)) {
-          takeSnapshot(p, "edit");
-          writeClaim(p);
+        if (p) {
+          const abs = resolvePath(p, sessionCwd);
+          if (shouldTrack(abs)) baselineOnRead(abs, "read");
         }
-      } else if (name === "read") {
+        return;
+      }
+      const toolCallId = String(event.toolCallId ?? "");
+      if (!toolCallId) return;
+      const run: ToolRun = { name, startedAt: Date.now(), suppress: !READONLY_TOOLS.has(name), paths: new Map() };
+      runs.set(toolCallId, run);
+      if (!run.suppress) return; // 只读工具（agent_call / intercom / open_diff 等）：不登记、不抑制、不清扫
+
+      if (name === "write" || name === "edit") {
+        // 工具输入里的 path（相对路径按会话工作目录解析；不要求文件已存在——覆盖「新增文件」）
         const p = String(input.path ?? "");
-        if (p && path.isAbsolute(p) && shouldTrack(p)) baselineOnRead(p, "read");
-      } else if (name === "bash") {
+        if (p) registerRunPath(run, p, "write", "edit");
+      } else if (name === "bash" || name === "background_run") {
         const cmd = String(input.command ?? "");
         if (cmd) {
-          const paths = extractPaths(cmd, sessionCwd);
           // 判定「纯读」要严格：命令里出现写类命令（cp/mv/sed/tee/重定向…）就按写处理——
           // 复合命令（如 `cp a b && diff a b`）里一个 `diff` 字样曾让整条命令被误判为只读，
           // 导致写动作没登记快照/声明，自己改自己的文件还会收到误报（2026-10-12 实测）。
+          // 关键词判定 2026-10-15 收紧：词后不允许跟 `.`——`npx prettier --write a.md` 里的
+          // 文件名曾让 `\bfile\b` 命中、把写命令误判成只读（读基线 → 写入后轮询误报）。
           const cleaned = cmd
             .replace(/2\s*>>?\s*\/dev\/null/g, "")
             .replace(/2>&1/g, "")
             .replace(/>>?\s*\/dev\/null/g, "");
-          const hasWriteHint = /(^|[\s;&|])(cp|mv|rm|sed|tee|touch|mkdir|ln|dd|truncate|chmod|chown|install)\b|>>?/.test(cleaned);
-          const isReadCmd = !hasWriteHint && /\b(cat|head|tail|less|grep|rg|wc|file|stat|ls|diff)\b/.test(cmd);
-          for (const p of paths) {
-            if (!shouldTrack(p)) continue;
-            if (isReadCmd) {
-              baselineOnRead(p, "bash-read");
-            } else {
-              takeSnapshot(p, "bash-write");
-              writeClaim(p);
-            }
+          const hasWriteHint = /(^|[\s;&|])(cp|mv|rm|sed|tee|touch|mkdir|ln|dd|truncate|chmod|chown|install|patch|tar|unzip)\b|>>?/.test(cleaned);
+          const isReadCmd = !hasWriteHint && /(^|[\s;&|()])(cat|head|tail|less|more|grep|rg|wc|stat|ls|diff|file)(?![\w.])/.test(cmd);
+          for (const p of extractPaths(cmd, sessionCwd)) {
+            if (!pathEligible(p)) continue;
+            if (isReadCmd) registerRunPath(run, p, "read", "bash-read");
+            else registerRunPath(run, p, "write", "bash-write");
           }
+        }
+      } else {
+        // 未知 / 自定义工具（MCP 等）：输入里像路径的字符串也登记（保守；登记只做静默同步、不产生通知）
+        for (const p of extractInputPaths(input, sessionCwd)) {
+          if (pathEligible(p)) registerRunPath(run, p, "write", "edit");
         }
       }
     } catch {}
   });
 
-  // ===== 事件：工具结束（动静及时落盘 → 其它会话能及时感知） =====
-  pi.on("tool_execution_end", async () => {
+  // ===== 事件：工具结束（收尾登记路径 + 清扫窗口内变化 → 自己改动不通知自己、其它会话及时感知） =====
+  pi.on("tool_execution_end", async (event: any) => {
     if (!active) return;
+    const toolCallId = String(event?.toolCallId ?? "");
+    const run = toolCallId ? runs.get(toolCallId) : undefined;
+    if (toolCallId) runs.delete(toolCallId);
     try {
-      if (roundChanges.size > 0 && sessionId) flushPaths([...roundChanges.keys()]);
+      if (!run) {
+        // 未登记（旧事件形态 / tool_call 缺失）：兜底把遗留快照落盘
+        if (roundChanges.size > 0 && sessionId) for (const p of [...roundChanges.keys()]) endSyncPath(p);
+        return;
+      }
+      if (!run.suppress) return; // 只读工具：其期间的变化一律视为外部，不收尾
+      for (const [p, reg] of run.paths) endSyncPath(p, reg);
+      // 清扫：运行窗口内自己碰过的文件里任何变化（脚本写文件等路径不在工具输入里的情况）
+      // 一并静默并入自己已知状态——自己的改动不通知自己。
+      sweepSelfChanges(run.startedAt);
     } catch {}
   });
 
-  // ===== 事件：一轮结束（兜底落盘） =====
+  // ===== 事件：一轮结束（兜底落盘 + 运行登记收尾） =====
   pi.on("agent_end", async () => {
     if (!active) return;
     try {
-      if (roundChanges.size > 0 && sessionId) flushPaths([...roundChanges.keys()]);
+      for (const p of [...roundChanges.keys()]) endSyncPath(p);
+      // 运行登记兜底清理：正常已由 tool_execution_end 清掉；防止事件丢失导致「抑制」泄漏
+      for (const run of runs.values()) {
+        if (!run.suppress) continue;
+        for (const [p] of run.paths) dropClaim(p);
+        sweepSelfChanges(run.startedAt); // 残留登记的写入也要扫掉，防止之后误报给自己
+      }
+      runs.clear();
+      saveTouched();
     } catch {}
   });
 
@@ -807,6 +1032,25 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  // ===== 事件总线：后台任务窗口（与 background-tasks 扩展联动） =====
+  // background_run 起的后台进程在「工具窗口之外」写文件——运行期间经 pi.events 的
+  // `agent-wait-banner:activity` 得知；窗口内检测到的变更视作自己后台任务所写，静默同步。
+  // 上限 BG_SUPPRESS_MAX_MS：超过即恢复正常通知（避免长驻后台任务把通知能力长期关掉）。
+  try {
+    pi.events.on("agent-wait-banner:activity", (data: any) => {
+      try {
+        if (!data || data.source !== "background-tasks") return;
+        if (data.active) {
+          if (bgWindowStart === null) bgWindowStart = Date.now();
+        } else if (bgWindowStart !== null) {
+          // 全部后台任务结束：窗口内最后一次轮询间隙的变化也一并静默同步（仅窗口未超上限时）
+          if (Date.now() - bgWindowStart <= BG_SUPPRESS_MAX_MS) sweepSelfChanges(bgWindowStart);
+          bgWindowStart = null;
+        }
+      } catch {}
+    });
+  } catch {}
+
   pi.on("session_start", async (_event: any, ctx: any) => {
     if (active) return;
     active = true;
@@ -831,7 +1075,7 @@ export default function (pi: ExtensionAPI) {
     poll();
     pollTimer = setInterval(poll, POLL_MS);
     if (ctx?.ui?.notify) {
-      ctx.ui.notify("已启用「改动可视化」：正在干活的会话收到文件变更通知（已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 按需查看 diff。", "info");
+      ctx.ui.notify("已启用「改动可视化」：正在干活的会话收到文件变更通知（自己的工具改动除外；已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 按需查看 diff。", "info");
     }
   });
 
@@ -842,6 +1086,8 @@ export default function (pi: ExtensionAPI) {
     roundChanges.clear();
     roundSources.clear();
     recentChanges.length = 0;
+    runs.clear();
+    bgWindowStart = null;
     latestCtx = null;
     active = false;
   });
