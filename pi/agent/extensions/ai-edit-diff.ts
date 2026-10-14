@@ -58,6 +58,11 @@ const SKIP_SEGMENTS = [
   `${path.sep}venv${path.sep}`, `${path.sep}dist${path.sep}`,
   `${path.sep}build${path.sep}`, `${path.sep}.pi${path.sep}`,
   `${path.sep}.ai-edit-diff${path.sep}`,
+  // 2026-10-14 增（用户决定）：临时产物不做变更通知——`tmp/` 目录整体跳过
+  // （采样日志 monitor_log_*.csv 盯盘期间每 40 秒写入一次，每次写入都被记为
+  // 「外部变更」→ 每个采样段产生数条通知噪音）；monitor_log_ 前缀兜底
+  // 覆盖放在 tmp/ 以外的同款采样日志。
+  `${path.sep}tmp${path.sep}`, `${path.sep}monitor_log_`,
 ];
 const MAX_FILE_BYTES = 1024 * 1024;      // 1MB
 const RECENT_MAX = 50;                   // 「最近改动」登记上限（供 open_diff 选择）
@@ -335,7 +340,9 @@ export default function (pi: ExtensionAPI) {
     try {
       const data = JSON.parse(fs.readFileSync(touchFile(sessionId), "utf-8")) as TouchStore;
       for (const [p, rec] of Object.entries(data?.files ?? {})) {
-        if (rec && typeof rec.hash === "string") touched.set(p, rec);
+        // 2026-10-14 增：加载时同样过滤——旧登记里的已排除路径（如 tmp/ 采样日志）
+        // 直接丢弃，避免重启后仍被轮询检测。
+        if (rec && typeof rec.hash === "string" && shouldTrack(p)) touched.set(p, rec);
       }
     } catch {}
   };

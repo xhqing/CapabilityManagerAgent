@@ -21,7 +21,7 @@
 | **Markowitz** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度（离线开发，不盯盘不下单） |
 | **Hermes** | NetOpsAgent | 网络运维管理员 | 网络：代理节点真实流量测速与连通性检测 → 自动选路（纯延迟 / 纯带宽 / 混合）→ 故障转移 → 订阅刷新，基于 Xray-core（`xpilot` CLI），独立于销售流水线 |
 | **Anvil** | BackendEngineerAgent | 后端开发工程师 | 后端：负责所有后端开发工作（服务端逻辑 / API / 数据库 / 系统架构 / 桥接服务），目前在手 CC-BRIDGE（Claude Code 上游桥接框架），独立于销售流水线 |
-| **Atlas** | FullStackEngineerAgent | 全栈开发工程师 | 全栈：负责横跨前后端的完整开发（前端界面 / 后端服务 / 构建发布工程化），目前在手 zcode-cli、zcode-vsce、ghostty-launcher、cmux-launcher、pi、ghostty 等项目（详见下方映射表），独立于销售流水线 |
+| **Atlas** | FullStackEngineerAgent | 全栈开发工程师 | 全栈：负责横跨前后端的完整开发（前端界面 / 后端服务 / 构建发布工程化），目前在手 ghostty-launcher、codef、pi、ghostty、channels-watch、mp4-player 等项目（详见下方映射表），独立于销售流水线 |
 | **Ada** | NeuralCoreAgent | AI 算法工程师 | 算法：设计 / 迭代 / 评测深度推理引擎（目前在手 AgentCortex——Infinite / Rapid / Incisive 三套推理引擎规则 + 评测体系），独立于销售流水线 |
 | **Alfred** | DeviceStewardAgent | 电脑管家 | 资源管理：本地电脑 / 远程服务器 / 云电脑的资源监控与管理建议（进程 / 内存 / 存储治理）→ 让设备始终处于低负载的流畅工作状态，独立于销售流水线 |
 | **Hopkins** | ApplyOptimizerAgent | 投递转化率优化师 | 工作接单全链路（专门负责：找单找岗、投递、转化一条龙，原由 Kit 承接）——任务池投标与招聘平台求职（电鸭、BOSS直聘等）同为并行接单策略、同属一条投递漏斗：投递材料工程（接单的标书 + 求职的简历与打招呼话术，模板库 + 单变量 A/B 测试）、漏斗追踪（投递 → 回应 → 沟通 / 面试 → 成单 / offer）、转化率归因、报价与薪资策略测试、渠道淘汰（多渠道数据触发不凭感觉）；名字取自「科学广告之父」Claude Hopkins（简历即自我广告、话术即文案、漏斗归因即本行），直属用户、不属任何小组（工作接单，单人）；项目原名 BidOptimizerAgent |
@@ -59,29 +59,23 @@
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
 | BackendEngineerAgent（Anvil） | CC-BRIDGE | Claude Code 上游桥接框架（Node.js） |
-| FullStackEngineerAgent（Atlas） | zcode-cli | 非官方 ZCode 终端客户端（Node.js / TypeScript，TUI）；2026-10-09 起短期搁置（用户决定暂不维护，本地开发目录已删除） |
-| FullStackEngineerAgent（Atlas） | zcode-vsce | 非官方 ZCode VSCode 扩展客户端（与 zcode-cli 平行的姊妹项目：同一官方 runtime、`app-server` 协议、webview 前端） |
 | FullStackEngineerAgent（Atlas） | ghostty-launcher | VSCode 状态栏一键唤起外部 Ghostty 终端的扩展（在跑激活已有窗口 / 未跑带工作区目录启动，零依赖、仅 macOS） |
-| FullStackEngineerAgent（Atlas） | cmux-launcher | VSCode 扩展：一键唤起外部 CMux 终端（状态栏 + 主侧边栏 / 副侧边栏 / 底部面板 / 编辑器区四处窗口面板，通过 CMux 自带 CLI 通信，零依赖、仅 macOS，ghostty-launcher 的姊妹项目）；2026-10-09 起短期搁置（用户决定暂不维护，本地开发目录已归档） |
 | FullStackEngineerAgent（Atlas） | codef | 全屏打开 VSCode 的 CLI 小工具（code + 自动全屏 + 目标窗口置顶，bash + osascript、仅 macOS；开发目录 ~/Developer/codef，生产副本部署在 ~/.local/bin/，发版后安装、禁止软链） |
 | FullStackEngineerAgent（Atlas） | pi | Pi agent harness 独立分叉仓库（TypeScript monorepo：coding agent CLI / agent 运行时 / 统一多供应商 LLM API / TUI 组件库），2026-09-19 起与原上游 earendil-works/pi 断开 fork 关系，自主维护演进 |
 | FullStackEngineerAgent（Atlas） | ghostty | Ghostty 终端的独立分叉仓库（2026-09-20 起与原上游 ghostty-org/ghostty 断开 fork 关系、自主演进；当前为 v1.3.1 基线 + 「Cmd+V 粘贴剪贴板图片为临时文件路径」补丁，GitHub Actions 云构建） |
 | FullStackEngineerAgent（Atlas） | channels-watch | 视频号私信只读监控（Python + Playwright：监控视频号助手私信页的「打招呼消息 / 私信」，新消息推送飞书 / ntfy / Server酱，launchd 每 5 分钟一轮；2026-10-09 立项开源） |
 | FullStackEngineerAgent（Atlas） | mp4-player | VSCode 视频播放扩展（上游 Brodazz/mp4-player 的独立仓库：编辑器标签页内带音频播放视频，内置 ffmpeg WebAssembly 做音频解码与格式转码；2026-10-09 移交 Atlas，开发目录 ~/Developer/mp4-player） |
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
-| ExecutiveAssistantAgent（Kit） | CyberRipple | 组织总览仓库（AI Agent 团队总览 README 中英双语；交由 Kit 负责，远程仓库待建） |
-| ExecutiveAssistantAgent（Kit） | blog | 个人博客仓库（docsify 静态博客，github.com/xhqing/blog，线上 xhqing.github.io/blog） |
 | ExecutiveAssistantAgent（Kit） | copybridge | macOS 剪贴板桥接工具（在 VSCode 资源管理器复制的文件可直接粘贴到 Finder / 微信 / 浏览器等系统任意 App：后台修复 VSCode 私有剪贴板格式；2026-10-08 建立、2026-10-09 登记） |
-| ExecutiveAssistantAgent（Kit） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 ExecutiveAssistantAgent 项目 `tmp/video`，绑定 GitHub 私有远程持续备份；2026-10-13 设立） |
+| ExecutiveAssistantAgent（Kit） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 `~/Developer/xhs-mentor-scam`，绑定 GitHub 私有远程持续备份；2026-10-13 设立、2026-10-14 移出 EA 项目 `tmp/`） |
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
-| DeviceStewardAgent（Alfred） | ResourceMonitor | 整机资源监控 + AI 清理建议的 VSCode 扩展（TypeScript） |
 | QuantStrategistAgent（Markowitz） | Intraday | Markowitz 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
 | QuantStrategistAgent（Markowitz） | Swing | 日 K 趋势跟随策略工具集（美股大盘股，Python，完整文档 + 回测验证 + 可信度标定） |
 | QuantStrategistAgent（Markowitz） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
-| ProductProducerAgent（Wright） | GitComic | Git 漫画书产品线仓库（试读 PDF + 引流图卡，en/zh 双语，后续全本迭代在该仓进行；制作资产与交付物在本机被忽略的 artifacts/） |
-| ProductProducerAgent（Wright） | agent-team-playbook-src | The Agent Team Playbook 产品私有源仓库（en/zh 源树 + spec；付费内容不公开，tag + gh release 附分语言 zip 管版本；与公开落地页仓 agent-team-playbook 区分——那是 Mason 的 GitHub Pages 部署仓） |
 | DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
+
+- **已取消的子项目（2026-10-14 用户决定，不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。
 
 - **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（或 `.claude/CLAUDE.md`）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
 - **边界**：本规则适用于「Agent 项目负责子项目」的情形；当前全部映射见上方「子项目映射」表。
