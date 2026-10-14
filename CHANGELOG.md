@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.39] - 2026-10-14
+
+本版含两项改动：ai-edit-diff 排除 tmp/ 目录与 `monitor_log_` 前缀（盯盘采样日志不再产生变更通知噪音）；子项目清单收缩（取消 8 个子项目、xhs-mentor-scam 移出 EA tmp/ 改为独立开发目录）；详见下方 2026-10-14 分节。
+
 ## [1.5.38] - 2026-10-14
 
 本版含三项改动：pi background-tasks 完成通知改造（通知不再显示 + AI 忙时聚合——消费积压通知队列不再占用用户窗口）；ai-edit-diff 路径解析修正（bash 命令里的相对路径改为按命令内实际的 `cd` 目录解析，修掉「误登记导致无关会话收到误导性变更通知」的根因）；codef 命名回退同步（登记侧回退为 codef / `xhqing/codef`）；详见下方 2026-10-14 与 2026-10-13 分节。
@@ -197,6 +201,21 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
 ## 2026-10-14
+
+### 变更（子项目清单收缩：取消 8 个子项目 + xhs-mentor-scam 移出 EA tmp/）
+
+- **为什么改**：2026-10-14 用户决定集中收缩子项目——取消 8 个不再维护的子项目（Wright 的 GitComic、agent-team-playbook-src；Atlas 的 zcode-cli、zcode-vsce、cmux-launcher；Alfred 的 ResourceMonitor；Kit 的 CyberRipple、blog）；另 xhs-mentor-scam 从 ExecutiveAssistantAgent 项目 `tmp/video` 迁出为独立开发目录 `~/Developer/xhs-mentor-scam`（与其配套：ai-edit-diff 同日新增 tmp/ 排除后，tmp/ 下文件不再产生变更通知，迁出后其编辑仍可被通知）。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：`docs/agents-registry.md`——① 命名表 Atlas 行「在手项目」清单更新（移除 zcode-cli / zcode-vsce / cmux-launcher）；② 子项目映射表移除上述 8 行、新增「已取消的子项目（2026-10-14 用户决定，不再维护）」注记（本地项目资料删除，GitHub 远端仓库保留为存档；CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）；③ xhs-mentor-scam 行路径更新（`ExecutiveAssistantAgent` 项目 `tmp/video` → `~/Developer/xhs-mentor-scam`）。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；`~/Developer/xhs-mentor-scam` 存在；新条目落在 `## 2026-10-14` 日期节内、日期标题不重复。
+- **镜像同步**：单文件覆盖（全局权威优先；由 EA 子会话执行）；本条 CHANGELOG 由 Prometheus（CapabilityManagerAgent 会话）补记。
+
+### 变更（ai-edit-diff：tmp/ 目录与 monitor_log_ 前缀不再跟踪变更通知）
+
+- **为什么改**：2026-10-14 港股 auto 盯盘实录——密采样日志 `tmp/monitor_log_*.csv` 每 40 秒写入一次，被 ai-edit-diff 记为「外部变更」→ 每个采样段产生数条「文件变更通知」，单场盯盘积压上百条（每条触发一个 AI 回合，收盘后仍在逐条补发）。用户裁定加排除规则（治本）。
+- **改了什么**（全局 `~/.pi/agent/extensions/` 权威源 → 镜像）：`ai-edit-diff.ts` 两处——① `SKIP_SEGMENTS` 新增 `${path.sep}tmp${path.sep}` 与 `${path.sep}monitor_log_`（新登记被排除：`tmp/` 目录整体不做变更跟踪，`monitor_log_` 前缀兜底覆盖 tmp/ 以外的同款日志）；② `loadTouched()` 加载时加 `shouldTrack(p)` 过滤——重启后旧登记里的已排除路径直接丢弃，避免残留检测。
+- **验证**：`node --experimental-strip-types --check` 语法通过；逻辑核对——`tmp/monitor_log_*.csv` 命中 `/tmp/` 段 → `shouldTrack` 返回 false（已确认 `.csv` 在 `TEXT_EXT` 内、段匹配生效）。
+- **回归风险评估**：`tmp/` 下的文件不再产生变更通知（符合预期——临时产物与运行日志本不需要改聊提醒）；其它路径的跟踪与通知不受影响；`loadTouched` 过滤对已删除文件同样返回 false（本就无需跟踪）。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 DayTradingAgent（Victor 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ### 变更（pi background-tasks 扩展：完成通知不再显示 + AI 忙时聚合——通知消费不占用户窗口）
 
