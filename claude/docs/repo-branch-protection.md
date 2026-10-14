@@ -8,7 +8,7 @@
 
 - **已开保护（7 个）**
   - 试点（2026-10-04）：`xhqing/CapabilityManagerAgent`、`xhqing/ExecutiveAssistantAgent`、`xhqing/zcode-cli`
-  - 更早：`xhqing/codefs`、`xhqing/ghostty`、`xhqing/ghostty-launcher`、`xhqing/pi`
+  - 更早：`xhqing/codef`、`xhqing/ghostty`、`xhqing/ghostty-launcher`、`xhqing/pi`
 - **未开保护**：其余 public 仓库（直推 main 可用；技能里「已开保护 → push 被拒 → 走 PR 兜底」的分支不触发）
 - **无法开保护**：private 仓库（GitHub 免费版不支持分支保护 / rulesets，API 直接报「Upgrade to GitHub Pro」）
 

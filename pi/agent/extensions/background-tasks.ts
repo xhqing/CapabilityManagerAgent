@@ -18,6 +18,12 @@
  * 专属规则由各项目自己的守卫 / skill 规定（如 DayTradingAgent 的 trade-guards 仍会
  * 拦不合规跑法，其密采样停盯提醒由该项目守卫桥在 `background_stop` 结果里注入）。
  *
+ * 通知策略（2026-10-14 用户立：通知的显示与消费不需要用户感知）：
+ *   ① 通知消息 `display: false`——不渲染到会话窗口（仍进 AI 上下文、仍触发唤醒）；
+ *   ② 忙时聚合——AI 正在干活（agent_start..agent_settled）期间完成的任务不逐条投递，
+ *      静默积攒，AI 空闲后合并为一条摘要发出（单条照旧附输出尾部；合并批次只列
+ *      id / 状态 / 日志路径、不带尾部——AI 按需读日志，避免上下文被过期尾部灌满）。
+ *
  * 与全局 agent-wait-banner 扩展联动：后台任务运行期间通过 pi.events 发
  * `agent-wait-banner:activity`（`{ source: "background-tasks", active }`），
  * 会话界面显示「🟥🟥🟥 还有后台进程在运行中，请稍等 🟥🟥🟥」；全部任务结束即撤。
@@ -47,6 +53,14 @@ interface BgTask {
 	counted?: boolean;
 }
 
+/** 待投递的通知（AI 忙时积压，空闲后单条 / 合并发出，见文件头「通知策略」）。 */
+interface PendingNote {
+	/** 合并列表里的一行（短）。 */
+	entryLine: string;
+	/** 单条投递时的完整文本（带输出尾部）。 */
+	fullText?: string;
+}
+
 /** 输出尾部（通知里只带尾部，完整输出在日志文件）。 */
 function tailOf(logPath: string, maxLines = 60, maxChars = 6000): string {
 	try {
@@ -72,6 +86,10 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 	const tasks = new Map<string, BgTask>();
 	let counter = 0;
 	let shuttingDown = false;
+	// 通知聚合状态（2026-10-14，见文件头「通知策略」）：
+	let agentBusy = false; // AI 是否正在干活（agent_start..agent_settled）
+	let flushTimer: NodeJS.Timeout | undefined; // 聚合窗口定时器（收拢瞬时完成的多任务）
+	const pending: PendingNote[] = []; // 待投递通知（忙时积压）
 
 	// ---- 与全局 agent-wait-banner 扩展联动 ----
 	// 后台任务运行期间，会话界面（footer 状态行）显示
@@ -118,7 +136,6 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 	}
 
 	function notifyCompletion(task: BgTask, signal: string | null): void {
-		if (shuttingDown) return;
 		const duration = fmtDuration((task.endedAt ?? Date.now()) - task.startedAt);
 		const outcome =
 			task.status === "exited"
@@ -128,15 +145,46 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 					: "已结束";
 		const tail = tailOf(task.logPath);
 		const body = tail ? `\n──── 输出尾部 ────\n${tail}` : "\n（无输出）";
-		const text =
+		const head =
 			`[后台任务完成] ${task.id}${task.label ? `「${task.label}」` : ""} ${outcome}（运行 ${duration}）\n` +
 			`命令：${task.command}\n` +
 			`完整日志：${task.logRel}\n` +
-			`请读取日志 / 输出完成分析，并按本会话的工作流程执行后续步骤。` +
-			body;
+			`请读取日志 / 输出完成分析，并按本会话的工作流程执行后续步骤。`;
+		queueNote({
+			entryLine: `- ${task.id}${task.label ? `「${task.label}」` : ""} ${outcome}（运行 ${duration}）| 日志 ${task.logRel}`,
+			fullText: head + body,
+		});
+	}
+
+	/** 通知入队：AI 空闲 → 短窗口后发出（收拢瞬时完成的多任务）；忙碌 → 静默积攒、等空闲再发。 */
+	function queueNote(note: PendingNote): void {
+		if (shuttingDown) return;
+		pending.push(note);
+		if (!agentBusy) scheduleFlush();
+	}
+
+	/** 调度 flush（1.2 秒聚合窗口；已有窗口在跑则不重复调度）。 */
+	function scheduleFlush(): void {
+		if (flushTimer || shuttingDown) return;
+		flushTimer = setTimeout(() => {
+			flushTimer = undefined;
+			flushPending();
+		}, 1200);
+	}
+
+	/** 发出积压通知：单条 → 完整文本（附输出尾部）；多条 → 合并摘要（不带尾部）。 */
+	function flushPending(): void {
+		if (pending.length === 0) return;
+		const batch = pending.splice(0);
+		const single = batch.length === 1 ? batch[0] : undefined;
+		const text = single?.fullText
+			? single.fullText
+			: `[后台任务通知] ${batch.length} 个任务已结束：\n` +
+				batch.map((n) => n.entryLine).join("\n") +
+				`\n需要时读取对应日志分析。`;
 		try {
 			pi.sendMessage(
-				{ customType: "bg-task", content: text, display: true },
+				{ customType: "bg-task", content: text, display: false },
 				{ deliverAs: "followUp", triggerTurn: true },
 			);
 		} catch {
@@ -148,7 +196,7 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 		name: "background_run",
 		label: "后台运行",
 		description:
-			"在后台运行一条 bash 命令（立即返回、不阻塞对话）；命令结束时 pi 会以通知消息唤醒你并附上输出尾部。" +
+			"在后台运行一条 bash 命令（立即返回、不阻塞对话）；命令结束时 pi 会以通知消息唤醒你并附上输出尾部（若你正忙于其它工具调用，多个任务的完成通知会合并为一条摘要，届时按需读取日志）。" +
 			"完整输出落在会话工作目录的 tmp/pi-bg/ 下（通知里给出具体路径）。" +
 			"长任务（构建 / 批量处理 / 采样等）用它能不阻塞对话、且结束会收到唤醒通知；" +
 			"项目若有自己的后台跑法规定，按其规定使用。",
@@ -208,15 +256,8 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 					task.status = "failed";
 					task.endedAt = Date.now();
 					releaseCount(task);
-					const note = `[后台任务失败] ${id} 启动失败：${String(err)}`;
-					try {
-						pi.sendMessage(
-							{ customType: "bg-task", content: note, display: true },
-							{ deliverAs: "followUp", triggerTurn: true },
-						);
-					} catch {
-						// 忽略
-					}
+					const note = `[后台任务失败] ${id}${task.label ? `「${task.label}」` : ""} 启动失败：${String(err)}`;
+					queueNote({ entryLine: `- ${note}`, fullText: note });
 				});
 				child.on("exit", (code, signal) => {
 					task.endedAt = Date.now();
@@ -233,7 +274,7 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 							text:
 								`后台任务已启动：${id}${task.label ? `「${task.label}」` : ""}\n` +
 								`日志：${logRel}\n` +
-								`任务结束时你会收到一条通知消息（附输出尾部）；期间可继续其他工作，不要 sleep 等待。`,
+								`任务结束时你会收到通知（单条附输出尾部；多个任务在你忙碌期完成时会合并为一条摘要）；期间可继续其他工作，不要 sleep 等待。`,
 						},
 					],
 					details: { id, pid: child.pid, log: logRel },
@@ -316,9 +357,26 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 		},
 	});
 
+	// ---- 通知聚合：AI 忙闲感知（2026-10-14）----
+	// AI 干活期间（agent_start..agent_settled）完成的任务不逐条投递——静默积攒；
+	// settled（AI 不再自动继续）后统一 flush。正常「空闲等待 → 任务完成 → 唤醒」
+	// 循环不受影响（完成时 AI 是空闲的 → 单条通知照常发出）。
+	pi.on("agent_start", async () => {
+		agentBusy = true;
+	});
+	pi.on("agent_settled", async () => {
+		agentBusy = false;
+		if (pending.length > 0) scheduleFlush();
+	});
+
 	// 会话退出（Ctrl+C / /new / /resume 等）：停掉本会话遗留的后台任务，避免孤儿进程。
 	pi.on("session_shutdown", async () => {
 		shuttingDown = true;
+		if (flushTimer) {
+			clearTimeout(flushTimer);
+			flushTimer = undefined;
+		}
+		pending.length = 0;
 		for (const t of tasks.values()) {
 			if (t.status === "running") {
 				t.status = "killed";
@@ -333,6 +391,12 @@ export default function backgroundTasks(pi: ExtensionAPI) {
 	// 换会话后新起任务的完成通知会被 forever 抑制；任务表清空（旧会话的任务已随 shutdown 停掉）。
 	pi.on("session_start", async () => {
 		shuttingDown = false;
+		agentBusy = false;
+		if (flushTimer) {
+			clearTimeout(flushTimer);
+			flushTimer = undefined;
+		}
+		pending.length = 0;
 		tasks.clear();
 		counter = 0;
 		runningCount = 0;

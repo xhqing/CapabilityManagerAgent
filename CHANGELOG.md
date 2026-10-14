@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.38] - 2026-10-14
+
+本版含三项改动：pi background-tasks 完成通知改造（通知不再显示 + AI 忙时聚合——消费积压通知队列不再占用用户窗口）；ai-edit-diff 路径解析修正（bash 命令里的相对路径改为按命令内实际的 `cd` 目录解析，修掉「误登记导致无关会话收到误导性变更通知」的根因）；codef 命名回退同步（登记侧回退为 codef / `xhqing/codef`）；详见下方 2026-10-14 与 2026-10-13 分节。
+
 ## [1.5.36] - 2026-10-13
 
 发版门禁收紧：自动发版链只在自最新 tag 含 fix / feat 类改动时触发（2026-10-13 用户立），纯文档 / 杂事类不发版、不 bump；镜像同步六文件（`CLAUDE.md` + `skills/` 的 commit / bump / release / add / dev-workflow）；详见下方 2026-10-13 分节。
@@ -192,7 +196,31 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-14
+
+### 变更（pi background-tasks 扩展：完成通知不再显示 + AI 忙时聚合——通知消费不占用户窗口）
+
+- **为什么改**：用户 2026-10-14 要求「消费积压的通知队列在后台完成、不要在会话窗口输出（这个是不需要用户感知的动作）」。背景：2026-10-13 一次美股盯盘连续跑了 380+ 个密采样段后台任务，收盘后积压的完成通知被 pi 逐条放送、每条各触发一轮 AI 回复，会话窗口被「bg-N 确认」刷屏。通知的本质是「唤醒 AI 的信号」，不是给用户看的内容。
+- **改了什么**（全局 `~/.pi/agent/extensions/` 权威源 → 镜像）：`background-tasks.ts` 两项行为——① 通知消息 `display: false`：不渲染到会话窗口（pi 语义：仍进 AI 上下文、仍触发唤醒）；② **忙时聚合**：AI 干活期间（`agent_start`..`agent_settled`）完成的任务不逐条投递、静默积攒（pending 缓冲），AI 空闲后合并为**一条摘要**发出——单条任务照旧附输出尾部；合并批次只列 id / 状态 / 日志路径、不带尾部（AI 按需读日志，避免上下文被过期尾部灌满）。配套：任务启动失败通知同走聚合路径；`session_shutdown` / `session_start` 清理缓冲与定时器。
+- **验证**：`/reload` 热载后实测三场景（DayTradingAgent 会话）——① 单任务（AI 空闲等待）：任务完成后约 1.2 秒聚合窗口即被唤醒、单条通知带输出尾部照常；② 忙时聚合（核心场景）：3 个 8 秒任务全部在 AI 的 14 秒忙碌窗口内完成 → 期间零打扰、AI settle 后收到**一条 3 行合并摘要**（该文本格式旧代码不可能产出，确证新逻辑生效）；③ `background_list` / `background_stop` 与 agent-wait-banner 活动上报不受影响。
+- **回归风险评估**：正常「空闲等待 → 任务完成 → 唤醒」循环节奏不变（新增 1.2 秒聚合窗口）；忙时通知延迟至 settle 后投递、不丢通知；单条场景的通知内容（含输出尾部）不减；密采样段循环等既有工作流不受影响。
+- **镜像同步**：单文件覆盖（全局权威优先）。本条 CHANGELOG 由 DayTradingAgent（Victor 会话）记录；工作区另含未提交的 1.5.37 批次（2026-10-13，Kit / Atlas 会话准备），版本 bump 与提交 / 发版一并委派 Prometheus（CapabilityManagerAgent 会话）执行（最终按三批合并处理、发行为 v1.5.38）。
+
 ## 2026-10-13
+
+### 变更（agents-registry 子项目映射表：Atlas 子项目更名回退 codefs → codef）
+
+- **为什么改**：用户 2026-10-13 明确——codef 项目保持原名与命令命名（`codef` / `codef left` / `codef --version`，仅新增 `--version`），早些时候的「codef 更名 codefs」及对应登记需整体回退。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：`docs/agents-registry.md` 子项目映射表 Atlas 行名称与开发目录路径回退（`codefs` / `~/Developer/codefs` → `codef` / `~/Developer/codef`）；`docs/repo-branch-protection.md` 已开保护仓库清单同步仓库名回退（`xhqing/codefs` → `xhqing/codef`）。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 与 `diff ~/.claude/docs/repo-branch-protection.md claude/docs/repo-branch-protection.md` 逐字节一致；新条目落在 `## 2026-10-13` 日期节内、日期标题不重复。
+- **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Atlas 会话记录（命名回退同步），提交流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 变更（ai-edit-diff：bash 路径解析改为按命令内实际的 cd 目录）
+
+- **为什么改**：用户 2026-10-13 指出：bash 命令里的相对路径不能按会话工作目录硬解析（那是错判），应看命令里实际的 `cd` 目录；带绝对路径的文件才是天然可靠的判断。起因是本机实测到一次误通知：会话执行 `cd <pi 安装目录> && head CHANGELOG.md` 时，相对路径 `CHANGELOG.md` 被解析成会话工作目录下的同名文件（ExecutiveAssistantAgent 项目的 CHANGELOG.md），使该文件被误登记为「碰过」、后续变更通知打扰了无关会话。
+- **改了什么**（全局 `~/.pi/agent/extensions/` 权威源 → 镜像）：`ai-edit-diff.ts` 的 `extractPaths()` 改为逐段扫描 bash 命令（按 shell 分隔符切段）、跟踪命令内实际的 `cd` 目录解析相对路径；绝对路径与 `~/` 路径不受 cd 影响、始终采用；当前目录无法静态确定（`cd $VAR` / `cd -` / 命令替换等）时**跳过**相对路径——宁可漏记、不再错记。新增 `resolveCdTarget()`：解析 cd 目标——跳过 `-P` / `-L` / `--` 等选项、支持引号路径、识别 `~`（家目录）与裸 `cd`；无法识别的形态返回 null（其后相对路径不登记）。头部注释追加 2026-10-13 改造记录。
+- **验证**：① 从源文件抽取函数跑 19 条用例全部通过（cd 后相对路径按 cd 解析、无 cd 时保持原行为、绝对 / 波浪号路径、`cd $VAR` 与 `cd -` 跳过、`cd -P` 选项、含空格引号路径、子 shell 形式、裸 cd 等）；② 两次真实 `pi -p` 会话端到端实测——会话 cwd 为 ExecutiveAssistantAgent 时执行 `cd /opt/.../pi-coding-agent && head -5 CHANGELOG.md` 不再产生 EA 项目文件的误登记（旧版会误记 `CHANGELOG.md`）；对照组 `cd /tmp/.../probe && head -3 probe.md` 的 touched 记录正确为 `/tmp/.../probe/probe.md`。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit 会话暂记，版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行——最终按三批合并处理、随 v1.5.38 一并发行（未单独发 1.5.37）。
 
 ### 变更（agents-registry 子项目映射表：Atlas 子项目 codef 更名 codefs）
 
