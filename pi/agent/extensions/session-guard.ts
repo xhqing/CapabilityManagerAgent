@@ -29,8 +29,12 @@ const AUTH_MARK = "AI_AUTHORIZED_SESSION_KILL";
 const ALLOWED_SESSION_PREFIX = "pi-";
 
 // tmux 两条危险操作
+// 2026-10-14 修正：kill-session 判定收紧为与 CC 端规则 8 同源的形式（tmux + 若干“-”选项 +
+// kill-session 紧凑相邻）——原 `(\S+\s+)*?` 允许 tmux 与 kill-session 之间跨越任意词，
+// 会把「命令文本里恰好同时出现 tmux 与 kill-session 字样」的只读命令误判成真命令拦截
+//（实测误伤：一条含 `tmux list-sessions` 与 `grep "kill-session"` 的排查命令被拦）。
 const TMUX_KILL_SERVER = /(^|[^A-Za-z0-9_])tmux\s+kill-server([^A-Za-z0-9_-]|$)/;
-const TMUX_KILL_SESSION = /(^|[^A-Za-z0-9_])tmux\s+(\S+\s+)*?kill-session([^A-Za-z0-9_-]|$)/;
+const TMUX_KILL_SESSION = /(^|[^A-Za-z0-9_])tmux\s+(-\S+\s+)*kill-session([^A-Za-z0-9_-]|$)/;
 // kill / pkill / killall
 const KILLISH = /(^|[^A-Za-z0-9_])(kill|pkill|killall)([ \t]|$)/;
 // 文本里是否提到 pi 进程

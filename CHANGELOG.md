@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.43] - 2026-10-14
+
+session-guard 修复：kill-session 判定收紧为紧凑形式（对齐 CC 端规则 8）——修「命令文本里同时出现关键词即误伤」；真命令拦截不变；详见下方 2026-10-14 分节。
+
 ## [1.5.42] - 2026-10-14
 
 focus-guard 扩展：用 `open` 代开网页页面纳入本机焦点拦截（给链接、不代开——2026-10-14 用户追加立规）；CLAUDE.md / 钩子规则 9 / pi 扩展三处同步、双端行为验证；详见下方 2026-10-14 分节。
@@ -267,6 +271,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`bash -n` 双端语法通过；CC 端行为测试——`open https://…` → deny、`open ~/Downloads` → 放行、`echo "open https://…"` → 放行；pi 端正则行为测试 10 用例全部通过（含 `open "https://…"`、`open -a "Google Chrome" …`、`open file:///…`、`open notes.html` 应拦，`open ~/Downloads`、行内文本、`cat`、`ssh mac-mini 'open …'` 应放行）；`diff` 复核三文件全局 × 镜像逐字节一致。
 - **回归风险评估**：判定限定「命令段以 `open` 起头 + 目标是网页页面」——打开文件夹 / 应用、文本中出现的 open、远端（含 ssh）命令、以及用户当场授权（带 `AI_AUTHORIZED_LOCAL_FOCUS` 标记）的操作均照常放行；`osascript` / `codef` 既有拦截不受影响。
 - **镜像同步**：三文件覆盖（全局权威优先；本次同步由外部机制先行完成——Kit 会话复核 `diff` 逐字节一致）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 修复（session-guard：kill-session 判定收紧——修「命令文本里出现关键词即误伤」）
+
+- **为什么改**：2026-10-14 晚间实测误伤——一条只读排查命令（同一 bash 命令里既有 `tmux list-sessions`、又有文本性质的 `kill-session` 字样）被 pi 端 session-guard 误判为 `tmux kill-session` 真命令而拦截（报「未指定名字」）。根因：pi 端正则 `tmux\s+(\S+\s+)*?kill-session` 允许 tmux 与 kill-session 之间跨越任意词元（含 `|`、`;`、引号文本），只要命令里同时出现两处字样即可能触发；而 CC 端规则 8 本就是紧凑形式（`tmux` + 选项 + `kill-session` 紧邻），两端判定不一致。
+- **改了什么**（全局 `~/.pi/agent/extensions/` 权威源 → 镜像）：`session-guard.ts` 的 `TMUX_KILL_SESSION` 收紧为 `/(^|[^A-Za-z0-9_])tmux\s+(-\S+\s+)*kill-session([^A-Za-z0-9_-]|$)/`——对齐 CC 端规则 8 的紧凑判定（拦截真命令的行为不变，仅消除跨段 / 文本误伤）；注释补充本次修正与误伤案例说明。
+- **验证**：8 用例全过——真命令拦截 3 例（`tmux kill-session`、`tmux -q kill-session`、多选项形式）行为不变；`pi-` 前缀与 `AI_AUTHORIZED_SESSION_KILL` 标记照常放行；核心误伤场景（`tmux list-sessions …` + 文本 `kill-session`）对比：旧误拦 → 新放行。`node --experimental-strip-types --check` 语法通过；镜像 `diff` 逐字节一致。
+- **回归风险评估**：真命令拦截面不变；放行面不变；仅消除「非紧凑共存关键词」的误伤。已知边界（与 CC 端一致、未扩）：`tmux -L sock kill-session`（选项带值）这类写法两端都不拦（AI 少见；如需覆盖可另立条目）。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-13
 
