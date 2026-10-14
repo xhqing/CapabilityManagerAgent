@@ -173,8 +173,10 @@ fi
 
 # --- 规则 9：本机屏幕焦点禁止抢夺（2026-10-14 用户立）---
 # 用户的工作 Mac 就是他此刻正在用的机器：窗口置顶 / 菜单点击 / 模拟按键等抢焦点操作
-# 会直接打断用户。此类测试去 macmini（ssh mac-mini）或找 cuAgent（computer-use 唯一
-# 获准项目）。拦截三类：① 本地 osascript + 焦点 / UI 操作动词；② 本地直接调用 codef
+# 会直接打断用户。取得用户**当次授权**即可在本机执行（标记 AI_AUTHORIZED_LOCAL_FOCUS
+# 放行；用户 2026-10-14 深夜澄清「你可以跑抢焦点的程序，前提是拿到我的授权」）；
+# cuAgent 是 computer-use 能力（看屏 / 点击 / 拖拽）的专门通道，普通脚本测试用不上。
+# 拦截三类（未授权时）：① 本地 osascript + 焦点 / UI 操作动词；② 本地直接调用 codef
 #（--version 除外）；③ 本地用 open 代开网页页面（URL / 本地 .html；2026-10-14 当晚
 # 用户追加——AI 打开 tokenplus 页面抢了用户正在用的焦点，要求「给链接就行」）。
 # 远端命令（含 ssh）与带标记 AI_AUTHORIZED_LOCAL_FOCUS 放行。
@@ -182,14 +184,14 @@ fi
 if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_LOCAL_FOCUS' && ! echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])ssh([[:space:]]|$)'; then
   if echo "$cmd" | grep -q 'osascript' \
      && echo "$cmd" | grep -qE '(keystroke|key[[:space:]]+code|click[[:space:]]+menu|pick[[:space:]]+menu|frontmost|AXRaise|perform[[:space:]]+action|set[[:space:]]+position[[:space:]]+of|set[[:space:]]+size[[:space:]]+of|activate)'; then
-    deny_msg "规则拦截：本机屏幕焦点禁止抢夺（2026-10-14 用户立规）——osascript 的焦点 / UI 操控（keystroke / key code / 菜单 pick·click / frontmost / AXRaise / perform action / 设置窗口位置尺寸 / activate）会直接打断正在用这台机器的用户。需要此类测试时请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机执行（用户当场同意）时，命令加标记 # AI_AUTHORIZED_LOCAL_FOCUS 再执行。"
+    deny_msg "规则拦截：本机屏幕焦点禁止抢夺（2026-10-14 用户立规）——osascript 的焦点 / UI 操控（keystroke / key code / 菜单 pick·click / frontmost / AXRaise / perform action / 设置窗口位置尺寸 / activate）会直接打断正在用这台机器的用户。需要在本机执行时：向用户说明理由与影响、取得当次授权后，在命令里加标记 # AI_AUTHORIZED_LOCAL_FOCUS 即可运行（授权不跨次）；想不打扰用户也可去 macmini（ssh mac-mini）；需要 computer-use 类能力（看屏 / 点击）才找 cuAgent。"
   fi
   while IFS= read -r seg9; do
     seg9="${seg9#"${seg9%%[![:space:]]*}"}"
     [ -z "$seg9" ] && continue
     if echo "$seg9" | grep -qE '^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*((bash|sh)[[:space:]]+)?([^[:space:]]*/)?codef([[:space:]]|$)' \
        && ! echo "$seg9" | grep -qE '(^|[[:space:]])--version([[:space:]]|$)'; then
-      deny_msg "规则拦截：本机禁止直接调用 codef（2026-10-14 用户立规「本机焦点禁止抢夺」——codef 按设计会置顶窗口 / 开菜单 / 发按键，打断正在用机的用户）。需要测试请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机执行（用户当场同意）时加标记 # AI_AUTHORIZED_LOCAL_FOCUS。"
+      deny_msg "规则拦截：本机禁止直接调用 codef（2026-10-14 用户立规「本机焦点禁止抢夺」——codef 按设计会置顶窗口 / 开菜单 / 发按键，打断正在用机的用户）。需要在本机执行时：先取得用户当次授权，再加标记 # AI_AUTHORIZED_LOCAL_FOCUS 运行（授权不跨次）；想不打扰用户也可去 macmini（ssh mac-mini）；需要 computer-use 类能力（看屏 / 点击）才找 cuAgent。"
     fi
     if echo "$seg9" | grep -qE '^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*((bash|sh)[[:space:]]+)?([^[:space:]]*/)?open([[:space:]]|$)' \
        && echo "$seg9" | grep -qE 'https?://|file://|\.html?([^[:alnum:]]|$)'; then
