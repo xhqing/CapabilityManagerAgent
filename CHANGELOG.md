@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.42] - 2026-10-14
+
+focus-guard 扩展：用 `open` 代开网页页面纳入本机焦点拦截（给链接、不代开——2026-10-14 用户追加立规）；CLAUDE.md / 钩子规则 9 / pi 扩展三处同步、双端行为验证；详见下方 2026-10-14 分节。
+
 ## [1.5.41] - 2026-10-14
 
 新增本机屏幕焦点守卫（2026-10-14 用户立规）：本机禁止抢焦点的 osascript 焦点 / UI 操作与直接调用 codef，此类测试改去 macmini（`ssh mac-mini`）或找 cuAgent；CC 钩子规则 9 + pi 扩展 focus-guard 双端强制，逃生门标记 `AI_AUTHORIZED_LOCAL_FOCUS`；详见下方 2026-10-14 分节。
@@ -255,6 +259,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**（全局 `~/.claude/` + `~/.pi/agent/` 权威源 → 镜像）：① `CLAUDE.md` 新增小节「本机屏幕焦点禁止抢夺」（与「VSCode 进程与远程窗口」节并列；含禁令、替代路径、逃生门标记 `AI_AUTHORIZED_LOCAL_FOCUS`、双端强制说明）；② `hooks/pre-tool-use-guard.sh` 新增规则 9（本地 `osascript` + 焦点 / UI 动词拦截；本地直接调用 `codef` 拦截〔`--version` 除外〕；命令含 `ssh` 视为远端放行；与 pi 端同源）；③ `pi/agent/extensions/focus-guard.ts` 新增（pi 端工具强制，判定逻辑与规则 9 同源）。
 - **验证**（Atlas 侧）：CC 钩子 11 个应拦截载荷全部 DENY、7 个应放行场景全部 ALLOW、旧规则（杀 VSC / git commit / kdbx）回归正常；镜像六部分 diff 除本三处外无分叉。
 - **镜像同步**：三处已按「全局权威优先」覆盖，diff 逐字节一致；本条 CHANGELOG 由 Prometheus（CapabilityManagerAgent 会话）补记。
+
+### 变更（focus-guard 扩展：open 代开网页页面纳入本机焦点拦截——给链接、不代开）
+
+- **为什么改**：2026-10-14 当晚用户追加立规——AI 在用户正看别的东西时用 `open` 打开了 tokenplus 页面，抢走屏幕焦点（用户原话「下次不要帮我打开网页页面，给我链接就行」「打开页面操作会抢我的焦点，我正在看另一个东西」）。这是当日早些时候「本机屏幕焦点禁止抢夺」立规的同主题延伸：原规只拦 `osascript` 焦点操控与 `codef`，未覆盖「AI 主动代开网页」这个高频场景；约定改为「要给用户看的网页，把链接原文发给他、让他自己点开」。
+- **改了什么**（全局 `~/.claude/` 与 `~/.pi/agent/extensions/` 权威源 → 镜像，三处）：① `CLAUDE.md`「本机屏幕焦点禁止抢夺」节——「本机禁止」条增补「用 `open` 代开网页页面（`open http(s)://…`、本地 `.html`——浏览器 / 预览窗口会被带到前台抢走焦点）」，并新增一条「网页一律给链接原文、不要代开」的约定（含起因原话）；② `hooks/pre-tool-use-guard.sh` 规则 9——新增第三类拦截：命令段以 `open` 起头且含 URL（http/https/file）或本地 `.html` 文件则 deny（逃生门沿用 `AI_AUTHORIZED_LOCAL_FOCUS`；与 pi 端同源）；③ `pi/agent/extensions/focus-guard.ts`——同源新增 `OPEN_START_RE` / `WEB_TARGET_RE` 判定与 `OPEN_URL_DENY` 文案。
+- **验证**：`bash -n` 双端语法通过；CC 端行为测试——`open https://…` → deny、`open ~/Downloads` → 放行、`echo "open https://…"` → 放行；pi 端正则行为测试 10 用例全部通过（含 `open "https://…"`、`open -a "Google Chrome" …`、`open file:///…`、`open notes.html` 应拦，`open ~/Downloads`、行内文本、`cat`、`ssh mac-mini 'open …'` 应放行）；`diff` 复核三文件全局 × 镜像逐字节一致。
+- **回归风险评估**：判定限定「命令段以 `open` 起头 + 目标是网页页面」——打开文件夹 / 应用、文本中出现的 open、远端（含 ssh）命令、以及用户当场授权（带 `AI_AUTHORIZED_LOCAL_FOCUS` 标记）的操作均照常放行；`osascript` / `codef` 既有拦截不受影响。
+- **镜像同步**：三文件覆盖（全局权威优先；本次同步由外部机制先行完成——Kit 会话复核 `diff` 逐字节一致）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-13
 
