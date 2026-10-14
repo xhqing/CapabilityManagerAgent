@@ -167,7 +167,8 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 用户的工作 Mac 就是他此刻正在用的机器——**任何抢走屏幕焦点的操作都会直接打断用户**（窗口置顶 / 激活、菜单展开与点击、模拟按键 / 鼠标、AX 操控窗口位置与尺寸等）。2026-10-14 用户立规，原话：「本机焦点禁止抢夺」「以后也是一样」；立规起因是 AI 为排查 codef 故障在本机反复置顶窗口、开菜单、点平铺项，连续打断用户操作。
 
-- **本机禁止**：`osascript` 的焦点 / UI 操控（`keystroke`、`key code`、`pick menu`、`click menu item`、`frontmost`、`AXRaise`、`perform action`、设置窗口位置 / 尺寸、`activate`），以及**直接调用 `codef`**（它按设计就是置顶窗口 / 开菜单 / 发按键的工具）。只读查询（读窗口列表、系统日志等）不抢焦点、不受限。
+- **本机禁止**：`osascript` 的焦点 / UI 操控（`keystroke`、`key code`、`pick menu`、`click menu item`、`frontmost`、`AXRaise`、`perform action`、设置窗口位置 / 尺寸、`activate`）、**直接调用 `codef`**（它按设计就是置顶窗口 / 开菜单 / 发按键的工具），以及**用 `open` 代开网页页面**（`open http(s)://…`、`open` 本地 `.html` 文件——浏览器 / 预览窗口会被带到前台抢走焦点）。只读查询（读窗口列表、系统日志等）不抢焦点、不受限。
+- **要给用户看的网页，一律把链接原文发给他、让他自己点开，不要用 `open` 代开**（2026-10-14 当晚用户追加立规：AI 在用户正看别的东西时打开了 tokenplus 页面抢走焦点，原话「下次不要帮我打开网页页面，给我链接就行」）。
 - **需要做这类测试时（如 codef、窗口管理类工具）**：① 登录 **macmini** 执行——`ssh mac-mini`（GUI 会话已登录，可在其屏幕上自由测试）；② 或**找 cuAgent 帮忙**（唯一获准在本机使用 computer-use 的 agent，见下节）。
 - 确需在本机执行一次抢焦点操作（用户当场明确同意）时，命令加标记 `# AI_AUTHORIZED_LOCAL_FOCUS`；未获授权不得擅自加。
 - 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 9）与 pi 端 `~/.pi/agent/extensions/focus-guard.ts` 硬拦截兜底（命令里含 `ssh` 时放行——那是 macmini 等远端机、不是用户本机），两端判定逻辑同源。
