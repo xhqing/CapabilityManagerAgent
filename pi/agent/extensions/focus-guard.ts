@@ -7,9 +7,11 @@
  * 「本机焦点禁止抢夺」「以后也是一样」。立规起因：AI 为排查 codef 故障在本机
  * 反复置顶窗口、开菜单、点平铺项，连续打断用户操作。
  *
- * 需要做这类测试时：① 登录 macmini 执行（`ssh mac-mini`，GUI 会话已登录，可在其
- * 屏幕上自由测试）；② 或找 cuAgent 帮忙（唯一获准在本机使用 computer-use 的
- * agent）。只读查询（读窗口列表 / 系统日志等）不抢焦点、不受限。
+ * 执行方式：取得用户**当次授权**、命令加标记 `AI_AUTHORIZED_LOCAL_FOCUS` 即可在
+ * 本机运行（用户 2026-10-14 深夜澄清：「你可以跑抢焦点的程序，前提是拿到我的
+ * 授权」——本机执行不是被绝对禁止）；想不打扰用户时也可去 macmini（`ssh mac-mini`）；
+ * 需要 computer-use 类 GUI 能力（看屏 / 真实点击拖拽）时才找 cuAgent（其专属
+ * 能力）。只读查询（读窗口列表 / 系统日志等）不抢焦点、不受限。
  *
  * 拦截三类动作（仅限「本机」；命令里含 `ssh` 视为远端 macmini 等机器、放行）：
  * A) `osascript` + 焦点 / UI 操作动词（keystroke / key code / 菜单 pick·click /
@@ -60,14 +62,16 @@ export const OSASCRIPT_DENY =
 	"[focus-guard] 拦截：本机屏幕焦点禁止抢夺（2026-10-14 用户立规）——osascript 的" +
 	"焦点 / UI 操控（keystroke / key code / 菜单 pick·click / frontmost / AXRaise /" +
 	" perform action / 设置窗口位置尺寸 / activate）会直接打断正在用这台机器的用户。" +
-	"需要此类测试时请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机" +
-	"执行（用户当场同意）时，命令加标记 `# AI_AUTHORIZED_LOCAL_FOCUS` 再执行。";
+	"需要在本机执行时：向用户说明理由与影响、取得当次授权后，在命令里加标记" +
+	" `# AI_AUTHORIZED_LOCAL_FOCUS` 即可运行（授权不跨次）；想不打扰用户也可去" +
+	" macmini（ssh mac-mini）；需要 computer-use 类能力（看屏 / 点击）才找 cuAgent。";
 
 export const CODEF_DENY =
 	"[focus-guard] 拦截：本机禁止直接调用 codef（2026-10-14 用户立规「本机焦点禁止" +
 	"抢夺」——codef 按设计会置顶窗口 / 开菜单 / 发按键，打断正在用机的用户）。需要" +
-	"测试请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机执行" +
-	"（用户当场同意）时加标记 `# AI_AUTHORIZED_LOCAL_FOCUS`。";
+	"在本机执行时：先取得用户当次授权，再加标记 `# AI_AUTHORIZED_LOCAL_FOCUS` 运行" +
+	"（授权不跨次）；想不打扰用户也可去 macmini（ssh mac-mini）；需要 computer-use" +
+	" 类能力（看屏 / 点击）才找 cuAgent。";
 
 export const OPEN_URL_DENY =
 	"[focus-guard] 拦截：本机屏幕焦点禁止抢夺（2026-10-14 用户立规）——不得用 open " +

@@ -280,6 +280,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：真命令拦截面不变；放行面不变；仅消除「非紧凑共存关键词」的误伤。已知边界（与 CC 端一致、未扩）：`tmux -L sock kill-session`（选项带值）这类写法两端都不拦（AI 少见；如需覆盖可另立条目）。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（焦点规则口径澄清：未经授权禁止、取得当次授权可执行——文案同步，判定逻辑不变）
+
+- **为什么改**：2026-10-14 深夜用户澄清口径——「你可以跑抢焦点的程序，**前提是拿到我的授权**」：本机执行不是被绝对禁止，而是必须先取得用户**当次**授权；cuAgent 是「需要使用 computer-use 能力（看屏 / 真实点击拖拽）」时的专门通道，普通脚本测试用不上；macmini 则是「不想打扰用户」时的备选。据此修正三处文案（**判定逻辑不变**，拦截范围 / 标记放行 / ssh 放行均照旧）。
+- **改了什么**（全局 `~/.claude/` 与 `~/.pi/agent/extensions/` 权威源 → 镜像）：① `CLAUDE.md` 该节标题改为「未经授权禁止；取得当次授权可执行」、正文加澄清句、「执行方式（按优先级）」重写（① 本机授权执行 → ② macmini → ③ cuAgent 仅限 computer-use 类能力）、补「未获授权不得执行」条；② `hooks/pre-tool-use-guard.sh` 规则 9 注释与两条 deny 文案同步新口径；③ `pi/agent/extensions/focus-guard.ts` 文档块与 deny 文案同步。
+- **验证**（Atlas 侧）：hook 语法检查通过；11 个应拦截载荷全部 DENY、7 个应放行场景全部 ALLOW；pi 扩展 `node --experimental-strip-types --check` 通过；三处与全局权威源逐字节一致。
+- **镜像同步**：三处覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus（CapabilityManagerAgent 会话）补记。
+
 ## 2026-10-13
 
 ### 变更（agents-registry 子项目映射表：Atlas 子项目更名回退 codefs → codef）
