@@ -163,6 +163,15 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **远程连接强制新窗口**：触发 VSCode Remote-SSH / Remote Tunnel 用 `code --folder-uri "vscode-remote://ssh-remote+<host>/<远端路径>" --new-window`，禁止 `open vscode://vscode-remote` URI（会复用用户当前窗口、顶替工作现场）。
 - 两条均由 `~/.claude/hooks/pre-tool-use-guard.sh` 硬拦截兜底，文本说明为什么。
 
+### 本机屏幕焦点禁止抢夺（测试去 macmini 或找 cuAgent；钩子已硬拦截）
+
+用户的工作 Mac 就是他此刻正在用的机器——**任何抢走屏幕焦点的操作都会直接打断用户**（窗口置顶 / 激活、菜单展开与点击、模拟按键 / 鼠标、AX 操控窗口位置与尺寸等）。2026-10-14 用户立规，原话：「本机焦点禁止抢夺」「以后也是一样」；立规起因是 AI 为排查 codef 故障在本机反复置顶窗口、开菜单、点平铺项，连续打断用户操作。
+
+- **本机禁止**：`osascript` 的焦点 / UI 操控（`keystroke`、`key code`、`pick menu`、`click menu item`、`frontmost`、`AXRaise`、`perform action`、设置窗口位置 / 尺寸、`activate`），以及**直接调用 `codef`**（它按设计就是置顶窗口 / 开菜单 / 发按键的工具）。只读查询（读窗口列表、系统日志等）不抢焦点、不受限。
+- **需要做这类测试时（如 codef、窗口管理类工具）**：① 登录 **macmini** 执行——`ssh mac-mini`（GUI 会话已登录，可在其屏幕上自由测试）；② 或**找 cuAgent 帮忙**（唯一获准在本机使用 computer-use 的 agent，见下节）。
+- 确需在本机执行一次抢焦点操作（用户当场明确同意）时，命令加标记 `# AI_AUTHORIZED_LOCAL_FOCUS`；未获授权不得擅自加。
+- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 9）与 pi 端 `~/.pi/agent/extensions/focus-guard.ts` 硬拦截兜底（命令里含 `ssh` 时放行——那是 macmini 等远端机、不是用户本机），两端判定逻辑同源。
+
 ### 电脑操作（computer-use）：仅限 cuAgent 项目内使用（2026-10-09 修订）
 
 - 沿革：2026-10-08 用户曾决定彻底弃用 computer-use（原话：「我不想用computer-use能力了，以后也不想用了」），相关组件全部移除（pi 全局 MCP 条目、全局 npm 包、缓存、配套补丁；同日早些时候试点的「用前授权 + 用毕弹窗」机制随之作废）。2026-10-09 用户确认**恢复 computer-use 能力、且限定只有 cuAgent 能用**。

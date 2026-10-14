@@ -171,4 +171,25 @@ if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_SESSION_KILL'; then
   fi
 fi
 
+# --- 规则 9：本机屏幕焦点禁止抢夺（2026-10-14 用户立）---
+# 用户的工作 Mac 就是他此刻正在用的机器：窗口置顶 / 菜单点击 / 模拟按键等抢焦点操作
+# 会直接打断用户。此类测试去 macmini（ssh mac-mini）或找 cuAgent（computer-use 唯一
+# 获准项目）。拦截两类：① 本地 osascript + 焦点 / UI 操作动词；② 本地直接调用 codef
+#（--version 除外）。远端命令（含 ssh）与带标记 AI_AUTHORIZED_LOCAL_FOCUS 放行。
+# 与 pi 端 focus-guard.ts 同源（两处判定同步改，不能只改一边）。
+if ! echo "$cmd" | grep -q 'AI_AUTHORIZED_LOCAL_FOCUS' && ! echo "$cmd" | grep -qE '(^|[^[:alnum:]_-])ssh([[:space:]]|$)'; then
+  if echo "$cmd" | grep -q 'osascript' \
+     && echo "$cmd" | grep -qE '(keystroke|key[[:space:]]+code|click[[:space:]]+menu|pick[[:space:]]+menu|frontmost|AXRaise|perform[[:space:]]+action|set[[:space:]]+position[[:space:]]+of|set[[:space:]]+size[[:space:]]+of|activate)'; then
+    deny_msg "规则拦截：本机屏幕焦点禁止抢夺（2026-10-14 用户立规）——osascript 的焦点 / UI 操控（keystroke / key code / 菜单 pick·click / frontmost / AXRaise / perform action / 设置窗口位置尺寸 / activate）会直接打断正在用这台机器的用户。需要此类测试时请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机执行（用户当场同意）时，命令加标记 # AI_AUTHORIZED_LOCAL_FOCUS 再执行。"
+  fi
+  while IFS= read -r seg9; do
+    seg9="${seg9#"${seg9%%[![:space:]]*}"}"
+    [ -z "$seg9" ] && continue
+    if echo "$seg9" | grep -qE '^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*((bash|sh)[[:space:]]+)?([^[:space:]]*/)?codef([[:space:]]|$)' \
+       && ! echo "$seg9" | grep -qE '(^|[[:space:]])--version([[:space:]]|$)'; then
+      deny_msg "规则拦截：本机禁止直接调用 codef（2026-10-14 用户立规「本机焦点禁止抢夺」——codef 按设计会置顶窗口 / 开菜单 / 发按键，打断正在用机的用户）。需要测试请登录 macmini（ssh mac-mini）执行，或找 cuAgent 帮忙；确需在本机执行（用户当场同意）时加标记 # AI_AUTHORIZED_LOCAL_FOCUS。"
+    fi
+  done < <(printf '%s\n' "$cmd" | sed -E 's/(&&|\|\||;|\|)/\n/g')
+fi
+
 exit 0
