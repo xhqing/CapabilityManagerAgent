@@ -6,7 +6,9 @@
  *     `open_diff` 按需打开 diff（左：改动前快照 / 右：当前内容；先选文件与 VSCode 窗口、经用户确认）。
  *  B) 文件变更通知 → 任何来源的变更（用户手动改 / 某个会话改），都会通知给**所有碰过该文件的
  *     活跃会话**（前台与后台一视同仁），让每个会话都及时更新对该文件的最新认知；通知附带变更
- *     来源与「改动前快照」，并提醒先重新读取、不要覆盖。
+ *     来源、「改动前快照」与「相关性判断依据」（文件名 / 文件所属项目位置 / 本会话此前是否
+ *     读过它），由接收会话**先判断当前任务是否用得到该文件**——大概率无关则跳过读取（避免
+ *     无关信息干扰当前任务），相关或拿不准才重新读取、避免覆盖。
  *
  * 机制（跨会话通过共享状态目录协调，无守护进程）：
  *  - mirror/  ：各文件最近一次已知内容（全局共享基线；采集"改动前快照"用）
@@ -29,6 +31,12 @@
  *       head CHANGELOG.md` 会把 CHANGELOG.md 误记成会话 cwd 下的同名文件、让无关会话收到它的
  *       变更通知。现改为逐段跟踪命令内实际的 cd 目录；绝对路径（含 ~/）不受 cd 影响；当前目录
  *       无法静态确定（变量 / `cd -` / 命令替换等）时跳过相对路径——宁可漏记、不再错记）
+ * 改造：2026-10-14（变更通知新增「先判断相关性、再决定是否读取」：通知不再直接要求重读，而是
+ *       附上判断依据——文件名、文件所属项目/目录位置、本会话此前是否读过它（上下文里有没有旧
+ *       内容）——让接收会话先判断当前任务用不用得到；大概率无关则跳过读取（避免无关信息干扰
+ *       当前任务），相关或拿不准才重新读取。配套：touched 记录新增「触碰来源」src
+ *       （read/edit/bash-read/bash-write/unknown，只升不降）；新增项目根定位——按 .git /
+ *       CLAUDE.md / AGENTS.md / package.json 等「项目标识文件」判断文件是否属于本会话当前项目）
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -131,8 +139,12 @@ interface ChangedBy { kind: "session" | "user" | "unknown"; id?: string; name?: 
 interface MetaRec { path: string; hash: string; snapshot: string | null; changedAt: number; changedBy: ChangedBy }
 /** 会话工具声明：某会话的工具正在动这个文件。 */
 interface Claim { id: string; name?: string; ts: number }
+/** 本会话「碰过」该文件的方式（供变更通知里的「上下文提示」用）。 */
+type TouchSrc = "read" | "edit" | "bash-read" | "bash-write" | "unknown";
+/** 来源强弱：直接读过/改过（read/edit）> 命令里访问过（bash-*）> 旧记录（unknown）。只升不降。 */
+const SRC_RANK: Record<TouchSrc, number> = { read: 3, edit: 3, "bash-read": 2, "bash-write": 2, unknown: 1 };
 /** 会话碰过的文件（持久化，重启恢复后仍记得）。 */
-interface TouchRec { hash: string; ts: number; mtimeMs?: number; size?: number }
+interface TouchRec { hash: string; ts: number; mtimeMs?: number; size?: number; src?: TouchSrc }
 interface TouchStore { id: string; name?: string; cwd: string; updatedAt: number; files: Record<string, TouchRec> }
 
 const metaFile = (p: string) => path.join(META_DIR, md5(p) + ".json");
@@ -291,6 +303,83 @@ function extractPaths(cmd: string, sessionCwd: string): string[] {
   return [...out];
 }
 
+// ===== 变更通知的「相关性判断」辅助 =====
+
+// 「项目标识文件」——用来定位一个路径属于哪个项目（文件位置的判断依据；
+// 相当于用户所称的「项目 schema 文件」：表征项目结构/身份的标记文件）。
+const PROJECT_MARKERS = [
+  ".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod",
+  "CLAUDE.md", "AGENTS.md", "pom.xml", "build.gradle", ".hg", ".svn",
+];
+
+/** 自 start 目录向上找最近的「项目根」（含任一项目标识文件的目录）；找不到返回 null。 */
+function findProjectRoot(start: string): string | null {
+  let dir = start;
+  for (let guard = 0; guard < 200; guard++) {
+    for (const m of PROJECT_MARKERS) {
+      try {
+        if (fs.existsSync(path.join(dir, m))) return dir;
+      } catch {}
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
+ * 生成变更通知里的三行「判断依据」：文件位置 / 上下文提示 / 相关度参考。
+ * 判断依据对应三条线索：① 文件名（通知里另有文件路径，调用方自行带上）；② 文件在项目结构中的
+ * 位置（这里算出它属于哪个项目、是否本会话当前项目）；③ 本会话此前是否读过它（上下文里有没有
+ * 它变更前的内容——由 touched 记录的 src 判断）。
+ */
+function relevanceFacts(p: string, src: TouchSrc | undefined, cwd: string): { location: string; context: string; hint: string } {
+  const fileRoot = findProjectRoot(path.dirname(p));
+  const sessRoot = cwd ? findProjectRoot(cwd) : null;
+  const sameProject = !!fileRoot && !!sessRoot && fileRoot === sessRoot;
+  const insideCwd = !!cwd && (p === cwd || p.startsWith(cwd + path.sep));
+
+  let location: string;
+  if (!fileRoot) {
+    location = `文件位置：未识别到所属项目（路径向上没有项目标识文件：${PROJECT_MARKERS.slice(0, 5).join(" / ")} 等）`;
+  } else if (sameProject) {
+    location = `文件位置：属于本会话当前项目（${fileRoot}）${insideCwd ? "、且在会话工作目录内" : "（不在会话工作目录内，但同属一个项目树）"}`;
+  } else {
+    location = `文件位置：属于项目 ${fileRoot}；本会话当前项目是 ${sessRoot ?? `（未识别，工作目录 ${cwd}）`}`;
+  }
+
+  let context: string;
+  switch (src) {
+    case "read":
+      context = "上下文提示：本会话此前直接读过该文件——它变更前的内容可能仍留在你上下文中。";
+      break;
+    case "edit":
+      context = "上下文提示：本会话此前直接编辑过该文件——它变更前的内容可能仍留在你上下文中。";
+      break;
+    case "bash-read":
+      context = "上下文提示：本会话此前只在 shell 命令里访问过该文件——内容未必读进过你的上下文。";
+      break;
+    case "bash-write":
+      context = "上下文提示：本会话此前通过 shell 命令写过该文件——内容可能在你的上下文中。";
+      break;
+    default:
+      context = "上下文提示：未记录到本会话读过该文件——它变更前的内容大概率不在你上下文中。";
+  }
+
+  const direct = src === "read" || src === "edit";
+  let hint: string;
+  if (direct) {
+    hint = "相关度参考：中高（本会话用过该文件）——若当前任务仍在处理它，就要读取最新内容。";
+  } else if (!sameProject) {
+    hint = "相关度参考：偏低（本会话没有直接读过/改过它、且它不在本会话当前项目内）——默认无需处理，除非当前任务明确涉及它。";
+  } else {
+    hint = "相关度参考：不确定——按下面的判断步骤对照当前任务决定。";
+  }
+
+  return { location, context, hint };
+}
+
 export default function (pi: ExtensionAPI) {
   let active = false;
   let sessionId = "";
@@ -310,8 +399,12 @@ export default function (pi: ExtensionAPI) {
   const touched = new Map<string, TouchRec>();
   let touchedDirty = false;
 
-  const touchSet = (p: string, hash: string, mtimeMs?: number, size?: number) => {
-    touched.set(p, { hash, ts: Date.now(), mtimeMs, size });
+  const touchSet = (p: string, hash: string, mtimeMs?: number, size?: number, src?: TouchSrc) => {
+    const prev = touched.get(p);
+    // 来源只升不降：保留最强的「本会话与它有过来往」信号（直接读 / 改 > 命令访问 > 旧记录未知）
+    const nextSrc: TouchSrc =
+      src && SRC_RANK[src] >= SRC_RANK[prev?.src ?? "unknown"] ? src : prev?.src ?? "unknown";
+    touched.set(p, { hash, ts: Date.now(), mtimeMs, size, src: nextSrc });
     if (touched.size > TOUCH_MAX) {
       let oldest: string | null = null;
       let oldestTs = Infinity;
@@ -381,6 +474,7 @@ export default function (pi: ExtensionAPI) {
 
   // ===== 本轮改动清单：path -> 改动前快照（供 flush 与 open_diff） =====
   const roundChanges = new Map<string, string>();
+  const roundSources = new Map<string, TouchSrc>(); // 本轮改动的触碰来源（只升不降，flush 时登记）
 
   // 最近改动登记（跨轮次，供 open_diff 候选；同文件保留最新快照，新在前）
   const recentChanges: { path: string; snap: string; at: number }[] = [];
@@ -394,10 +488,15 @@ export default function (pi: ExtensionAPI) {
   // ===== 工具侧：改动前快照 / 声明 / 读基线 =====
 
   /** 采集「改动前快照」：仅在本轮该文件第一次被工具触碰时执行。 */
-  const takeSnapshot = (p: string) => {
-    if (roundChanges.has(p)) return;
+  const takeSnapshot = (p: string, src: TouchSrc) => {
+    if (roundChanges.has(p)) {
+      const prevSrc = roundSources.get(p);
+      if (!prevSrc || SRC_RANK[src] > SRC_RANK[prevSrc]) roundSources.set(p, src);
+      return;
+    }
     const st = readState(p);
     if (st.kind !== "content") return;
+    roundSources.set(p, src);
     if (mirrorGet(p) === null) {
       // 镜像不存在 → 建立基线（不产生 diff）
       mirrorSet(p, st.text);
@@ -414,12 +513,12 @@ export default function (pi: ExtensionAPI) {
   };
 
   /** 「AI 读过该文件」→ 刷新镜像与自己已知状态（基线 = 刚看到的内容）。 */
-  const baselineOnRead = (p: string) => {
+  const baselineOnRead = (p: string, src: TouchSrc) => {
     const st = readState(p);
     if (st.kind !== "content") return;
     mirrorSet(p, st.text);
     const s = statState(p);
-    touchSet(p, md5(st.text), s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
+    touchSet(p, md5(st.text), s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined, src);
   };
 
   /** 把本轮工具改动落盘：更新镜像、写共享 meta（含改动前快照）、更新自己已知状态。 */
@@ -433,16 +532,20 @@ export default function (pi: ExtensionAPI) {
       writeMeta(p, { path: p, hash, snapshot: snap, changedAt: Date.now(), changedBy: whoami() });
       dropClaim(p);
       const s = statState(p);
-      touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
+      touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined, roundSources.get(p) ?? "edit");
       if (snap && st.kind === "content") {
         if (readSnapshot(snap) !== st.text) pushRecent(p, snap);
       }
       roundChanges.delete(p);
+      roundSources.delete(p);
     }
   };
 
   // ===== 通知 =====
-  const notify = (p: string, info: { deleted: boolean; snap: string | null; changedBy: ChangedBy; changedAt: number }) => {
+  const notify = (
+    p: string,
+    info: { deleted: boolean; snap: string | null; changedBy: ChangedBy; changedAt: number; priorSrc?: TouchSrc },
+  ) => {
     const name = info.changedBy.name ?? info.changedBy.id?.slice(0, 8) ?? "未知";
     const who =
       info.changedBy.kind === "session"
@@ -450,17 +553,24 @@ export default function (pi: ExtensionAPI) {
         : info.changedBy.kind === "user"
           ? "由用户修改"
           : "来源未识别";
+    const facts = relevanceFacts(p, info.priorSrc, sessionCwd);
     const lines = [
       `【文件变更通知 · ${who}】`,
       `文件：${p}`,
+      facts.location,
+      facts.context,
       ...(info.deleted ? ["状态：文件已被删除（快照为删除前内容）"] : []),
       ...(info.snap ? [`改动前快照：${info.snap}`] : []),
       `变更时间：${formatTime(info.changedAt)}`,
       ...(info.changedBy.kind === "unknown"
         ? ["变更来源：未识别——不是本会话所为（可能是其它会话，也可能是用户手动改）。"]
         : []),
-      "⚠️ 该文件此前的内容可能仍留在你的上下文中，且已过时。在后续回答或操作前，请重新读取该文件，不要基于旧内容回答或处理。",
-      "这次变更不是你做的——它是最新基线，不要覆盖；继续操作前先读取最新内容。",
+      facts.hint,
+      "—— 先判断当前任务是否需要用到这个文件，再决定读不读（避免无关信息干扰当前任务）——",
+      `① 判断依据：文件名（${path.basename(p)}）与当前任务是否相关；文件位置（见上）是否属于当前任务在处理的模块/项目；你上下文中是否已有它变更前的内容（见上「上下文提示」；若上方列了「改动前快照」，它保存了这次变更前的旧版）。`,
+      "② 大概率不需要用到它 → 不要读取该文件的新变更内容，也不要因此调整任务方向；本条仅作知晓即可（之后任务真用到该文件时，读取到的自然是最新内容）。",
+      "③ 需要用到、或拿不准 → 先重新读取该文件的最新内容，再基于它回答或操作；不要继续沿用旧内容。",
+      "④ 若之后要修改该文件 → 先读取最新内容再改（这次变更不是你做的，避免覆盖）。",
     ];
     pi.sendMessage(
       { customType: "file-change-notify", content: lines.join("\n"), display: true },
@@ -492,11 +602,12 @@ export default function (pi: ExtensionAPI) {
       writeMeta(p, { path: p, hash, snapshot: snap, changedAt, changedBy });
     }
     if (cur !== null) mirrorSet(p, cur);
+    const priorSrc = touched.get(p)?.src; // 变更前本会话与它的来往（通知里给「上下文提示」用）
     touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
 
     // 通知（自己之外的一切来源：用户、其它会话、未知）
     if (!(changedBy.kind === "session" && changedBy.id === sessionId)) {
-      notify(p, { deleted: cur === null, snap, changedBy, changedAt });
+      notify(p, { deleted: cur === null, snap, changedBy, changedAt, priorSrc });
     }
   };
 
@@ -535,12 +646,12 @@ export default function (pi: ExtensionAPI) {
       if (name === "write" || name === "edit") {
         const p = String(input.path ?? "");
         if (p && shouldTrack(p)) {
-          takeSnapshot(p);
+          takeSnapshot(p, "edit");
           writeClaim(p);
         }
       } else if (name === "read") {
         const p = String(input.path ?? "");
-        if (p && path.isAbsolute(p) && shouldTrack(p)) baselineOnRead(p);
+        if (p && path.isAbsolute(p) && shouldTrack(p)) baselineOnRead(p, "read");
       } else if (name === "bash") {
         const cmd = String(input.command ?? "");
         if (cmd) {
@@ -557,9 +668,9 @@ export default function (pi: ExtensionAPI) {
           for (const p of paths) {
             if (!shouldTrack(p)) continue;
             if (isReadCmd) {
-              baselineOnRead(p);
+              baselineOnRead(p, "bash-read");
             } else {
-              takeSnapshot(p);
+              takeSnapshot(p, "bash-write");
               writeClaim(p);
             }
           }
@@ -704,6 +815,7 @@ export default function (pi: ExtensionAPI) {
     pollTimer = null;
     saveTouched();
     roundChanges.clear();
+    roundSources.clear();
     recentChanges.length = 0;
     active = false;
   });
