@@ -25,6 +25,10 @@
  *       是其它会话改的），改用中性措辞「来源未识别」并注明推测范围）
  * 改造：2026-10-12（修复：复合命令（`cp … && diff …`）曾被误判为只读——写动作没登记快照/声明，
  *       自己改自己的文件也会收到误报；判定改为「出现写类命令/重定向即按写处理」）
+ * 改造：2026-10-13（修复 bash 路径解析：相对路径此前一律按会话 cwd 解析——`cd /elsewhere &&
+ *       head CHANGELOG.md` 会把 CHANGELOG.md 误记成会话 cwd 下的同名文件、让无关会话收到它的
+ *       变更通知。现改为逐段跟踪命令内实际的 cd 目录；绝对路径（含 ~/）不受 cd 影响；当前目录
+ *       无法静态确定（变量 / `cd -` / 命令替换等）时跳过相对路径——宁可漏记、不再错记）
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -231,16 +235,53 @@ function shouldTrack(p: string): boolean {
   }
 }
 
-// 从 bash 命令文本中解析疑似文件路径
-function extractPaths(cmd: string): string[] {
+// 解析 `cd` 命令的参数字符串，得出目标目录：先跳过 -P/-L/-- 之类的选项，再取第一个 token
+// （支持引号形式）；绝对路径 / ~ 直接采用，相对路径按「执行到此处时的当前目录」解析；
+// 无法静态确定（变量、命令替换、`cd -` 等）时返回 null——之后不再登记相对路径。
+function resolveCdTarget(raw: string, cur: string | null): string | null {
+  let s = raw.trim();
+  for (let guard = 0; guard < 5; guard++) {
+    const opt = /^(-{1,2}[A-Za-z]+|--)(\s+|$)/.exec(s);
+    if (!opt) break;
+    s = s.slice(opt[0].length).trim();
+  }
+  let t: string;
+  if (s.startsWith('"') || s.startsWith("'")) {
+    const i = s.indexOf(s[0], 1);
+    t = i >= 0 ? s.slice(1, i) : s.slice(1);
+  } else {
+    t = (s.split(/\s/)[0] ?? "").split(/[<>]/)[0];
+  }
+  if (!t || t === "~") return os.homedir();
+  if (t.startsWith("~/")) return path.join(os.homedir(), t.slice(2));
+  if (path.isAbsolute(t)) return t;
+  if (/[$`(]/.test(t) || t === "-") return null;
+  return cur === null ? null : path.resolve(cur, t);
+}
+
+// 从 bash 命令文本中解析疑似文件路径。
+// 相对路径按命令中实际的 `cd` 目录解析（逐段扫描、跟踪 cd 目标）；绝对路径（含 ~/）不受 cd 影响；
+// 当前目录无法静态确定（cd 到变量 / `cd -` / 命令替换等）时，之后的相对路径一律跳过——
+// 宁可漏记，也不把相对路径错记到会话工作目录上。2026-10-13 修正：此前一律按会话 cwd 解析，
+// `cd /elsewhere && head CHANGELOG.md` 会把 CHANGELOG.md 误记成会话 cwd 下的同名文件，
+// 使无关会话收到该文件的变更通知。
+function extractPaths(cmd: string, sessionCwd: string): string[] {
   const out = new Set<string>();
   const re = /(?:~|\/)?[\w./~-]+\.(?:md|txt|json|jsonl|py|ts|tsx|js|jsx|mjs|toml|yaml|yml|html|htm|css|scss|sh|bash|zsh|csv|tsv|xml|ini|cfg|conf|env|sql|rs|go|java|c|cpp|h|rb|php|vue|svelte)\b/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(cmd))) {
-    let p = m[0];
-    if (p.startsWith("~/")) p = path.join(os.homedir(), p.slice(2));
-    if (!path.isAbsolute(p)) p = path.resolve(process.cwd(), p);
-    out.add(p);
+  let dir: string | null = sessionCwd && path.isAbsolute(sessionCwd) ? sessionCwd : process.cwd();
+  for (const seg of cmd.split(/\n|;|&&|\|\||\|/)) {
+    const cdM = /^\s*\(?\s*(?:cd|pushd)(?=\s|$)\s*(.*)$/.exec(seg);
+    if (cdM) {
+      dir = resolveCdTarget(cdM[1] ?? "", dir);
+      continue;
+    }
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(seg))) {
+      const p = m[0];
+      if (p.startsWith("~/")) out.add(path.join(os.homedir(), p.slice(2)));
+      else if (path.isAbsolute(p)) out.add(p);
+      else if (dir !== null) out.add(path.resolve(dir, p));
+    }
   }
   return [...out];
 }
@@ -496,7 +537,7 @@ export default function (pi: ExtensionAPI) {
       } else if (name === "bash") {
         const cmd = String(input.command ?? "");
         if (cmd) {
-          const paths = extractPaths(cmd);
+          const paths = extractPaths(cmd, sessionCwd);
           // 判定「纯读」要严格：命令里出现写类命令（cp/mv/sed/tee/重定向…）就按写处理——
           // 复合命令（如 `cp a b && diff a b`）里一个 `diff` 字样曾让整条命令被误判为只读，
           // 导致写动作没登记快照/声明，自己改自己的文件还会收到误报（2026-10-12 实测）。
