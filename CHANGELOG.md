@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.41] - 2026-10-14
+
+新增本机屏幕焦点守卫（2026-10-14 用户立规）：本机禁止抢焦点的 osascript 焦点 / UI 操作与直接调用 codef，此类测试改去 macmini（`ssh mac-mini`）或找 cuAgent；CC 钩子规则 9 + pi 扩展 focus-guard 双端强制，逃生门标记 `AI_AUTHORIZED_LOCAL_FOCUS`；详见下方 2026-10-14 分节。
+
 ## [1.5.40] - 2026-10-14
 
 ai-edit-diff 变更通知新增「先判断相关性、再决定是否读取」：通知附文件名 / 项目位置 / 上下文提示三行依据 + 四步判断，大概率无关则不读（避免无关信息干扰当前任务）；touched 新增触碰来源 src；详见下方 2026-10-14 分节。
@@ -244,6 +248,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：两侧 `skills/` 目录均无 win-ai-monitor；`diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 逐字节一致；新条目落在 `## 2026-10-14` 日期节内、日期标题不重复。
 - **回归风险评估**：win-ai-monitor 记载的是该设备专属的 SSH / 桌面代理 / CDP 经验，设备弃用后无调用场景；CLAUDE.md 删掉的是 win-ai 专属红线，通用规则（文件操作、tmp、汇报前验证、运行隔离、VSCode 远程窗口等）不受影响；如需恢复，skill 与旧版条文均在本仓库 git 历史中（删除前快照另存于本机 ai-edit-diff snapshots）。
 - **镜像同步**：目录删除 + 单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
+### 新增（本机屏幕焦点守卫：焦点抢夺硬拦截——CC 钩子规则 9 + pi 扩展 focus-guard）
+
+- **为什么改**：2026-10-14 用户立规「本机焦点禁止抢夺」（起因：AI 为排查 codef 故障在本机反复置顶窗口、开菜单、点平铺项，连续打断用户操作）；需要做此类测试时改去 macmini（`ssh mac-mini`）或找 cuAgent（唯一获准在本机用 computer-use 的 agent）。
+- **改了什么**（全局 `~/.claude/` + `~/.pi/agent/` 权威源 → 镜像）：① `CLAUDE.md` 新增小节「本机屏幕焦点禁止抢夺」（与「VSCode 进程与远程窗口」节并列；含禁令、替代路径、逃生门标记 `AI_AUTHORIZED_LOCAL_FOCUS`、双端强制说明）；② `hooks/pre-tool-use-guard.sh` 新增规则 9（本地 `osascript` + 焦点 / UI 动词拦截；本地直接调用 `codef` 拦截〔`--version` 除外〕；命令含 `ssh` 视为远端放行；与 pi 端同源）；③ `pi/agent/extensions/focus-guard.ts` 新增（pi 端工具强制，判定逻辑与规则 9 同源）。
+- **验证**（Atlas 侧）：CC 钩子 11 个应拦截载荷全部 DENY、7 个应放行场景全部 ALLOW、旧规则（杀 VSC / git commit / kdbx）回归正常；镜像六部分 diff 除本三处外无分叉。
+- **镜像同步**：三处已按「全局权威优先」覆盖，diff 逐字节一致；本条 CHANGELOG 由 Prometheus（CapabilityManagerAgent 会话）补记。
 
 ## 2026-10-13
 
