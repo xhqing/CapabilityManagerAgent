@@ -258,6 +258,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：既有 14 项断言全数通过；边界变化——委派的目标目录最长可静默 24 小时（此前 1 小时），但一旦对方开始动手，安静 30 分钟后就自动收；「目标目录内用户 / 其它会话改动被一并静默」的既有边界时长随之放大，属用户明确要的「中间过程不看、只看汇报」。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（agents-registry：Gatsby 升级为社媒运营官）
+
+- **为什么改**：2026-10-14 用户决定——Gatsby（CommunityManagerAgent）从「社群运营官」升级为「社媒运营官」，运营范围从「微信社群（私域）」扩展为群主本人的社媒账号矩阵（YouTube——横向长视频 + 纵向中短视频 / 小红书——图文 + 纵向中短视频 / 公众号 / 小绿书 / 视频号——纵向中短视频 / 微信社群 / 个人微信朋友圈）；本会话（Kit）同时整理社媒运营知识素材交接给 Gatsby（落地进其项目级规则与 skill）。
+- **改了什么**（全局 `~/.claude/` 权威源 → 镜像）：`docs/agents-registry.md` 两处——① 命名表 Gatsby 行：职位「社群运营官」→「社媒运营官」，职责描述更新为社媒矩阵（7 个产品，原社群运营内容保留）；② 团队结构段：Gatsby 段更新——「只做私域社群、不越界到公域」的旧限定废止（新角色跨公私域），改为「与 Buzz 的分工」：Buzz 负责数字产品销售的渠道引流内容（X / IG / YouTube / 小红书 / 知乎 / B 站），Gatsby 负责群主本人账号的长期运营与私域阵地——平台有重叠、任务不同。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；新条目落在 `## 2026-10-15` 日期节内、日期标题不重复。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-14
 
 ### 变更（子项目清单收缩：取消 8 个子项目 + xhs-mentor-scam 移出 EA tmp/）
