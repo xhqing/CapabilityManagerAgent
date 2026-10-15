@@ -272,6 +272,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：两镜像 `diff` 逐字节一致；`gh repo view` 新名可访问、旧名重定向；新目录 git 工作区干净、`git fetch` 连通。
 - **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（子项目映射：xhs-mentor-scam 移交 SocialMediaManagerAgent）
+
+- **为什么改**：2026-10-15 用户决定——xhs-mentor-scam 项目移交 Gatsby（SocialMediaManagerAgent）负责、作为其子项目（原由 Kit / ExecutiveAssistantAgent 负责）。
+- **改了什么**：全局 `~/.claude/docs/agents-registry.md` 子项目映射表 xhs-mentor-scam 行由 ExecutiveAssistantAgent（Kit）移至 SocialMediaManagerAgent（Gatsby），行内注明移交与 launchd 自动提交推送信息；期间修复了第一版编辑在表格中留下的空行（会中断 markdown 表格渲染）。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；表格空行已删除、渲染连续。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-14
 
 ### 变更（子项目清单收缩：取消 8 个子项目 + xhs-mentor-scam 移出 EA tmp/）
