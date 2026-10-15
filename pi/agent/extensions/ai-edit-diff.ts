@@ -71,18 +71,22 @@
  * 改造：2026-10-15（用户立：**委派出去的活，被委派会话中间的改动静默**——「这种情况只需要在
  *       被委派会话最终完成的汇报通知你就行，中间由被委派的会话改动的文件不需要通知」）。
  *       实现为「委派窗口」：本会话用 agent_call / intercom（send / ask / handover）把活交给
- *       别的会话时，记一条窗口（含目标名字 / 会话 id / 目标目录 dir、窗口上限默认
- *       1 小时、可用 AI_EDIT_DIFF_DELEGATE_MS 覆盖）；窗口内由被委派方产生的变更一律静默
+ *       别的会话时，记一条窗口（含目标名字 / 会话 id / 目标目录 dir）；窗口内由被委派方产生的
+ *       变更一律静默
  *       并入自己已知状态、不通知——归属匹配两条路：
  *       ① 按会话 id——经 pi-intercom 的 `list --json` 把名字解析成 id（注册时预热、每
  *          60 秒刷新一次，对方上线后才解析得到）；目标本来就是 id 时直接前缀匹配；
  *       ② 按目标目录 dir 兜底——被委派会话没加载本扩展时，它的改动在归属上显示「未识别」，
  *          只能按目录判断（文件落在那次委派的目标目录里就静默）。
- *       阻塞式委派（agent_call ask / intercom ask / handover）返回后只保留一段尾随窗口
- *       （默认 30 分钟、AI_EDIT_DIFF_DELEGATE_GRACE_MS 可覆盖）——对方报告完成后回到常态
- *       通知；工具报错（对方没连上等）立即撤销窗口。
+ *       窗口时长（2026-10-15 当日追补）：上限默认 24 小时（AI_EDIT_DIFF_DELEGATE_MS 可
+ *       覆盖）——实测对方可能隔夜才处理委派（当晚 01:35 发出的委派次日 11:42 才动工，
+ *       原来的 1 小时上限拦不住）；见到对方活动后，安静超过 30 分钟即关窗
+ *       （AI_EDIT_DIFF_DELEGATE_IDLE_MS 可覆盖）——对方这一波干完就回到常态通知；阻塞式
+ *       委派（agent_call ask / intercom ask / handover）返回后只保留一段尾随窗口（默认
+ *       30 分钟、AI_EDIT_DIFF_DELEGATE_GRACE_MS 可覆盖）；工具报错（对方没连上等）立即
+ *       撤销窗口。
  *       边界：窗口内落在目标目录里的外部改动（用户 / 其它会话）也会被一并静默——与工具运行
- *       窗口同源的取舍，窗口有上限、且只作用于该目录。
+ *       窗口同源的取舍，窗口有上限（默认 24 小时 / 活动后 30 分钟）、且只作用于该目录。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -128,7 +132,8 @@ const BG_SUPPRESS_MAX_MS = 10 * 60 * 1000;  // 「自己的后台任务」静默
 const RUN_STALE_MS = 3 * 3600 * 1000;       // 工具运行登记的最大存活期（防 tool_execution_end 丢失泄漏）
 /** 只读工具：其运行期间检测到的变更一律视为外部（不静默吞掉），也不参与收尾清扫。 */
 const READONLY_TOOLS = new Set(["read", "open_diff", "background_list", "background_stop", "agent_call", "agent_wake", "intercom"]);
-const DELEGATE_MAX_MS = Math.max(1_000, Number(process.env.AI_EDIT_DIFF_DELEGATE_MS) || 60 * 60 * 1000);        // 委派窗口上限（默认 1 小时）
+const DELEGATE_MAX_MS = Math.max(1_000, Number(process.env.AI_EDIT_DIFF_DELEGATE_MS) || 24 * 3600 * 1000);       // 委派窗口上限（默认 24 小时——对方可能隔夜才处理，2026-10-15 实测 10 小时后才动工）
+const DELEGATE_IDLE_MS = Math.max(500, Number(process.env.AI_EDIT_DIFF_DELEGATE_IDLE_MS) || 30 * 60 * 1000);    // 见到对方活动后，安静这么久即关窗（默认 30 分钟）
 const DELEGATE_GRACE_MS = Math.max(500, Number(process.env.AI_EDIT_DIFF_DELEGATE_GRACE_MS) || 30 * 60 * 1000); // 阻塞式委派返回后的尾随静默（默认 30 分钟）
 /** 委派类工具：用它们把活交给别的会话——窗口内被委派方的改动静默（2026-10-15 用户立）。 */
 const DELEGATE_TOOLS = new Set(["agent_call", "intercom"]);
@@ -209,7 +214,7 @@ interface RegInfo { kind: "read" | "write"; src: TouchSrc; preHash: string | nul
 interface ToolRun { name: string; startedAt: number; suppress: boolean; paths: Map<string, RegInfo>; delegationKey?: string }
 
 /** 一次「委派出去的活」：窗口内被委派会话的改动静默（按会话 id / 名字解析 / 目标目录匹配）。 */
-interface Delegation { key: string; name?: string; idPrefix?: string; dir?: string; blocking: boolean; startedAt: number; until: number }
+interface Delegation { key: string; name?: string; idPrefix?: string; dir?: string; blocking: boolean; startedAt: number; until: number; lastActivity?: number }
 
 const metaFile = (p: string) => path.join(META_DIR, md5(p) + ".json");
 const claimFile = (p: string) => path.join(CLAIM_DIR, md5(p) + ".json");
@@ -523,7 +528,11 @@ export default function (pi: ExtensionAPI) {
   let idMapLoading = false;
   const pruneDelegations = () => {
     const now = Date.now();
-    for (const [k, d] of delegations) if (now > d.until) delegations.delete(k);
+    for (const [k, d] of delegations) {
+      if (now > d.until) { delegations.delete(k); continue; }
+      // 见过对方活动后：安静超过 IDLE 窗口即关窗（对方这一波活干完了，恢复常态通知）
+      if (d.lastActivity && now - d.lastActivity > DELEGATE_IDLE_MS) delegations.delete(k);
+    }
   };
   /** 刷新 intercom 会话表（异步、60 秒节流；用于把委派目标名字解析成会话 id）。 */
   const refreshIdMap = (force = false) => {
@@ -582,17 +591,18 @@ export default function (pi: ExtensionAPI) {
     if (delegations.size === 0) return false;
     if (changedBy.kind === "session" && changedBy.id === sessionId) return false; // 自己的改动另有层级管
     let unresolved = false;
+    const act = Date.now();
     for (const d of delegations.values()) {
-      if (d.idPrefix && changedBy.kind === "session" && changedBy.id && changedBy.id.toLowerCase().startsWith(d.idPrefix)) return true;
+      if (d.idPrefix && changedBy.kind === "session" && changedBy.id && changedBy.id.toLowerCase().startsWith(d.idPrefix)) { d.lastActivity = act; return true; }
       if (d.name) {
         const ids = idMap.get(d.name.toLowerCase());
-        if (ids && changedBy.kind === "session" && changedBy.id && ids.includes(changedBy.id)) return true;
+        if (ids && changedBy.kind === "session" && changedBy.id && ids.includes(changedBy.id)) { d.lastActivity = act; return true; }
         if (!ids || ids.length === 0) unresolved = true; // 名字还没解析到（对方刚被唤醒 / 表过期）
       }
       if (d.dir) {
         // 目录兜底：被委派会话没加载本扩展时归属显示「未识别」，只能按目录判断
         const dir = d.dir.endsWith(path.sep) ? d.dir : d.dir + path.sep;
-        if (p === d.dir || p.startsWith(dir)) return true;
+        if (p === d.dir || p.startsWith(dir)) { d.lastActivity = act; return true; }
       }
     }
     if (unresolved) refreshIdMap(); // 还没解析到时稍后重试（60 秒节流）
