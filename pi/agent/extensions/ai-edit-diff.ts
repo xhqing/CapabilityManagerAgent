@@ -68,6 +68,21 @@
  *       代价：工具运行期间（及后台窗口内）外部来源对本会话跟踪文件的改动会被一并静默吞掉，
  *       这是「自己的改动不通知自己」换来的边界；窗口通常很短（毫秒～秒级），长任务期间的
  *       外部改动可能就此错过——之后真正读取该文件时读到的仍是最新内容。
+ * 改造：2026-10-15（用户立：**委派出去的活，被委派会话中间的改动静默**——「这种情况只需要在
+ *       被委派会话最终完成的汇报通知你就行，中间由被委派的会话改动的文件不需要通知」）。
+ *       实现为「委派窗口」：本会话用 agent_call / intercom（send / ask / handover）把活交给
+ *       别的会话时，记一条窗口（含目标名字 / 会话 id / 目标目录 dir、窗口上限默认
+ *       1 小时、可用 AI_EDIT_DIFF_DELEGATE_MS 覆盖）；窗口内由被委派方产生的变更一律静默
+ *       并入自己已知状态、不通知——归属匹配两条路：
+ *       ① 按会话 id——经 pi-intercom 的 `list --json` 把名字解析成 id（注册时预热、每
+ *          60 秒刷新一次，对方上线后才解析得到）；目标本来就是 id 时直接前缀匹配；
+ *       ② 按目标目录 dir 兜底——被委派会话没加载本扩展时，它的改动在归属上显示「未识别」，
+ *          只能按目录判断（文件落在那次委派的目标目录里就静默）。
+ *       阻塞式委派（agent_call ask / intercom ask / handover）返回后只保留一段尾随窗口
+ *       （默认 30 分钟、AI_EDIT_DIFF_DELEGATE_GRACE_MS 可覆盖）——对方报告完成后回到常态
+ *       通知；工具报错（对方没连上等）立即撤销窗口。
+ *       边界：窗口内落在目标目录里的外部改动（用户 / 其它会话）也会被一并静默——与工具运行
+ *       窗口同源的取舍，窗口有上限、且只作用于该目录。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -113,6 +128,12 @@ const BG_SUPPRESS_MAX_MS = 10 * 60 * 1000;  // 「自己的后台任务」静默
 const RUN_STALE_MS = 3 * 3600 * 1000;       // 工具运行登记的最大存活期（防 tool_execution_end 丢失泄漏）
 /** 只读工具：其运行期间检测到的变更一律视为外部（不静默吞掉），也不参与收尾清扫。 */
 const READONLY_TOOLS = new Set(["read", "open_diff", "background_list", "background_stop", "agent_call", "agent_wake", "intercom"]);
+const DELEGATE_MAX_MS = Math.max(1_000, Number(process.env.AI_EDIT_DIFF_DELEGATE_MS) || 60 * 60 * 1000);        // 委派窗口上限（默认 1 小时）
+const DELEGATE_GRACE_MS = Math.max(500, Number(process.env.AI_EDIT_DIFF_DELEGATE_GRACE_MS) || 30 * 60 * 1000); // 阻塞式委派返回后的尾随静默（默认 30 分钟）
+/** 委派类工具：用它们把活交给别的会话——窗口内被委派方的改动静默（2026-10-15 用户立）。 */
+const DELEGATE_TOOLS = new Set(["agent_call", "intercom"]);
+/** intercom 会话表 CLI（把会话名字解析成 id；与 agent-call 扩展同一路径）。 */
+const INTERCOM_BIN = path.join(os.homedir(), ".pi/agent/npm/node_modules/.bin/pi-intercom");
 const MISSING = "__missing__";           // 文件不存在的特殊哈希
 
 const md5 = (s: string) => crypto.createHash("md5").update(s).digest("hex");
@@ -185,7 +206,10 @@ interface TouchStore { id: string; name?: string; cwd: string; updatedAt: number
 /** 工具运行中登记的「该工具可能碰过」的路径。 */
 interface RegInfo { kind: "read" | "write"; src: TouchSrc; preHash: string | null }
 /** 一次工具执行（tool_call → tool_execution_end），用于「自己的改动不通知自己」的抑制与收尾。 */
-interface ToolRun { name: string; startedAt: number; suppress: boolean; paths: Map<string, RegInfo> }
+interface ToolRun { name: string; startedAt: number; suppress: boolean; paths: Map<string, RegInfo>; delegationKey?: string }
+
+/** 一次「委派出去的活」：窗口内被委派会话的改动静默（按会话 id / 名字解析 / 目标目录匹配）。 */
+interface Delegation { key: string; name?: string; idPrefix?: string; dir?: string; blocking: boolean; startedAt: number; until: number }
 
 const metaFile = (p: string) => path.join(META_DIR, md5(p) + ".json");
 const claimFile = (p: string) => path.join(CLAIM_DIR, md5(p) + ".json");
@@ -491,6 +515,89 @@ export default function (pi: ExtensionAPI) {
   const runs = new Map<string, ToolRun>();
   let lastClaimRefresh = 0;
   let bgWindowStart: number | null = null; // 后台任务静默窗口起点（无后台任务时为 null）
+
+  // ===== 委派窗口（agent_call / intercom 把活交给别的会话 → 对方的改动静默，2026-10-15 用户立） =====
+  const delegations = new Map<string, Delegation>();
+  let idMapAt = 0;                         // intercom 会话表刷新时间
+  let idMap = new Map<string, string[]>(); // 小写会话名 -> 会话 id 列表
+  let idMapLoading = false;
+  const pruneDelegations = () => {
+    const now = Date.now();
+    for (const [k, d] of delegations) if (now > d.until) delegations.delete(k);
+  };
+  /** 刷新 intercom 会话表（异步、60 秒节流；用于把委派目标名字解析成会话 id）。 */
+  const refreshIdMap = (force = false) => {
+    if (idMapLoading || (!force && Date.now() - idMapAt < 60_000)) return;
+    if (!fs.existsSync(INTERCOM_BIN)) return;
+    idMapLoading = true;
+    execFile(INTERCOM_BIN, ["list", "--json"], { timeout: 5000 }, (err: any, stdout: any) => {
+      idMapLoading = false;
+      if (err) return; // 失败：保留旧表、稍后再试
+      try {
+        const data = JSON.parse(String(stdout ?? ""));
+        const m = new Map<string, string[]>();
+        for (const s of data?.sessions ?? []) {
+          const n = String(s?.name ?? "").toLowerCase();
+          const id = String(s?.id ?? "");
+          if (!n || !id) continue;
+          m.set(n, [...(m.get(n) ?? []), id]);
+        }
+        idMap = m;
+        idMapAt = Date.now();
+      } catch {}
+    });
+  };
+  /** 登记一条委派窗口；返回窗口 key（不是委派 / 缺目标信息时返回 null）。 */
+  const registerDelegation = (tool: string, input: any): string | null => {
+    const action = String(input.action ?? "").toLowerCase();
+    if (tool === "intercom" && !["send", "ask", "handover"].includes(action)) return null; // list / status / reply 等不是委派
+    const name = String(input.name ?? input.to ?? "").trim();
+    const dirRaw = String(input.dir ?? input.cwd ?? "").trim();
+    let dir = "";
+    if (dirRaw) {
+      dir = resolvePath(dirRaw, sessionCwd);
+      try { if (!fs.statSync(dir).isDirectory()) dir = path.dirname(dir); } catch {}
+    }
+    if (!name && !dir) return null;
+    const blocking = tool === "intercom" ? action !== "send" : String(input.mode ?? "ask") !== "send";
+    const now = Date.now();
+    const key = `${name.toLowerCase()}|${dir}`;
+    const idLike = /^[0-9a-f]{6,}(-[0-9a-f-]+)?$/i.test(name); // to 直接给了会话 id
+    delegations.set(key, {
+      key,
+      name: name && !idLike ? name : undefined,
+      idPrefix: idLike ? name.toLowerCase() : undefined,
+      dir: dir || undefined,
+      blocking,
+      startedAt: now,
+      until: now + DELEGATE_MAX_MS,
+    });
+    refreshIdMap(true); // 预热：对方若已在线，立即把名字解析到 id
+    return key;
+  };
+  /** 这个变更是不是「我委派出去的那批活」产生的？是 → 静默（等对方的完成汇报即可）。 */
+  const delegationSilenced = (p: string, changedBy: ChangedBy): boolean => {
+    if (delegations.size === 0) return false;
+    pruneDelegations();
+    if (delegations.size === 0) return false;
+    if (changedBy.kind === "session" && changedBy.id === sessionId) return false; // 自己的改动另有层级管
+    let unresolved = false;
+    for (const d of delegations.values()) {
+      if (d.idPrefix && changedBy.kind === "session" && changedBy.id && changedBy.id.toLowerCase().startsWith(d.idPrefix)) return true;
+      if (d.name) {
+        const ids = idMap.get(d.name.toLowerCase());
+        if (ids && changedBy.kind === "session" && changedBy.id && ids.includes(changedBy.id)) return true;
+        if (!ids || ids.length === 0) unresolved = true; // 名字还没解析到（对方刚被唤醒 / 表过期）
+      }
+      if (d.dir) {
+        // 目录兜底：被委派会话没加载本扩展时归属显示「未识别」，只能按目录判断
+        const dir = d.dir.endsWith(path.sep) ? d.dir : d.dir + path.sep;
+        if (p === d.dir || p.startsWith(dir)) return true;
+      }
+    }
+    if (unresolved) refreshIdMap(); // 还没解析到时稍后重试（60 秒节流）
+    return false;
+  };
   const anySelfToolRunning = (): boolean => {
     const now = Date.now();
     for (const run of runs.values()) if (run.suppress && now - run.startedAt < RUN_STALE_MS) return true;
@@ -777,6 +884,9 @@ export default function (pi: ExtensionAPI) {
     if (cur !== null) mirrorSet(p, cur);
     const priorSrc = touched.get(p)?.src; // 变更前本会话与它的来往（通知里给「上下文提示」用）
     touchSet(p, hash, s.kind === "file" ? s.mtimeMs : undefined, s.kind === "file" ? s.size : undefined);
+    // 委派窗口内：被委派方（会话 id / 目标目录匹配）的改动静默——等它最终完成的汇报即可
+    // （2026-10-15 用户立）；跨会话与用户改动照常通知。
+    if (delegationSilenced(p, info.changedBy)) return;
     if (isAgentWorking()) {
       notify(p, { deleted: cur === null, snap: info.snap, changedBy: info.changedBy, changedAt: info.changedAt, priorSrc });
     }
@@ -829,6 +939,13 @@ export default function (pi: ExtensionAPI) {
     if (!active) return;
     pruneRuns();
     refreshRunClaims();
+    pruneDelegations();
+    if (delegations.size > 0) {
+      // 委派目标名字还没解析到 id 时持续重试（60 秒节流）——对方刚被唤醒、会话表里还没出现
+      for (const d of delegations.values()) {
+        if (d.name && !(idMap.get(d.name.toLowerCase())?.length)) { refreshIdMap(); break; }
+      }
+    }
     for (const [p, rec] of [...touched]) {
       const s = statState(p);
       if (s.kind === "skip") continue;
@@ -871,7 +988,13 @@ export default function (pi: ExtensionAPI) {
       if (!toolCallId) return;
       const run: ToolRun = { name, startedAt: Date.now(), suppress: !READONLY_TOOLS.has(name), paths: new Map() };
       runs.set(toolCallId, run);
-      if (!run.suppress) return; // 只读工具（agent_call / intercom / open_diff 等）：不登记、不抑制、不清扫
+      if (DELEGATE_TOOLS.has(name)) {
+        // 委派类工具：记一条「委派窗口」——窗口内被委派方的改动静默（2026-10-15 用户立）
+        const key = registerDelegation(name, input);
+        if (key) run.delegationKey = key;
+        return; // 委派工具本身不改文件：不进行变更登记 / 收尾清扫
+      }
+      if (!run.suppress) return; // 只读工具（open_diff / background_list 等）：不登记、不抑制、不清扫
 
       if (name === "write" || name === "edit") {
         // 工具输入里的 path（相对路径按会话工作目录解析；不要求文件已存在——覆盖「新增文件」）
@@ -916,6 +1039,16 @@ export default function (pi: ExtensionAPI) {
       if (!run) {
         // 未登记（旧事件形态 / tool_call 缺失）：兜底把遗留快照落盘
         if (roundChanges.size > 0 && sessionId) for (const p of [...roundChanges.keys()]) endSyncPath(p);
+        return;
+      }
+      if (run.delegationKey) {
+        // 委派窗口收尾：报错（对方没连上等）→ 撤销；阻塞式（ask / handover）→ 只保留一段
+        // 尾随窗口；send（不等回复）→ 保持原窗口（对方可能还在干，截至窗口上限）
+        const d = delegations.get(run.delegationKey);
+        if (d) {
+          if (event?.isError) delegations.delete(run.delegationKey);
+          else if (d.blocking) d.until = Math.min(d.until, Date.now() + DELEGATE_GRACE_MS);
+        }
         return;
       }
       if (!run.suppress) return; // 只读工具：其期间的变化一律视为外部，不收尾
@@ -1087,6 +1220,7 @@ export default function (pi: ExtensionAPI) {
     roundSources.clear();
     recentChanges.length = 0;
     runs.clear();
+    delegations.clear();
     bgWindowStart = null;
     latestCtx = null;
     active = false;
