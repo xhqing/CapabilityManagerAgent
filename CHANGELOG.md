@@ -265,6 +265,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；新条目落在 `## 2026-10-15` 日期节内、日期标题不重复。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（Gatsby 项目更名为 SocialMediaManagerAgent）
+
+- **为什么改**：2026-10-15 用户决定——Gatsby 角色已升级为「社媒运营官」，项目名 `CommunityManagerAgent`（含义为「社群运营」）与职责不再匹配，更名为与「社媒运营智能体」对应的 `SocialMediaManagerAgent`。
+- **改了什么**：① GitHub 仓库改名为 `xhqing/SocialMediaManagerAgent`（旧 URL 自动重定向）+ 本地目录 `~/Developer/CommunityManagerAgent` → `~/Developer/SocialMediaManagerAgent`（git remote 已更新）；② 全局 `~/.claude/docs/agents-registry.md` 命名表 Gatsby 行项目名更新（描述补记更名历史）；③ 全局 `~/.pi/agent/extensions/version-guard.ts` 注释里的项目名更新（逻辑无硬编码，无需改）；④ 本机 `~/.pi/agent/trust.json` 信任路径更新（非镜像范围的本机状态文件）；⑤ 镜像同步：`claude/docs/agents-registry.md` 与 `pi/agent/extensions/version-guard.ts` 两文件覆盖。
+- **验证**：两镜像 `diff` 逐字节一致；`gh repo view` 新名可访问、旧名重定向；新目录 git 工作区干净、`git fetch` 连通。
+- **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-14
 
 ### 变更（子项目清单收缩：取消 8 个子项目 + xhs-mentor-scam 移出 EA tmp/）
