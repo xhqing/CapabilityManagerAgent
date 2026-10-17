@@ -232,6 +232,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-17
+
+### 变更（channels-watch 退役：从注册表移除）
+
+- **为什么改**：2026-10-17 用户决定 channels-watch 项目退役、不再维护；本地侧已清理完毕（launchd 任务卸载关停、`~/Developer/channels-watch` 项目目录与生产副本 `~/.local/share/channels-watch` 均已删除）。
+- **改了什么**：全局 `~/.claude/docs/agents-registry.md` 两处——① 命名表 Atlas 行「目前在手项目」列表移除 channels-watch（现为 ghostty-launcher、codef、pi、ghostty、mp4-player）；②「智能体专属文件归属与子项目映射」表删除 channels-watch 整行。
+- **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；镜像行数 81 → 80。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）
