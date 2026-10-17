@@ -80,7 +80,7 @@ def build_packages_md() -> str:
     lines = [
         "# pi 第三方包清单（自动生成，勿手改）",
         "",
-        "> 本文件由 `~/.claude/patch/npm-manifest/refresh.py` 生成，用于「本机 pi 在用第三方包」",
+        "> 本文件由 `~/.pi/agent/patch/npm-manifest/refresh.py` 生成，用于「本机 pi 在用第三方包」",
         "> 的备份与迁移（换新机器按本清单即可精确重建）。精确的可复现信息见同目录",
         "> `package.json` 与 `package-lock.json`；变更记录见仓库 CHANGELOG。",
         "",

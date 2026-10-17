@@ -16,7 +16,7 @@ description: Mac 合盖防睡眠（clamshell prevent-sleep）。启用后合上�
 ## 启用
 
 ```bash
-bash ~/.claude/skills/keep-awake/scripts/on.sh
+bash ~/.pi/agent/skills/keep-awake/scripts/on.sh
 ```
 
 脚本行为（幂等，重复执行安全）：
@@ -34,7 +34,7 @@ bash ~/.claude/skills/keep-awake/scripts/on.sh
 ## 停用
 
 ```bash
-bash ~/.claude/skills/keep-awake/scripts/off.sh
+bash ~/.pi/agent/skills/keep-awake/scripts/off.sh
 ```
 
 `pkill -f "caffeinate -s"` 解除防睡眠。用户说「停用防睡眠」「恢复睡眠」「不需要防睡眠了」等时执行；无进程在跑时输出「无需停用」、不会报错。

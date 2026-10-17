@@ -30,7 +30,7 @@ LOCK = ROOT / ".lock"
 PLANS = [
     {
         "name": "anysearch/SKILL.md",
-        "target": "~/.claude/skills/anysearch/SKILL.md",
+        "target": "~/.pi/agent/skills/anysearch/SKILL.md",
         "steps": [
             {"op": "fm", "key": "description", "snippet": "anysearch-desc.md"},
             {"op": "block", "marker": "**Freshness note:**",
@@ -40,7 +40,7 @@ PLANS = [
     },
     {
         "name": "agent-reach/SKILL.md",
-        "target": "~/.claude/skills/agent-reach/SKILL.md",
+        "target": "~/.pi/agent/skills/agent-reach/SKILL.md",
         "steps": [
             {"op": "fm", "key": "description", "snippet": "agent-reach-desc.md"},
             {"op": "line", "marker": "4. **全网调研类任务**",
@@ -53,7 +53,7 @@ PLANS = [
     },
     {
         "name": "agent-reach/references/search.md",
-        "target": "~/.claude/skills/agent-reach/references/search.md",
+        "target": "~/.pi/agent/skills/agent-reach/references/search.md",
         "steps": [
             {"op": "line", "marker": "> 通用网页搜索优先用",
              "anchor": "Exa AI 搜索引擎。",
@@ -62,7 +62,7 @@ PLANS = [
     },
     {
         "name": "agent-reach/references/web.md",
-        "target": "~/.claude/skills/agent-reach/references/web.md",
+        "target": "~/.pi/agent/skills/agent-reach/references/web.md",
         "steps": [
             {"op": "line", "marker": "> 通用网页正文提取优先用",
              "anchor": "通用网页、RSS。",

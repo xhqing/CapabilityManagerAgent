@@ -46,7 +46,7 @@
 
 - **未经用户明确同意，禁止执行任何会改动仓库的 git 命令**：`git add`、`git commit`、`git push`、`git rm`、`git mv`、`git reset`、`git revert`、`git rebase`、`git merge`、`git cherry-pick`、`git tag` 等。**每次执行前必须先列出：具体命令 + 影响的仓库 + 改动摘要，等用户点头再执行**——即便用户给了「开源到 GitHub」「提交一下」之类大方向指令也不能据此直接动手；授权不跨次复用，每次都重新确认。
 - **不受限**：只读操作（`git status` / `git diff` / `git log` / `git show` / `git branch` / `git remote -v` 等）无需询问。
-- **例外：用户主动触发的 `/commit`、`/bump`、`/release`、以及 `/add` 预检完全干净后的自动衔接即明确授权**，直接执行完整流程、无需再列命令确认（再问是多余的反 confirm）——`/commit` = 当次 `git commit` + `git push`（不执行 `git add`，只提交用户已自行 git add 暂存的内容；在非 main 分支上 push 后顺手建 PR——**remote main 的直推可用性视仓库实际保护状态而定、不全局默认锁定**：已开保护的仓库走 PR + CI 合并、未开的可直推 main（技能自动分流），现状与操作见 `~/.claude/docs/repo-branch-protection.md`，详见 commit skill）；`/add` = 预检两段扫描（可疑内容块留工作区）+ 干净文件入暂存区（2026-09-22 起，见 add skill；触发来源含用户输入与 bump skill 改完版本号文件后的自动衔接——2026-10-02 起），**预检完全干净时授权自动延伸**：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」→ 直接衔接 commit skill 完整流程（`git commit` + `git push`，2026-10-01 用户立，减少二次介入；其第 10 步检测到未 bump 时会自动走 `/bump` → `/add` → `/commit` → `/release` 发版链，2026-10-02 起（2026-10-13 起：仅自最新 tag 含 fix / feat 类改动时触发；纯文档 / 杂事类不发版）；有需人工过目 / 不建议入库的文件时停在 add 阶段、不衔接）；`/bump` = 当次版本号 bump 改动 + **自动衔接 `/add` → `/commit` → `/release` 整条发版链**（2026-10-02 起；用户主动输入 `/bump` 或 commit skill 第 10 步自动衔接即预授权整条链，链条各环节安全阀——add 的人工过目清单、commit 的敏感扫描 / cache 检测、release 的异常暂停——照常生效）；`/release` = 当次 `git tag -a` + 推 tag + `gh release create` + **构建并上传构建产物**（**产物按项目声明为准**：项目规则 / 技能 / cache 明确声明要产物才构建上传，未声明则默认不带产物、不询问，也不因历史 assets 暂停——2026-10-04 立；构建需绕过工具限制时直接用打包工艺解决——临时中转 README、打包期间移走 `.claude/`、补 `--baseContentUrl` 等，不因「要不要产物」打断流程；tag 已存在、Release 已存在、工作区脏、CHANGELOG 缺条目等异常安全阀仍暂停询问）；**触发来源两种**（2026-10-02 修订；2026-10-13 修订自动来源门禁）：用户主动输入，或 **commit skill 流程末尾（第 10 步）的自动衔接**——`/commit` 完整成功且满足「在 main 与远端同步 + 工作区 / 暂存区干净 + 自最新 tag 有新提交**且含 fix / feat 类改动（核心功能修复 / 新增；2026-10-13 用户立：「只有 fix 和 feat 核心功能的修复和新增核心功能才触发发版」——纯文档 / 杂事类不发版、不 bump）**」时：版本就绪 → 自动进入发版流程；未就绪 → 自动先走 `/bump` → `/add` → `/commit` 链条补齐版本（不提示、不询问——用户 2026-10-02「不要提示我 bump」），就绪后自动发版；该自动衔接属用户立规时的预授权链路、无需二次确认，详见 commit skill 第 10 步。逐次确认规则针对的是 AI 自主发起的 git 写操作，不适用于用户主动触发的这些 skill。
+- **例外：用户主动触发的 `/commit`、`/bump`、`/release`、以及 `/add` 预检完全干净后的自动衔接即明确授权**，直接执行完整流程、无需再列命令确认（再问是多余的反 confirm）——`/commit` = 当次 `git commit` + `git push`（不执行 `git add`，只提交用户已自行 git add 暂存的内容；在非 main 分支上 push 后顺手建 PR——**remote main 的直推可用性视仓库实际保护状态而定、不全局默认锁定**：已开保护的仓库走 PR + CI 合并、未开的可直推 main（技能自动分流），现状与操作见 `~/.pi/agent/docs/repo-branch-protection.md`，详见 commit skill）；`/add` = 预检两段扫描（可疑内容块留工作区）+ 干净文件入暂存区（2026-09-22 起，见 add skill；触发来源含用户输入与 bump skill 改完版本号文件后的自动衔接——2026-10-02 起），**预检完全干净时授权自动延伸**：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」→ 直接衔接 commit skill 完整流程（`git commit` + `git push`，2026-10-01 用户立，减少二次介入；其第 10 步检测到未 bump 时会自动走 `/bump` → `/add` → `/commit` → `/release` 发版链，2026-10-02 起（2026-10-13 起：仅自最新 tag 含 fix / feat 类改动时触发；纯文档 / 杂事类不发版）；有需人工过目 / 不建议入库的文件时停在 add 阶段、不衔接）；`/bump` = 当次版本号 bump 改动 + **自动衔接 `/add` → `/commit` → `/release` 整条发版链**（2026-10-02 起；用户主动输入 `/bump` 或 commit skill 第 10 步自动衔接即预授权整条链，链条各环节安全阀——add 的人工过目清单、commit 的敏感扫描 / cache 检测、release 的异常暂停——照常生效）；`/release` = 当次 `git tag -a` + 推 tag + `gh release create` + **构建并上传构建产物**（**产物按项目声明为准**：项目规则 / 技能 / cache 明确声明要产物才构建上传，未声明则默认不带产物、不询问，也不因历史 assets 暂停——2026-10-04 立；构建需绕过工具限制时直接用打包工艺解决——临时中转 README、打包期间移走 `.claude/`、补 `--baseContentUrl` 等，不因「要不要产物」打断流程；tag 已存在、Release 已存在、工作区脏、CHANGELOG 缺条目等异常安全阀仍暂停询问）；**触发来源两种**（2026-10-02 修订；2026-10-13 修订自动来源门禁）：用户主动输入，或 **commit skill 流程末尾（第 10 步）的自动衔接**——`/commit` 完整成功且满足「在 main 与远端同步 + 工作区 / 暂存区干净 + 自最新 tag 有新提交**且含 fix / feat 类改动（核心功能修复 / 新增；2026-10-13 用户立：「只有 fix 和 feat 核心功能的修复和新增核心功能才触发发版」——纯文档 / 杂事类不发版、不 bump）**」时：版本就绪 → 自动进入发版流程；未就绪 → 自动先走 `/bump` → `/add` → `/commit` 链条补齐版本（不提示、不询问——用户 2026-10-02「不要提示我 bump」），就绪后自动发版；该自动衔接属用户立规时的预授权链路、无需二次确认，详见 commit skill 第 10 步。逐次确认规则针对的是 AI 自主发起的 git 写操作，不适用于用户主动触发的这些 skill。
 - **常设授权：其它 agent 仓库有待提交内容 → 自动委派，不必询问用户（2026-10-04 用户立）**：凡「检查到或得知」某个 agent 项目的仓库有该提交却未提交的内容，**直接 `agent_call` 那个 agent、让它用自己的 `/add` → `/commit` 流程处理**，不要拿这个问题去问用户。详见「工作规则 · 会话间协作」节。
 - **常设授权：工作区 / 暂存区有待提交内容 → 直接提交，不必再问（2026-10-04 用户立）**：用户明确「**下次工作区或暂存区有待提交的内容就直接触发 /add 或者 /commit 提交，不用问我**」。即：凡发现有待提交内容（工作区有改动、或暂存区有未提交内容），**直接按 add skill / commit skill 流程执行**，不再逐次征得同意；**授权的是流程、不是跳过检查**——skill 自身的全部安全阀（gitleaks + AI 语义预检、敏感内容扫描、cache 检测、需人工过目即停在 add 阶段、发版异常暂停等）照常生效。
 - **新建项目 `git init` 免确认**：新建项目默认直接 `git init` 本地初始化（不建远程仓库、不 push）；其后的 add / commit / push / 建远程 / 打 tag 仍需先确认或由 `/commit`、`/release` 触发。
@@ -113,16 +113,16 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## 团队结构参考（按需读取，指针节）
 
-团队共有 21 个 agent（三个小组 + 直属岗位）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.claude/docs/`，CapabilityManagerAgent `claude/docs/` 为逐字节一致的开源镜像）：
+团队共有 21 个 agent（三个小组 + 直属岗位）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.pi/agent/docs/`，CapabilityManagerAgent `claude/docs/` 为逐字节一致的开源镜像）：
 
-- **新建 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
-- **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
-- **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
-- **智能体专属文件：实体只属于 Agent 项目，子项目挂指回负责 Agent 的软链接（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。**子项目根目录改挂两条软链接**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——在子项目目录直接开会话时，会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能（「Agent 进驻子项目」）。两条链接**随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.claude/docs/agents-registry.md`。
+- **新建 Agent 项目**：先读 `~/.pi/agent/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.pi/agent/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
+- **跨 agent 移交 / 推荐子任务**：读 `~/.pi/agent/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
+- **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.pi/agent/docs/capability-sync.md`。全局 `~/.pi/agent/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
+- **智能体专属文件：实体只属于 Agent 项目，子项目挂指回负责 Agent 的软链接（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。**子项目根目录改挂两条软链接**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——在子项目目录直接开会话时，会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能（「Agent 进驻子项目」）。两条链接**随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.pi/agent/docs/agents-registry.md`。
 
 ## Skill 编写纪律
 
-- **写 skill 必先依据 skill-creator**：新建 skill 或做内容性修改（SKILL.md 正文、description、references 组织等）前，先读 `~/.claude/skills/skill-creator/`，按它的方法论写——Progressive Disclosure（description 常驻上下文、正文触发时加载且理想 <500 行、详情拆 references 按需加载）、description 要 pushy（明确列出触发场景、避免欠触发）。只改一两个错别字不必重走全流程；结构调整、新增章节、重写 description 必须以 skill-creator 为准。
+- **写 skill 必先依据 skill-creator**：新建 skill 或做内容性修改（SKILL.md 正文、description、references 组织等）前，先读 `~/.pi/agent/skills/skill-creator/`，按它的方法论写——Progressive Disclosure（description 常驻上下文、正文触发时加载且理想 <500 行、详情拆 references 按需加载）、description 要 pushy（明确列出触发场景、避免欠触发）。只改一两个错别字不必重走全流程；结构调整、新增章节、重写 description 必须以 skill-creator 为准。
 - **Skill 内容纯净性（核心可开源 + 私人信息用户级存放）**：所有 skill 的核心功能文件（SKILL.md / references / scripts / README / description）保持可开源标准，不含对 clone 者莫名其妙或无用的内容；本机私人信息（token / folder 标识、个人云盘结构与命名、本机环境细节、带「用户 X 日立」署名的规则出处、个人事件叙述）一律像凭证一样放 skill 目录下**被忽略的本机数据子目录**（如 backup 的 `endpoints/`），功能文件用占位符表达机器差异（如 `<folder-token>`）。通用坑与通用流程（对 clone 者有价值的）留在功能文件。新建 skill 按此设计；既有 skill 接触到时顺手清理。
 
 ## 规矩必须配套工具强制（元规则）
@@ -206,7 +206,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 ### 中英双语 README 内容自动同步
 
-项目同时存在中英双版 README（英文 `README.md` + 中文 `README_cn.md`）时，改动任何一版的**内容**（措辞、列举项、口径、数字、结构）必须在**同一轮改动里同步另一版**，不问「要不要同步」（同步是内容改动的固有部分）。中文版为权威方向；英文按英文习惯表达、不必逐字直译，但语义内容必须对齐（信息点、列举项、口径、数字不能少、不能多、不能变）。细则见 `~/.claude/docs/new-agent-scaffold.md`。
+项目同时存在中英双版 README（英文 `README.md` + 中文 `README_cn.md`）时，改动任何一版的**内容**（措辞、列举项、口径、数字、结构）必须在**同一轮改动里同步另一版**，不问「要不要同步」（同步是内容改动的固有部分）。中文版为权威方向；英文按英文习惯表达、不必逐字直译，但语义内容必须对齐（信息点、列举项、口径、数字不能少、不能多、不能变）。细则见 `~/.pi/agent/docs/new-agent-scaffold.md`。
 
 ### 会话间协作（agent-call：跨会话联系其他 agent）
 
@@ -216,7 +216,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 - **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
 - **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
 - **联系不上不硬等**：`ask` 超时或唤醒失败时，如实向用户报告「暂时联系不上 XX」，不无限重试、不静默卡住；可改用 `send` 留言、或等对方上线后再联系。
-- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.claude/docs/agents-registry.md` 的注册表一致，即人格名）；**同一个 Agent 允许同时开多个会话、共用同一个名字**（一个人同时办几件事是合理的：Agent 项目根开会话、子项目目录也可以各开一个）——此时「**人格名 + session-id**」才能唯一确定一个会话：`intercom list` 会列出每个会话的 session-id（短前缀即可唯一定位），`intercom` 与 `agent_call` 都支持按名字（全名）或 session-id（或其短前缀）指定目标。已在运行的会话可用 `/alias <名字>` 补设。
+- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.pi/agent/docs/agents-registry.md` 的注册表一致，即人格名）；**同一个 Agent 允许同时开多个会话、共用同一个名字**（一个人同时办几件事是合理的：Agent 项目根开会话、子项目目录也可以各开一个）——此时「**人格名 + session-id**」才能唯一确定一个会话：`intercom list` 会列出每个会话的 session-id（短前缀即可唯一定位），`intercom` 与 `agent_call` 都支持按名字（全名）或 session-id（或其短前缀）指定目标。已在运行的会话可用 `/alias <名字>` 补设。
 - **常设授权：其它 agent 仓库有待提交内容 → 自动委派（2026-10-04 用户立）**：检查到或得知任何 agent 项目的仓库有该提交却未提交的内容（工作区脏、暂存区有未提交内容等），**直接 `agent_call` 对方、由它用自己的 `/add` → `/commit` 流程处理**，不要拿这个问题去问用户——用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」。授权边界：只允许「委派对方按它自己的 skill 流程提交」，**不得由本会话替对方仓库执行 git 写操作**；对方的 `/add` 预检、敏感扫描、cache 检测、发版链等安全阀照常生效；对方 /add 预检出现「需人工过目 / 不建议入库」时照旧停在 add 阶段、由对方报告用户。
 - **后台会话用完即清、不活跃即清（2026-10-04 用户立）**：用户**看不到 tmux 后台会话**，「后台会话对他而言等于不存在」——所以不要让它长期挂着。
   - **用完就清**：`agent_call` / `agent_wake` 拉起的会话，使命完成后**主动关闭**（`tmux kill-session -t <会话名>`），不留常驻隐形进程；下次需要时 `agent_call` 会自动重新唤醒（代价只是一次启动）。
@@ -225,7 +225,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
   - **用户终端里的会话（前台）一律不许用命令关闭（2026-10-04 用户立）**：用户终端窗口里的 pi 会话他能看见、由他本人操作——禁止用 `kill` / `pkill` / `killall` 直接杀 pi 进程，也禁止 `tmux kill-server`（会把用户的 tmux 会话一起端掉）与 `tmux kill-session` 指向非 `pi-` 名字的会话；关闭后台会话只能用 `tmux kill-session -t <pi-名字>`。已配套工具强制：CC 钩子规则 8 与 pi 端 `session-guard.ts`（无标记一律 deny）。
   - **清扫方式（2026-10-04 用户定：不挂系统定时器）**：改成「**agent 干完活收尾时顺手跑一次**」——已工具化为 pi 端扩展 `session-sweep.ts`（`agent_settled` 钩子自动巡视）：空闲 **≥ 6 小时**的明显僵尸自动清掉；**30 分钟 – 6 小时**的只列清单提示、**不自动杀**（很可能是刚用完或在等工作流反馈，误杀代价大）。要停就删/禁该扩展。
   - **脚本安全阀（2026-10-04 用鲜血换来）**：`session-sweep.py --kill` 在「`--idle-min < 10`」或「候选 > 3 个」时**拒绝执行**，除非显式 `--force`。背景：当日为测 kill 路径跑了 `--idle-min 0 --kill --kill-unknown`，把无客户端附着的会话（含正在跑提交流程的、在等工作流反馈的）一并清掉——要批量清先干跑看清单，再带 `--force`。
-  - **工具化**：`~/.claude/patch/session-sweep/session-sweep.py`（默认干跑、`--kill` 才真删）可做定期巡视；查列表 `tmux list-sessions -F "#{session_name}" | grep '^pi-'`。
+  - **工具化**：`~/.pi/agent/patch/session-sweep/session-sweep.py`（默认干跑、`--kill` 才真删）可做定期巡视；查列表 `tmux list-sessions -F "#{session_name}" | grep '^pi-'`。
 - **等待回复 / 后台任务运行期间的大红提醒（2026-10-09 立；2026-10-11 修订）**：凡是委派了其它智能体、还在等回复的时候（`agent_call` / `intercom` 发出后、回复尚未到齐前），或者后台任务（如 pi 的 `background_run`）还在运行的时候，用户容易误以为任务已全部完成而关掉会话。**pi 端由扩展 `~/.pi/agent/extensions/agent-wait-banner.ts` 自动在 footer 状态行显示大红提醒，agent 无需在消息里手写横幅**：
 
   `🟥🟥🟥 还有后台进程在运行中，请稍等 🟥🟥🟥`
@@ -240,7 +240,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 每个 Agent 会话**结束任务之前**（向用户交付 / 收尾汇报之前），必须检查**自己负责的全部子项目仓库**是否干净；**不干净的全部要处理干净**才能收尾——不是只报告，也不是留给「下次自然提交」。
 
 - **干净口径**：`git status --porcelain` 无输出（无未提交 / 未暂存改动、无未跟踪文件）；与远端无落后的未拉取分叉；本地领先的提交该推就推（经各仓库自己的 PR + CI 流程）。
-- **检查范围**：该 Agent 负责的子项目清单——各 Agent 项目 `CLAUDE.md` 的「子项目清单」节与全局 `~/.claude/docs/agents-registry.md` 的「子项目映射」表（两者須一致）。
+- **检查范围**：该 Agent 负责的子项目清单——各 Agent 项目 `CLAUDE.md` 的「子项目清单」节与全局 `~/.pi/agent/docs/agents-registry.md` 的「子项目映射」表（两者須一致）。
 - **处理方式**：按该仓库自己的流程处理——`/add` 预检 → `/commit`（该链条该 bump / 发版就照常走）；多仓库逐个处理；查不到、拿不准是不是在途 WIP 的，向用户说明后再动。
 - **为什么**：子项目随附版同步、文档补记这类零散改动会长期烂在各个工作区里（2026-10-09 实测：全队 22 个子项目仓库有 16 个不干净，其中 Atlas 名下 8 个只挂着上一轮同步改动未提交）。收尾自检让每个 Agent 交付时，名下所有仓库都处于「干净 + 与远端同步」的终态。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/settle-repo-check.ts`（`agent_settled` 钩子自动巡检本会话所在 Agent 项目的子项目仓库：发现不干净时通知用户，并就同一批不干净仓库向会话注入一次提醒促其处理）；CC 端 Stop hook `~/.claude/hooks/settle-repo-check.py`（同类巡检，未干净时阻断收尾一次、让 Claude 先处理；`stop_hook_active` 时放行防循环）。两端判定逻辑同源（同一个 Python 脚本）。

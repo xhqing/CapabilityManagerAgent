@@ -22,7 +22,7 @@ unzip anysearch-skill.zip
 
 # Move it to your agent's skill directory, renaming it to "anysearch".
 # Adjust the source directory name to match the ref you downloaded.
-# Claude Code:     mv anysearch-skill-2.1.0 ~/.claude/skills/anysearch
+# Claude Code:     mv anysearch-skill-2.1.0 ~/.pi/agent/skills/anysearch
 # OpenCode:        mv anysearch-skill-2.1.0 ~/.config/opencode/skills/anysearch
 # Cursor/Windsurf: mv anysearch-skill-2.1.0 <project>/.skills/anysearch
 # Generic:         mv anysearch-skill-2.1.0 <your_agent_skill_dir>/anysearch

@@ -14,10 +14,10 @@
 
 | 文件 | 定制点 |
 |---|---|
-| `~/.claude/skills/anysearch/SKILL.md` | description 块；Freshness note 段 |
-| `~/.claude/skills/agent-reach/SKILL.md` | description 块；常驻规则第 4 条；第 6 条 |
-| `~/.claude/skills/agent-reach/references/search.md` | 顶部兜底标注行 |
-| `~/.claude/skills/agent-reach/references/web.md` | 顶部兜底标注行 |
+| `~/.pi/agent/skills/anysearch/SKILL.md` | description 块；Freshness note 段 |
+| `~/.pi/agent/skills/agent-reach/SKILL.md` | description 块；常驻规则第 4 条；第 6 条 |
+| `~/.pi/agent/skills/agent-reach/references/search.md` | 顶部兜底标注行 |
+| `~/.pi/agent/skills/agent-reach/references/web.md` | 顶部兜底标注行 |
 
 ## 用法
 
@@ -32,7 +32,7 @@ python3 restore.py           # 立即重打 / 同步（幂等）
 
 ```bash
 launchctl list | grep skill-custom      # 应在列（否则 launchctl load ~/Library/LaunchAgents/com.xhq.skill-custom.plist 重新加载）
-tail ~/.claude/patch/skill-custom/restore.log   # 最近动作
+tail ~/.pi/agent/patch/skill-custom/restore.log   # 最近动作
 ```
 
 ## 边界
