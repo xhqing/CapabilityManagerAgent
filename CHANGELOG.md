@@ -288,6 +288,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：五部分 diff 全绿（skills / CLAUDE.md / docs / patch / extensions）；hooks 已从比对范围移除。
 - **镜像同步**：全量覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
 
+### 变更（session-sweep 提示语措辞修订）
+
+- **为什么改**：2026-10-17 用户要求修订收尾巡视提示语——原句「看不见的后台会话 = 不存在」表达不严谨。
+- **改了什么**：全局 `~/.pi/agent/extensions/session-sweep.ts` 第 85 行提示语改为「后台会话用户不可见」（仅此一句）；镜像同步同文件。
+- **验证**：扩展目录 `diff -r` 一致；改动仅限该提示语措辞。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）

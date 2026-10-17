@@ -82,7 +82,7 @@ export default function (pi: ExtensionAPI) {
 				);
 			}
 			ctx.ui.notify(
-				"[session-sweep] 收尾巡视（2026-10-04 用户立规：看不见的后台会话 = 不存在）\n" +
+				"[session-sweep] 收尾巡视（2026-10-04 用户立规：后台会话用户不可见）\n" +
 					lines.join("\n"),
 				"info",
 			);
