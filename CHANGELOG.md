@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.51] - 2026-10-17
+
+跨机协作机制落地：`CLAUDE.md` 新增「跨机协作：macmini 值班会话」节（标准呼叫命令、用途、能力边界）；`agents-registry.md` 新增「宿主机归属」段（单宿主规则 + Mark 及子项目迁至 macmini 的记录）；`patch/` 新增 `duty-macmini/`（screen + launchd 值班会话守护，含 SCREENDIR 固定与冷却防重复拉起）与 `sync-to-macmini/`（fs.watch 防抖 watcher + rsync 单向同步）。详见下方 2026-10-17 分节。
+
 ## [1.5.50] - 2026-10-17
 
 skill-creator 新增 pi 版触发评测脚本（`scripts/run_eval_pi.py`）：用 `pi -p --mode json` 跑评测查询、从事件流检测被测 SKILL.md 是否被读取，替代依赖 Claude Code CLI 的原版 `run_eval.py`；自带「空响应检测 + 重试」（实测 pi 偶发空响应约 10-25%），默认隔离模式（只测该 skill 的 description 本身），支持 `--description` 覆盖做 A/B 与 `--dry-run`。同步补「去 CC 化」文本：SKILL.md 顶部加本地使用注记与 pi 版引用块、`run_eval.py` / `improve_description.py` 文件头加使用注记、`eval-viewer/viewer.html` 提示语改为「agent session (e.g. pi)」。详见下方 2026-10-17 分节。
@@ -301,6 +305,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：全局 `~/.pi/agent/docs/agents-registry.md`（注册表行 + 投资与交易小组段 + 子项目映射表 Intraday / Swing / gridtrader 三行）、`~/.pi/agent/CLAUDE.md`（QSAgent 缩写约定注）；镜像同步两文件。
 - **验证**：两镜像 `diff` 逐字节一致。
 - **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录；提交经 `/add` → `/commit` 流程执行。
+
+### 变更（跨机协作：macmini 值班会话 + 能力层实时同步）
+
+- **为什么改**：2026-10-17 用户决定把 Mark 整体迁到 macmini（单宿主），并建立「值班会话 + 实时同步」的跨机协作机制；同时立规「每个 Agent 只允许存在于一个宿主机；迁移 = 转移而非双活、原机器须清理活跃副本（归档即可）」。
+- **改了什么**：① `claude/CLAUDE.md` 新增「跨机协作：macmini 值班会话」节（标准呼叫命令、用途、能力边界，含已迁移 Agent Mark 的呼叫方式）；② `claude/docs/agents-registry.md` 在「子项目映射」表前新增「宿主机归属」段（单宿主规则 + Mark 及子项目 Intraday / Swing / gridtrader 2026-10-17 迁至 macmini）；③ `claude/patch/` 新增 `duty-macmini/`（screen 常驻 + launchd 周期检查守护脚本，含 SCREENDIR 固定与 60 秒冷却——修复「3 小时拉起 85 个重复会话」事故）与 `sync-to-macmini/`（fs.watch 防抖 watcher + rsync 单向同步脚本，排除本机私有文件）。
+- **验证**：镜像与全局逐字节一致（CLAUDE.md / docs / patch）；脚本语义预检无凭证 / 密钥（主机地址仅 ssh 别名）。
+- **镜像同步**：随本批同步（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；版本 1.5.51 发版。
 
 ## 2026-10-15
 

@@ -235,6 +235,27 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
   - **为什么要这一条**：阶段性汇报（已委派 / 已清尾 N 个 / 还剩几个）写得太像「总结报告」，用户不细看会以为任务全部完成——2026-10-09 实测：用户在等 Atlas / Hermes 回执期间差点关掉会话。大红提醒让「还有事在跑、别关窗口」一眼可见。
   - **工具强制**：pi 端扩展 `agent-wait-banner.ts`——活动窗口判定（send 类委派未收到回信 / ask 阻塞中 / 其它扩展经 `agent-wait-banner:activity` 事件上报的后台任务活动）→ footer 状态行显示；用户输入、intercom 回信到达、活动结束即清除。（2026-10-09 立；2026-10-11 重做：位置从「消息首行横幅 + 编辑器 widget」改为 footer 状态行、文案更新、修掉旧版「回信到达后 send 窗口永不关闭」与「输出完提醒残留」的缺陷；2026-10-12：① 「无需回复」标记的 send 不点亮提醒（主动判断没有要等的）；② send 窗口加 15 分钟超时上限——修掉「无人回信时提醒一直挂着、误导用户等后台进程」的形态。）
 
+### 跨机协作：macmini 值班会话（2026-10-17 用户立）
+
+macmini 上配有一个**常驻值班会话**（intercom 名：`macmini`，由 launchd 守护、掉线自动重拉）。本机各 agent 需要借用 macmini 的资源/环境时，用以下标准命令呼叫（**本机 → macmini**）：
+
+```bash
+# ask：发消息并等待回复（阻塞；适合需要结果的活）
+ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to macmini --text "任务内容"'
+
+# send：只通知不等回复（fire-and-forget）
+ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom send --to macmini --text "通知内容"'
+
+# list：查看 macmini 上有哪些会话
+ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
+```
+
+- **用途**：把「重计算 / 长耗时 / 需要 macmini 环境（32GB、x64）」的任务转过去执行，结果由值班会话回传（如跑脚本、构建、下载、批量处理）。
+- **能力边界**：值班会话具备通用能力（跑命令/脚本/网络任务），**暂不具备「某个具体 agent 的身份与项目环境」**——「唤醒具体 agent 会话」的场景另待扩展（依赖 macmini 上的 tmux 与项目环境部署）。
+- **超时**：ask 默认 120 秒；长任务可在命令里加 `--timeout-ms <毫秒>`，或先用 send 派活、稍后再发 ask 询问进度。
+- **注意**：值班会话的 cwd 是 macmini 的 `~`（无项目上下文）；在 macmini 上产出的文件留在 macmini（本机如需取回需显式回传，如 `scp mac-mini:<路径> <本机路径>`）。
+- **已迁移的 Agent**：**Mark**（量化策略师，含子项目 Intraday / Swing / gridtrader）已于 2026-10-17 整体迁至 macmini（单宿主——本机不再保留活跃副本，已归档 `~/Archive-Migrated/`）。呼叫它：`ssh mac-mini '<pi-intercom 路径> ask --to Mark --text "..."'`（其会话 cwd 在 macmini 的 `~/Developer/QuantStrategistAgent`）。
+
 ### 会话收尾检查：负责的子项目仓库必须干净（2026-10-09 用户立）
 
 每个 Agent 会话**结束任务之前**（向用户交付 / 收尾汇报之前），必须检查**自己负责的全部子项目仓库**是否干净；**不干净的全部要处理干净**才能收尾——不是只报告，也不是留给「下次自然提交」。

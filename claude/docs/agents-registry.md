@@ -66,6 +66,8 @@
 
 **子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md` 的「子项目清单」节，保持一致。表中每个子项目根目录都应带两条指回负责 Agent 的软链接（`AGENTS.md`、`.pi`，随仓库提交，见上方规则第 2、3 条）。
 
+**宿主机归属（2026-10-17 用户立）**：**每个 Agent 只允许存在于一个宿主机**（其项目目录所在的机器，即其活跃工作位置的唯一性）；**迁移 = 转移而非双活**——迁移后原机器必须清理活跃副本（归档即可）。默认全部在本机（MacBook Air）；**已迁移到 macmini 的**：**Mark**（QuantStrategistAgent 及其子项目 Intraday / Swing / gridtrader，2026-10-17 整体迁移；本机已归档 `~/Archive-Migrated/`、不再保留活跃副本）。跨机呼叫已迁移 Agent 的方式见全局 CLAUDE.md「跨机协作」节。
+
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
 | BackendEngineerAgent（Anvil） | CC-BRIDGE | Claude Code 上游桥接框架（Node.js） |
