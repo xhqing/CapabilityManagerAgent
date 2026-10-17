@@ -5,6 +5,8 @@ description: Create new skills, modify and improve existing skills, and measure 
 
 # Skill Creator
 
+> **本地使用注记（2026-10-17）**：本 skill 的技能编写方法论（Progressive Disclosure、description 写法、references 组织等）照常使用。**触发评测已提供 pi 版**：`scripts/run_eval_pi.py`（用 `pi -p --mode json` 跑评测、检测 SKILL.md 被读取；自带空响应重试）——原 `run_eval.py` 依赖 Claude Code CLI，保留不用。涉及 Claude Code / Claude.ai / Cowork 的原文说明仅在对应环境适用。
+
 A skill for creating new skills and iteratively improving them.
 
 At a high level, the process of creating a skill goes like this:
@@ -433,6 +435,12 @@ In Claude.ai, the core workflow is the same (draft → test → review → impro
 **The iteration loop**: Same as before — improve the skill, rerun the test cases, ask for feedback — just without the browser reviewer in the middle. You can still organize results into iteration directories on the filesystem if you have one.
 
 **Description optimization**: This section requires the `claude` CLI tool (specifically `claude -p`) which is only available in Claude Code. Skip it if you're on Claude.ai.
+
+> **pi 版（2026-10-17 增）**：本机以 pi 为主——用 **`scripts/run_eval_pi.py`** 做触发评测（`pi -p --mode json` 跑查询 + 检测 SKILL.md 被读取；自带空响应重试，实测 pi 偶发空响应约 10-25%）。用法与 `run_eval.py` 对齐：
+> ```bash
+> python3 scripts/run_eval_pi.py --eval-set eval.json --skill-path <skill目录> [--runs-per-query 3] [--num-workers 5]
+> ```
+> 默认隔离模式（`--no-skills --skill <被测> --no-context-files --no-session`，只测该 skill 的 description 本身）；可加 `--keep-global-skills / --keep-context` 测真实环境竞争；`--description` 可覆盖 description 做 A/B（不改原文件）；`--dry-run` 先看将产生多少次模型调用。⚠️ 不要给 pi 加 `--no-extensions`（本机模型 provider 经 extension 包注册，禁用后认证失败）。
 
 **Blind comparison**: Requires subagents. Skip it.
 

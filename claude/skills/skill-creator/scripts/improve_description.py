@@ -4,6 +4,9 @@
 Takes eval results (from run_eval.py) and generates an improved description
 by calling `claude -p` as a subprocess (same auth pattern as run_eval.py —
 uses the session's Claude Code auth, no separate ANTHROPIC_API_KEY needed).
+
+⚠️ 2026-10-17 注：同 run_eval.py——依赖 Claude Code CLI（`claude -p`），在「pi 为主」
+的本机环境下待改造；改造前请勿在本机直接使用。
 """
 
 import argparse
