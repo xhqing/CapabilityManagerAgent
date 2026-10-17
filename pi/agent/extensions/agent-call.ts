@@ -171,7 +171,7 @@ async function wakeSession(
 		const piBin = process.env.PI_AGENT_BIN ?? "pi";
 		const start = await pi.exec(
 			"tmux",
-			["new-session", "-d", "-s", tmuxSession, "-c", dir, `${piBin} -n ${name}`],
+			["new-session", "-d", "-s", tmuxSession, "-c", expandDir(dir), `${piBin} -n ${name}`],
 			{ signal, timeout: 10_000 },
 		);
 		if (start.code !== 0) {
