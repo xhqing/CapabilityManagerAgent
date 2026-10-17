@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.49] - 2026-10-17
+
+agent-call 修复：`dir` 以 `~` 开头时，唤醒会话的 `tmux new-session -c` 拿到的是未展开的 `~`，导致新建 pi 会话落在 home 目录、加载不到目标 Agent 的身份与规则（实测：四个新唤醒会话 cwd 为 `/Users/xhq`）。修复：传给 tmux 的目录改用展开后的绝对路径。
+
 ## [1.5.48] - 2026-10-17
 
 智能体专属文件归属规则修订（2026-10-17 用户决定，取代 2026-10-12 的「子项目一律不得存在」）：子项目改为挂两条指回负责 Agent 的软链接——`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`（随仓库提交），在子项目目录开会话即继承负责 Agent 的身份 / 规则 / 技能（「Agent 进驻子项目」）；智能体专属文件的**实体**仍只属于 Agent 项目；后台开启 / 唤醒会话仍限定 Agent 项目根目录；`.claude/` 不纳入本网络（不再维护，存量暂留）。同步内容：`claude/CLAUDE.md`（团队结构参考节重写 + 会话命名约定改为「人格名 + session-id 唯一定位会话」）、`claude/docs/agents-registry.md`（《智能体专属文件归属与子项目映射》节全文重写为 2026-10-17 版；映射表加软链接说明；channels-watch 退役并入已退役清单）、`claude/docs/new-agent-scaffold.md`（新建子项目挂软链接约定）；`pi/agent/extensions/agent-call.ts` 目录校验由「标记文件存在性」升级为按注册表校验（子项目目录会被拒绝，防软链接误放行），并支持按 session-id（或短前缀）定位会话。
