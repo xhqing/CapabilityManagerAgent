@@ -1,9 +1,8 @@
 /**
  * dev-workflow 测试文件写保护（pi 端，tool_call 拦截）。
  *
- * 与 ~/.claude/hooks/test-cases-guard.py（CC / ZCode / CodeBuddy / Trae 四端共用）
- * 的判定逻辑逐条对齐：保护对象（测试文件全量）、授权标记、拆段判定、
- * 误伤边界全部一致；pi 端事件在进程内，故移植为 TS extension 而非 spawn
+ * 保护对象（测试文件全量）、授权标记、拆段判定、误伤边界与历史多端 hook 逐条对齐
+ * （2026-10-17 起 pi 端为唯一实现）；pi 端事件在进程内，故实现为 TS extension 而非 spawn
  * Python。规则变更时两处同步改，不能只改一边（「规矩必须配套工具强制」）。
  *
  * 背景见 dev-workflow skill 的 references/test-cases.md（2026-09-21 三次修订，

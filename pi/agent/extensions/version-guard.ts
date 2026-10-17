@@ -10,8 +10,7 @@
  * 三层同源（规则变更时三处同步改，不能只改一处——「规矩必须配套工具强制」）：
  * 1. 全局 git pre-commit hook（`~/.config/git/hooks/pre-commit`）——最终硬闸，
  *    对任何客户端（pi / CC / GUI / 命令行）生效；
- * 2. 本扩展（pi 端）；
- * 3. `~/.claude/hooks/pre-tool-use-guard.sh` 规则 5（CC / CodeBuddy 等端）。
+ * 2. 本扩展（pi 端，2026-10-17 起为唯一实现）。
  *
  * 判定范围：仅当仓库同时存在 `VERSION` 与 `docs/community/announcement.txt`
  * 时生效（其它项目零影响）；拦截目标为 `git commit` / `git tag`（含

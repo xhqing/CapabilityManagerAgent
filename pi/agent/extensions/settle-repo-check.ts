@@ -3,7 +3,7 @@
  *
  * 2026-10-09 用户立规：所有 Agent 会话结束任务之前必须检查自己负责的子项目仓库是否
  * 干净，不干净的全部要处理干净。本扩展 = 该规则的「顺手检查 + 提醒」工具化：每轮收尾
- * （agent_settled = Pi 不会再自动继续）时调用 ~/.claude/hooks/settle-repo-check.py 巡检
+ * （agent_settled = Pi 不会再自动继续）时调用 ~/.pi/agent/patch/settle-repo-check/settle-repo-check.py 巡检
  * 本会话所在 Agent 项目的子项目仓库——
  *   - 全部干净 → 什么都不做（清空去重签名）；
  *   - 发现不干净 → ① 通知用户（ctx.ui.notify）；② 就同一批不干净仓库向会话注入一次
@@ -12,7 +12,7 @@
  * 防循环：去重签名（不干净仓库集合）——同一批只注入一次；集合变化（清掉一些 / 又脏了
  * 新的）或全部干净后重新计数。真是在途 WIP 的，Agent 向用户说明即可，不会被反复打断。
  *
- * 判定逻辑与 CC 端 Stop hook 同源（同一个 Python 脚本，见全局 CLAUDE.md「会话收尾检查」节）。
+ * 判定逻辑：底层调用同一个 Python 脚本（见全局 CLAUDE.md「会话收尾检查」节）。
  */
 
 import { execFileSync } from "node:child_process";
@@ -21,7 +21,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const CHECKER = join(homedir(), ".claude", "hooks", "settle-repo-check.py");
+const CHECKER = join(homedir(), ".pi", "agent", "patch", "settle-repo-check", "settle-repo-check.py");
 
 type Dirty = { repo: string; changes: number; path: string };
 

@@ -32,10 +32,10 @@
 
 - **位置：项目正式测试位置**——按项目测试框架的惯例放（`tests/`、`test/`、`__tests__/`、`packages/*/test/`、`spec/` 等），CI 的全量测试命令天然含它们，合并后常驻回归防护网。不再有专门的 `test-cases/` 目录与 pending/passed 结构。
 - **开发对测试文件全量只读 + 可运行，禁止增删改**：包括新建（补测试也归测试 Agent——防「写完实现补快照式测试」）、修改、删除、移动，覆盖测试目录、测试文件名、测试基础设施（conftest、test helpers、fixtures——运行测试需要的伴生文件缺了不自己补，阻塞上报）。唯一豁免是测试运行自产的缓存（`__pycache__`、`.pytest_cache`、coverage 输出等——配合 .gitignore 兜底；知情清理走授权标记）。
-- **hook 工具强制（2026-09-21 扩展为测试文件全量保护）**：按「规矩必须配套工具强制」元规则，本条已落跨端工具强制——Python 脚本 `~/.claude/hooks/test-cases-guard.py` 四端共用（CC / ZCode / CodeBuddy / Trae），pi 端为判定逻辑逐条对齐的 TS extension `~/.pi/agent/extensions/test-cases-guard.ts`：
+- **hook 工具强制（2026-09-21 扩展为测试文件全量保护）**：按「规矩必须配套工具强制」元规则，本条已落工具强制——pi 端 TS extension `~/.pi/agent/extensions/test-cases-guard.ts`（2026-10-17 起为唯一实现）：
   - **保护对象**：存量 `test-cases/` 目录 + 测试目录独立段（`test` / `tests` / `__tests__` / `__snapshots__` / `spec` / `e2e`）+ 测试文件名（`*.test.*` / `*.spec.*` / `test_*.py` / `*_test.py` / `*_test.go` / `conftest.py` / `*.snap`）——整段 / 全名匹配，不误伤 `latest`、`contest`、`testcase` 等含 test 字样的普通路径；
   - **拦截语义**：Write / Edit 写入上述目标、Bash 命令中显式指向上述目标的写类操作（rm / mv / touch / mkdir / tee / cp 目标 / sed -i / 重定向 / find -delete / git rm|mv|add|clean|restore|checkout|stash）一律 deny；一切读操作与跑测试命令天然放行；
-  - 各端配置位置不变（CC `~/.claude/settings.json`、ZCode `~/.zcode/cli/config.json`、CodeBuddy `~/.codebuddy/settings.json`、Trae `~/.trae-cn/hooks.json` 的 PreToolUse matcher；pi 端 `~/.pi/agent/extensions/`，新会话生效）；
+  - pi 端加载位置 `~/.pi/agent/extensions/`，新会话生效；
   - **授权标记 `# TEST_CASES_WRITE_OK`**：命令末尾带此标记则整条放行——测试 Agent / 独立会话出题写入、用户授权的例外操作（缓存清理等）走此通道（与杀 VSC 进程 hook 的 `# AI_AUTHORIZED_KILL_VSC` 同模式）。合法写入被 deny 时，应把写入内容先落到项目 `tmp/`、再用带标记的 Bash 命令拷入，或交用户手动操作——不做无标记的绕过。
 - **测试命令配置的边界**：跑测试的命令配置（如 package.json 的 `test` script、CI 里的测试命令）开发不动——要改走用户 / 测试方（这些配置决定「跑什么测试」，属测试体系的一部分）。
 - **强度边界（知情）**：hook 拦「显式路径的写命令」，拦不住命令内部代码的文件操作（python -c 里 open('w')）；**`git add` 把测试文件入暂存区不拦**（2026-10-09 用户收窄：暂存不改变文件内容，而 dev-workflow 要求「测试 + 实现同一次提交、同一个 PR」，开发侧必须能把测试文件加进暂存区——此前 `add` 被归入 git 写动词、把这条动线一并拦住了；收窄后 `git rm` / `mv` / `clean` / `restore` / `checkout` / `stash` 这些会改动或搬走测试内容的子命令照旧拦）。拦测试写入防的是「改测试迁就实现」与「补快照式测试」，防不了「改实现 hack 骗测试」（在源码里 hack 让断言恰好通过）——这层靠用户实物验收（预发布产物是真实现的产物，hack 骗得过测试骗不过人手实测）+ 重要功能可选测试 Agent 复核兜底。

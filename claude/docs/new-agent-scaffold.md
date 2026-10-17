@@ -13,7 +13,7 @@
 
 ## 脚手架清单
 
-- **AutoMemory 全局已禁用**（`~/.claude/settings.json` 设 `autoMemoryEnabled: false`）：新建项目**不配 AutoMemory**（不建 `.claude/memory/`、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ CLAUDE.md，不依赖 AutoMemory 自动记。
+- **AutoMemory 已全局弃用**：新建项目**不配 AutoMemory**（不建 memory 目录、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ CLAUDE.md，不依赖 AutoMemory 自动记。
 - **目录名 / 名称** = 以 `Agent` 结尾即可，前缀尽可能简单（2026-10-09 用户修订，如 `cuAgent`）；不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名。
 - **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 CapabilityManagerAgent `claude/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
 - **子项目挂指回负责 Agent 的软链接、不放实体（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：新建子项目时，在子项目根目录建两条相对路径软链接——`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——并**随仓库提交**（2026-10-17 用户决定：仓库主要作用户本人的备份；跨仓库关联是团队网络的组成部分，团队整体是一个大项目、gh 上只是分仓库存放，看到仓库里的这两条链接即表示「某 Agent 项目进驻该子项目」的关联链，在说明文档中写明即可）。子项目**不建**智能体专属文件的实体副本、不复制内容进去；`.claude/` 也不挂链接（Claude Code 侧不再维护）。效果：在子项目目录直接开会话时会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能。后台开启会话（intercom / `agent_call` / `agent_wake`）仍只能以 Agent 项目根目录为工作目录。细则见 `~/.pi/agent/docs/agents-registry.md`「智能体专属文件归属与子项目映射」节。
