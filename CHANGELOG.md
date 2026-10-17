@@ -256,6 +256,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 逐字节一致。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
 
+### 变更（全局权威源迁移至 ~/.pi/agent/：镜像全量重同步）
+
+- **为什么改**：2026-10-17 用户决定以 pi 为主、抛弃对 `~/.claude/` 的软链接依赖——全局规则与技能的真身迁至 `~/.pi/agent/`（`CLAUDE.md` / `skills/` / `docs/` / `patch/`，各文件内的旧路径引用已全部改写为新路径）；`~/.claude/` 原内容保留为遗留副本（不再维护），仅 `~/.claude/hooks/` 原位保留（Claude Code 侧守卫）。
+- **改了什么**：按新版 `capability-sync.md` 口径（权威源 = `~/.pi/agent/` 的 skills / CLAUDE.md / docs / patch + `~/.claude/hooks/`）全量重同步镜像：`claude/CLAUDE.md`、`claude/skills/`（14 个 skill 的路径引用改写随载）、`claude/docs/`（含顶部新增「2026-10-17 权威源迁移」说明段的新版 capability-sync.md 与重写后的 agents-registry / new-agent-scaffold）、`claude/patch/`（含 refresh.py / restore.py 路径改写）；`pi/agent/extensions/` 的 `agent-call.ts`（REGISTRY 路径改为 `~/.pi/agent/docs/agents-registry.md`、提示语同步）与 `agent-wait-banner.ts`（注释）同步；`pi/agent/npm/` 清单经 `refresh.py` 刷新。镜像 `claude/` 目录名与来源目录解耦、保持不改。
+- **验证**：`diff -r` 六部分全绿（CLAUDE.md / docs / skills / patch / hooks / extensions；豁免仅敏感文件与本机产物）；`python3 ~/.pi/agent/patch/npm-manifest/refresh.py --check` 通过。
+- **镜像同步**：全量覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 通告）；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）

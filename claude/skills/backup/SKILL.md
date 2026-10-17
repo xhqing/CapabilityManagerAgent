@@ -51,9 +51,9 @@ AI 已经渗透到线上工作的方方面面，Agent 手里的权限越来越�
 ### ② 执行备份
 
 ```bash
-~/.claude/skills/backup/scripts/backup.sh <项目目录>                     # 全部已注册端点
-~/.claude/skills/backup/scripts/backup.sh <项目目录> --endpoint feishu   # 只备份到指定端点
-~/.claude/skills/backup/scripts/backup.sh <项目目录> --list              # 只列备份范围，不上传
+~/.pi/agent/skills/backup/scripts/backup.sh <项目目录>                     # 全部已注册端点
+~/.pi/agent/skills/backup/scripts/backup.sh <项目目录> --endpoint feishu   # 只备份到指定端点
+~/.pi/agent/skills/backup/scripts/backup.sh <项目目录> --list              # 只列备份范围，不上传
 ```
 
 - 打包规则：**每个目标端点独立执行**。`raw` 端点逐文件直传（该端可见 = 共享文件 + 本端同名子目录，白名单过滤后原样上传，符号链接解引用为实际内容但保留链接名）；`archive` 端点独立打包（该端的包 = 根下共享文件 + 本端同名子目录，`tar -h` 解引用，包内带 `backup/` 路径前缀，解压到项目根即还原）。某端无任何可传内容时自动跳过该端。

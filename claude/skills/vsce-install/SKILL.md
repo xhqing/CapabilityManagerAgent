@@ -103,4 +103,4 @@ gh release download <latest-tag> -R <owner>/<repo> -p '*.vsix' -D tmp/vsix-check
 - 只对用户**明确要装/升级**的扩展执行清理，不要顺手清理其它扩展。
 - 删除的是扩展残留目录和缓存，重装即恢复，风险低；但执行前仍把命令列清楚。
 - 如果扩展上架了 Marketplace / Open VSX 且用户明确要从那里装，按用户指定的来（`<cli> --install-extension <publisher>.<name>` 直接从市场装，但仍走清理流程）。
-- 本 skill 是**全局通用工具型 skill**，放全局 `~/.claude/skills/vsce-install/`，不需要同步到项目副本。
+- 本 skill 是**全局通用工具型 skill**，放全局 `~/.pi/agent/skills/vsce-install/`，不需要同步到项目副本。

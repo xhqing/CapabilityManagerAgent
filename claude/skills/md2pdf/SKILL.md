@@ -14,7 +14,7 @@ description: Markdown 转 PDF 一条龙（pandoc 转 HTML + Chrome headless 打�
 ### 第 1 步：转换
 
 ```bash
-~/.claude/skills/md2pdf/scripts/md2pdf.sh 输入.md 输出.pdf [自定义.css]
+~/.pi/agent/skills/md2pdf/scripts/md2pdf.sh 输入.md 输出.pdf [自定义.css]
 ```
 
 - 不指定 CSS 时用内置 `assets/default.css`（A4、PingFang SC 中文紧凑排版，**已内置 pandoc 默认样式覆盖**——见下文坑 1）。
@@ -24,7 +24,7 @@ description: Markdown 转 PDF 一条龙（pandoc 转 HTML + Chrome headless 打�
 ### 第 2 步：定量验证（必做，不许跳过）
 
 ```bash
-swift ~/.claude/skills/md2pdf/scripts/verify_pdf.swift 输出.pdf
+swift ~/.pi/agent/skills/md2pdf/scripts/verify_pdf.swift 输出.pdf
 ```
 
 输出每页的纸张尺寸（MediaBox）、墨迹左右边界百分比。逐条核对判据：

@@ -67,11 +67,11 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * 2026-10-17 用户决定：后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）。
- * 校验方式：目标目录名必须命中 `~/.claude/docs/agents-registry.md` 里已登记的 Agent 项目名
+ * 校验方式：目标目录名必须命中 `~/.pi/agent/docs/agents-registry.md` 里已登记的 Agent 项目名
  * （子项目的 AGENTS.md 软链接会让「标记文件存在性」检查误放行，故改用注册表校验）；
  * 注册表不可读时退回旧的标记文件检查（CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。
  */
-const REGISTRY = join(homedir(), ".claude", "docs", "agents-registry.md");
+const REGISTRY = join(homedir(), ".pi", "agent", "docs", "agents-registry.md");
 
 /** 从注册表表格里收集「已登记的 Agent 项目目录名」。 */
 function registeredAgentNames(): Set<string> | undefined {
@@ -115,7 +115,7 @@ function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: 
 		if (hit) return { ok: true };
 		return {
 			ok: false,
-			detail: `拒绝唤醒：目录「${dir}」不是已登记的 Agent 项目（按 ~/.claude/docs/agents-registry.md 校验）。${expected}`,
+			detail: `拒绝唤醒：目录「${dir}」不是已登记的 Agent 项目（按 ~/.pi/agent/docs/agents-registry.md 校验）。${expected}`,
 		};
 	}
 
@@ -279,7 +279,7 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。dir 必须是目标 agent 的 Agent 项目根目录（新规 2026-10-12：后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的项目级智能体专属文件；非 Agent 项目目录会被拒绝）。",
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话名字（pi-intercom 别名，与 /alias 或 pi -n 设置一致）——唤醒只认名字（新会话按此名字启动）" }),
-			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——按 ~/.claude/docs/agents-registry.md 校验，子项目目录会被拒绝；绝对路径或 ~ 开头）" }),
+			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——按 ~/.pi/agent/docs/agents-registry.md 校验，子项目目录会被拒绝；绝对路径或 ~ 开头）" }),
 			wait_seconds: Type.Optional(
 				Type.Number({ description: `等待注册的最长秒数（默认 ${DEFAULT_WAIT_SECONDS}）`, minimum: 3, maximum: 120 }),
 			),
@@ -311,7 +311,7 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话：pi-intercom 别名（人格名，如 Kit）或 session-id（或其短前缀，`pi-intercom list` 可见）——同一个 agent 可多开同名会话，此时用 session-id 唯一定位" }),
 			message: Type.String({ description: "消息内容（对方看不到本会话上下文，请自带背景与明确请求）" }),
-			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——按 ~/.claude/docs/agents-registry.md 校验，子项目目录会被拒绝；建议总是提供）" })),
+			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——按 ~/.pi/agent/docs/agents-registry.md 校验，子项目目录会被拒绝；建议总是提供）" })),
 			mode: Type.Optional(
 				StringEnum(["ask", "send"] as const, { description: "ask=阻塞等回复（默认）；send=仅通知、以本会话身份发送" }),
 			),

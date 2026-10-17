@@ -33,7 +33,7 @@ if pgrep -f "caffeinate -s" >/dev/null 2>&1; then
   else
     echo "⚠️ 未能检测到电源状态：合盖防睡眠仅在接电源时有效，请确认已接电源"
   fi
-  echo "停用：bash ~/.claude/skills/keep-awake/scripts/off.sh"
+  echo "停用：bash ~/.pi/agent/skills/keep-awake/scripts/off.sh"
 else
   echo "⚠️ caffeinate 启动失败" >&2
   exit 1
