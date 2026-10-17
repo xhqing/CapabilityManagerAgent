@@ -8,7 +8,7 @@
 - **翻译场景的译法**：从其它语言**译入中文**（「中文」默认即指标准普通话和简体中文文字）时，必须采用**非直译的意译**——按中国人的阅读习惯和文化背景重新组织句子，不逐词逐句硬译，消除翻译腔；**译入英文**时，默认使用**标准且地道的美式英语**表达，同样不逐字硬译。用户明确指定其它目标变体或译法（如英式英语、明确要求直译）时，从其指定。
 - 回复**排版工整**：标题层级清晰，列表规整，段落之间空行分隔，代码块与表格格式正确，便于阅读。
 - 标点符号一律使用**简体中文标点**：逗号用「，」、句号用「。」、冒号用「：」、顿号用「、」、问号用「？」、感叹号用「！」，不要用英文标点（如 `,` `.` `:` `?` `!`）。中英文混排时，英文单词或数字与中文之间可留一个空格，但中文语句内部一律用中文标点。
-- **缩写约定**：用户输入「**CC**」即指 Claude Code，输入「**VSC**」即指 VSCode，输入「**VSCE**」即指 VSCode 扩展，输入「**CB**」即指 CodeBuddy，输入「**GH**」即指 GitHub，输入「**DSH**」即指 DeepSeek Harness（DeepSeek 开源的 agent harness，npm 包 `@deepseek-ai/dsh`），输入「**QSAgent**」即指 QuantStrategistAgent（Markowitz 的量化策略项目体系：主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader，仓库结构详见子项目映射表），输入「**DTAgent**」即指 DayTradingAgent（Victor 的日内交易盯盘项目）。缩写**大小写不敏感**——大小写同义（如「cc 会话」= Claude Code 会话）。遇到这些缩写直接按此解读，无需确认；若某缩写在上下文中明显指别的含义（如命令位置的 `gh` 指 GitHub CLI、编译器语境的 `cc` 指 C 编译器），按上下文实际含义辨别。
+- **缩写约定**：用户输入「**CC**」即指 Claude Code，输入「**VSC**」即指 VSCode，输入「**VSCE**」即指 VSCode 扩展，输入「**CB**」即指 CodeBuddy，输入「**GH**」即指 GitHub，输入「**DSH**」即指 DeepSeek Harness（DeepSeek 开源的 agent harness，npm 包 `@deepseek-ai/dsh`），输入「**QSAgent**」即指 QuantStrategistAgent（Mark 的量化策略项目体系：主仓库 QuantStrategistAgent + 子项目 Intraday、Swing、gridtrader，仓库结构详见子项目映射表），输入「**DTAgent**」即指 DayTradingAgent（Victor 的日内交易盯盘项目）。缩写**大小写不敏感**——大小写同义（如「cc 会话」= Claude Code 会话）。遇到这些缩写直接按此解读，无需确认；若某缩写在上下文中明显指别的含义（如命令位置的 `gh` 指 GitHub CLI、编译器语境的 `cc` 指 C 编译器），按上下文实际含义辨别。
 
 ## 输出风格
 

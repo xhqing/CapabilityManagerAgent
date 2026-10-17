@@ -295,6 +295,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：扩展目录 `diff -r` 一致；改动仅限该提示语措辞。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录；提交经 `/add` → `/commit` 流程执行。
 
+### 变更（拟人名修订：Markowitz 更名 Mark）
+
+- **为什么改**：2026-10-17 用户要求把量化 agent 拟人名 Markowitz 改为 Mark（项目名 QuantStrategistAgent 不变，取自 Harry Markowitz 的常用名）。
+- **改了什么**：全局 `~/.pi/agent/docs/agents-registry.md`（注册表行 + 投资与交易小组段 + 子项目映射表 Intraday / Swing / gridtrader 三行）、`~/.pi/agent/CLAUDE.md`（QSAgent 缩写约定注）；镜像同步两文件。
+- **验证**：两镜像 `diff` 逐字节一致。
+- **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）
