@@ -263,6 +263,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`diff -r` 六部分全绿（CLAUDE.md / docs / skills / patch / hooks / extensions；豁免仅敏感文件与本机产物）；`python3 ~/.pi/agent/patch/npm-manifest/refresh.py --check` 通过。
 - **镜像同步**：全量覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 通告）；提交经 `/add` → `/commit` 流程执行。
 
+### 变更（TODO：登记文档口径更新待办 T2）
+
+- **为什么改**：权威源迁移至 `~/.pi/agent/` 后，项目自有文档（根 `CLAUDE.md`、双 README、capability-manager skill）仍有大量 `~/.claude/` 旧口径，体量较大不宜并入本次同步批。
+- **改了什么**：`TODO.md` 新增 🟡 节与 **T2**（文档权威源口径更新，含范围与新旧引用区分规则）。
+- **验证**：TODO.md 节结构与编号（T2 = 项目内最大编号 + 1）符合规范。
+- **镜像同步**：不涉及镜像（本项目自有文档）。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）
