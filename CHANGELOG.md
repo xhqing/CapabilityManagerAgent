@@ -249,6 +249,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：`diff ~/.claude/docs/agents-registry.md claude/docs/agents-registry.md` 逐字节一致；镜像行数 81 → 80。
 - **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
 
+### 变更（输出风格：汇报优先级规则同步）
+
+- **为什么改**：2026-10-17 用户立规——汇报内容以当前用户给出的任务为主，其它程序触发的事件（自动巡检提醒、文件变更通知、后台任务完成、跨会话消息、系统注入事件等）简单汇报、一两句话带过；规则已落进全局 `~/.claude/CLAUDE.md`「输出风格」节（含日期标注）。
+- **改了什么**：镜像 `claude/CLAUDE.md` 同步该条新增（+1 行）；全局源改动在本仓库之外、无需处理。
+- **验证**：`diff ~/.claude/CLAUDE.md claude/CLAUDE.md` 逐字节一致。
+- **镜像同步**：单文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）
