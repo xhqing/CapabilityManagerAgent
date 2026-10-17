@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.50] - 2026-10-17
+
+skill-creator 新增 pi 版触发评测脚本（`scripts/run_eval_pi.py`）：用 `pi -p --mode json` 跑评测查询、从事件流检测被测 SKILL.md 是否被读取，替代依赖 Claude Code CLI 的原版 `run_eval.py`；自带「空响应检测 + 重试」（实测 pi 偶发空响应约 10-25%），默认隔离模式（只测该 skill 的 description 本身），支持 `--description` 覆盖做 A/B 与 `--dry-run`。同步补「去 CC 化」文本：SKILL.md 顶部加本地使用注记与 pi 版引用块、`run_eval.py` / `improve_description.py` 文件头加使用注记、`eval-viewer/viewer.html` 提示语改为「agent session (e.g. pi)」。详见下方 2026-10-17 分节。
+
 ## [1.5.49] - 2026-10-17
 
 agent-call 修复：`dir` 以 `~` 开头时，唤醒会话的 `tmux new-session -c` 拿到的是未展开的 `~`，导致新建 pi 会话落在 home 目录、加载不到目标 Agent 的身份与规则（实测：四个新唤醒会话 cwd 为 `/Users/xhq`）。修复：传给 tmux 的目录改用展开后的绝对路径。
@@ -269,6 +273,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：`TODO.md` 新增 🟡 节与 **T2**（文档权威源口径更新，含范围与新旧引用区分规则）。
 - **验证**：TODO.md 节结构与编号（T2 = 项目内最大编号 + 1）符合规范。
 - **镜像同步**：不涉及镜像（本项目自有文档）。
+
+### 变更（skill-creator：pi 版触发评测脚本 + 去 CC 化文本同步）
+
+- **为什么改**：本机已以 pi 为主，原触发评测脚本依赖 Claude Code CLI（`claude -p`）不可用；需要 pi 原生实现以继续做 description A/B 与触发率评测。
+- **改了什么**：① 新增 `claude/skills/skill-creator/scripts/run_eval_pi.py`（`pi -p --mode json` 跑查询 + 事件流检测 SKILL.md 被读取；空响应检测 + 重试；默认隔离；`--description` 覆盖 A/B；`--dry-run`；本机实测 3/3 通过）；② SKILL.md 顶部加本地使用注记、「Description optimization」节加 pi 版引用块；③ `run_eval.py` / `improve_description.py` 文件头加 ⚠️ 使用注记；④ `eval-viewer/viewer.html` 提示语改为「agent session (e.g. pi)」。
+- **验证**：镜像与全局逐字节一致（`__pycache__` 已排除）；gitleaks 全绿。
+- **镜像同步**：随本批同步（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；版本 1.5.50 发版。
 
 ## 2026-10-15
 

@@ -3,6 +3,10 @@
 
 Tests whether a skill's description causes Claude to trigger (read the skill)
 for a set of queries. Outputs results as JSON.
+
+⚠️ 2026-10-17 注：本脚本的触发评测依赖 Claude Code CLI（`claude -p` 子进程）与 CC 的
+项目根发现（`.claude/`，用于投放命令文件）——在「pi 为主」的本机环境下待改造
+（方向：改以 pi 跑评测并适配项目根探测），改造前请勿在本机直接使用。
 """
 
 import argparse
