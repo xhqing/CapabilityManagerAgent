@@ -45,16 +45,26 @@
 
 **授权边界（重要，防过度泛化）**：本条的免确认授权**仅限「向注册表追加新 agent 行 + 补一句位置说明」这一类编辑**，**不扩展**到全局 `~/.claude/CLAUDE.md` 或本文件的其它任何修改——例如改语言偏好、git 规则、输出风格、脚手架约定，或对**已有** agent 行的重命名 / 调整职责 / 删除等，仍一律按「先征得同意」处理，不因本条规定而自动授权。改全局元规范默认要谨慎，只有「新建 agent 时追加注册表行」这一个窄口子放开。
 
-## 智能体专属文件归属与子项目映射（2026-10-12 修订）
+## 智能体专属文件归属与子项目映射（2026-10-17 修订）
 
-**智能体专属文件**指「会话启动时按工作目录加载、用于表征智能体身份 / 给智能体下指令」的项目级文件与目录，当前包括：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`（Claude Code 项目级配置：CLAUDE.md / settings / rules / skills / memory 等）、项目级 `.pi/`（pi 项目级配置：skills / extensions / prompts / SYSTEM.md / settings 等）。**这类文件只有 Agent 项目（团队 agent 项目，见上方注册表）允许拥有；非 Agent 项目（含各 Agent 负责的子项目、以及其它任何非 Agent 项目）一律不得存在**——2026-10-12 用户修订，取代此前的「子项目 `.claude/` 超集」规则（历史版本见本文件 git 历史）。
+**智能体专属文件**指「会话启动时按工作目录加载、用于表征智能体身份 / 给智能体下指令」的项目级文件与目录，当前包括：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`（Claude Code 项目级配置：CLAUDE.md / settings / rules / skills / memory 等）、项目级 `.pi/`（pi 项目级配置：skills / extensions / prompts / SYSTEM.md / settings 等）。
 
-- **为什么**：会话启动时，agent 规则文件按工作目录加载——pi 加载 `CLAUDE.md` / `AGENTS.md`（当前目录 + 逐级上级目录 + 全局 `~/.pi/agent/`）与工作目录下 `.pi/` 的项目级配置；Claude Code 加载工作目录的项目级 `CLAUDE.md` / `.claude/`。子项目不再携带这些文件后，以子项目为工作目录开会话就看不到 agent 身份与规则；想让会话带上完整的 agent 身份与规则，工作目录必须落在 Agent 项目根。
-- **后台开启会话只能以 Agent 项目根目录为工作目录**：凡通过 intercom / `agent_call` / `agent_wake` 等为某个 agent 开启（或唤醒）后台 pi 会话，工作目录只能是该 agent 的 **Agent 项目根目录**；不得以其子项目 / 任意非 Agent 项目目录开启。子项目的工作（读文件、跑命令、开发、提交）一律在 Agent 项目的会话里按路径跨目录操作（如 `git -C <子项目目录>`）。
-- **存量清理**：非 Agent 项目里已有的 `CLAUDE.md`、`AGENTS.md`、`.claude/`、项目级 `.pi/` 一律清理删除；删除前先检查有无「不属于 agent 身份规则」的独有内容（子项目专属说明、上游开发指南、项目专属 skill 等）——有保留价值的先迁到负责的 Agent 项目里（或子项目的普通文档，如 README / docs），再删。各 Agent 项目「子项目清单」节的表述同步改为本新规。
-- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前校验目标目录必须是 Agent 项目目录（根目录含 `CLAUDE.md` / `AGENTS.md` / `.claude/CLAUDE.md`，否则拒绝启动并报错）；`~/.claude/hooks/settle-repo-check.py`（收尾巡检）按下方「子项目映射」表定位子项目。
+**归属规则（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：
 
-**子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md`（或 `.claude/CLAUDE.md`）的「子项目清单」节，保持一致。
+1. **实体只属于 Agent 项目**：这些文件的**实体副本（独立内容）只有 Agent 项目（团队 agent 项目，见上方注册表）允许拥有**；非 Agent 项目（含各 Agent 负责的子项目、以及其它任何非 Agent 项目）**不得放置实体副本、不得从 Agent 项目复制内容进去**——同一套机制只需一份权威来源。（历史「子项目 `.claude/` 超集」规则于 2026-10-12 废止，历史版本见本文件 git 历史。）
+2. **子项目挂两条指回负责 Agent 的软链接（默认形态）**：每个子项目根目录带两条相对路径软链接，把负责 Agent 的规则与 pi 资源「引」进子项目目录：
+   - `AGENTS.md → ../<负责Agent项目>/AGENTS.md`
+   - `.pi → ../<负责Agent项目>/.pi`
+   效果：**在子项目目录直接开会话时，会话按工作目录加载上下文文件与 `.pi` 资源，继承负责 Agent 的身份 / 规则 / 技能 / 扩展 / 设置**——即「Agent 进驻子项目」。机制已在 pi 上实测：上下文文件、技能、提示模板、项目级扩展、settings 均透过软链接从负责 Agent 项目加载；软链接嵌套（链指向链）同样有效。
+3. **两条链接随仓库提交（2026-10-17 用户决定）**：仓库主要作为用户本人的备份，clone 者方便与否是次要因素；Agents 与子项目之间的关联是团队网络的组成部分（团队整体是一个大项目、GitHub 上只是分仓库存放，后续此类关联可能更多）——**看到仓库里的 `AGENTS.md` / `.pi` 软链接时，即表示它是「某 Agent 项目进驻该子项目」的关联链**，其目标是同级目录下的负责 Agent 项目；单独 clone 到别处时链接会悬空（无害，仅表现为缺省）。后续新增的其它跨仓库关联同样在文档里写明。
+4. **后台开启 / 唤醒会话仍限定 Agent 项目根目录（2026-10-17 用户决定保留）**：凡通过 intercom / `agent_call` / `agent_wake` 等为某个 agent 开启（或唤醒）后台 pi 会话，工作目录只能是该 agent 的 **Agent 项目根目录**；不得以其子项目 / 任意非 Agent 项目目录开启（工具按注册表校验，子项目目录会被拒绝）。子项目的工作（读文件、跑命令、开发、提交）一律在 Agent 项目的会话里按路径跨目录操作（如 `git -C <子项目目录>`）。在子项目目录开会话是用户手动操作的场景（继承负责 Agent 身份），不走后台唤醒。
+5. **`.claude/` 不纳入本网络（2026-10-17 用户决定）**：Claude Code 侧不再维护——子项目不挂 `.claude` 链接；各 Agent 项目里现有的 `.claude/` 内容暂留不动（不新增、不维护、不迁移）。
+6. **存量清理口径**：子项目里除上述两条链接之外的智能体专属文件（实体副本、或指向其它位置的链接）一律清理；删除前先检查有无「不属于 agent 身份规则」的独有内容（子项目专属说明、上游开发指南、项目专属 skill 等）——有保留价值的先迁到负责的 Agent 项目里（或子项目的普通文档，如 README / docs），再删。各 Agent 项目「子项目清单」节的表述与本规同步（2026-10-17 起）。
+
+- **为什么这样设计**：会话启动时，agent 规则文件按工作目录加载——pi 加载 `CLAUDE.md` / `AGENTS.md`（当前目录 + 逐级上级目录 + 全局 `~/.pi/agent/`）与工作目录下 `.pi/` 的项目级配置（技能 / 扩展 / 提示模板 / 设置）。直接用子项目目录开会话时看不到 agent 身份与规则；挂上两条软链接后，子项目目录开会话也能拿到完整身份，而规则的权威来源始终只有 Agent 项目一份。
+- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前按本文件「子项目映射」表校验目标目录必须是已登记的 **Agent 项目**（子项目目录会被拒绝；2026-10-17 起由原「标记文件存在性检查」升级为注册表校验）；`~/.claude/hooks/settle-repo-check.py`（收尾巡检）同样按下方「子项目映射」表定位子项目（cwd 为子项目目录时也能正确归属）。
+
+**子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md`（或 `.claude/CLAUDE.md`）的「子项目清单」节，保持一致。表中每个子项目根目录都应带两条指回负责 Agent 的软链接（`AGENTS.md`、`.pi`，随仓库提交，见上方规则第 2、3 条）。
 
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
@@ -74,7 +84,7 @@
 | DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
 | SocialMediaManagerAgent（Gatsby） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 `~/Developer/xhs-mentor-scam`，绑定 GitHub 私有远程持续备份、launchd 自动提交推送；2026-10-13 由 Kit 设立、2026-10-15 移交 Gatsby 负责） |
 
-- **已取消的子项目（2026-10-14 用户决定，不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。
+- **已取消 / 已退役的子项目（不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；channels-watch（Atlas，2026-10-17 退役）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。
 
-- **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（或 `.claude/CLAUDE.md`）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
+- **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（或 `.claude/CLAUDE.md`；pi 侧经 `AGENTS.md` 软链接读取）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
 - **边界**：本规则适用于「Agent 项目负责子项目」的情形；当前全部映射见上方「子项目映射」表。
