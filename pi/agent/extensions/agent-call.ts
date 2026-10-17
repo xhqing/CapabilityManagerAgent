@@ -23,7 +23,8 @@
  *   PI_AGENT_BIN      启动新会话用的 pi 命令（默认 "pi"）
  */
 
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { basename } from "node:path";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -39,6 +40,7 @@ const OUTBOX_TIMEOUT_MS = 20_000;
 
 interface SessionInfo {
 	name?: string;
+	id?: string;
 	status?: string;
 	cwd?: string;
 }
@@ -64,11 +66,38 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 2026-10-12 新规：后台会话只能以 Agent 项目根目录为工作目录开启——只有 Agent 项目根目录
- * 才有会话启动时加载的项目级智能体专属文件（CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。
+ * 2026-10-17 用户决定：后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）。
+ * 校验方式：目标目录名必须命中 `~/.claude/docs/agents-registry.md` 里已登记的 Agent 项目名
+ * （子项目的 AGENTS.md 软链接会让「标记文件存在性」检查误放行，故改用注册表校验）；
+ * 注册表不可读时退回旧的标记文件检查（CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。
  */
+const REGISTRY = join(homedir(), ".claude", "docs", "agents-registry.md");
+
+/** 从注册表表格里收集「已登记的 Agent 项目目录名」。 */
+function registeredAgentNames(): Set<string> | undefined {
+	try {
+		const text = readFileSync(REGISTRY, "utf8");
+		const names = new Set<string>();
+		for (const line of text.split("\n")) {
+			if (!line.trim().startsWith("|")) continue;
+			for (const cellRaw of line.split("|").slice(1, -1)) {
+				const cell = cellRaw.replace(/\*\*/g, "").trim();
+				const m = /^([A-Za-z][A-Za-z0-9]*Agent)$/.exec(cell) ?? /^([A-Za-z][A-Za-z0-9]*Agent)（/.exec(cell);
+				if (m) names.add(m[1]);
+			}
+		}
+		return names.size > 0 ? names : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function expandDir(dir: string): string {
+	return dir === "~" ? homedir() : dir.startsWith("~/") ? join(homedir(), dir.slice(2)) : dir;
+}
+
 function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: string } {
-	const expanded = dir === "~" ? homedir() : dir.startsWith("~/") ? join(homedir(), dir.slice(2)) : dir;
+	const expanded = expandDir(dir);
 	let stat;
 	try {
 		stat = statSync(expanded);
@@ -76,14 +105,26 @@ function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: 
 		return { ok: false, detail: `目标目录不存在：「${dir}」` };
 	}
 	if (!stat.isDirectory()) return { ok: false, detail: `目标不是目录：「${dir}」` };
+
+	const expected = `按 2026-10-17 用户决定，后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）；` +
+		`子项目目录开会话是用户手动操作的场景，经子项目里的 AGENTS.md / .pi 软链接继承负责 Agent 身份。`;
+
+	const names = registeredAgentNames();
+	if (names) {
+		const hit = [...names].some((n) => n.toLowerCase() === basename(expanded).toLowerCase());
+		if (hit) return { ok: true };
+		return {
+			ok: false,
+			detail: `拒绝唤醒：目录「${dir}」不是已登记的 Agent 项目（按 ~/.claude/docs/agents-registry.md 校验）。${expected}`,
+		};
+	}
+
+	// 注册表不可读时的退路：标记文件存在性检查
 	const markers = [join(expanded, "CLAUDE.md"), join(expanded, "AGENTS.md"), join(expanded, ".claude", "CLAUDE.md")];
 	if (!markers.some((m) => existsSync(m))) {
 		return {
 			ok: false,
-			detail:
-				`拒绝唤醒：目录「${dir}」不是 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。` +
-				`按 2026-10-12 新规，后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的智能体专属文件；` +
-				`子项目的工作请在对应 Agent 项目的会话里按路径操作。`,
+			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md，注册表也读不到）。${expected}`,
 		};
 	}
 	return { ok: true };
@@ -103,9 +144,13 @@ async function listSessions(pi: ExtensionAPI, signal?: AbortSignal): Promise<Ses
 	}
 }
 
-async function isOnline(pi: ExtensionAPI, name: string, signal?: AbortSignal): Promise<boolean> {
+async function isOnline(pi: ExtensionAPI, nameOrId: string, signal?: AbortSignal): Promise<boolean> {
 	const sessions = await listSessions(pi, signal);
-	return sessions.some((s) => s.name === name);
+	return sessions.some(
+		(s) =>
+			s.name === nameOrId ||
+			(typeof s.id === "string" && s.id.length > 0 && (s.id === nameOrId || s.id.startsWith(nameOrId))),
+	);
 }
 
 async function wakeSession(
@@ -233,8 +278,8 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		description:
 			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。dir 必须是目标 agent 的 Agent 项目根目录（新规 2026-10-12：后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的项目级智能体专属文件；非 Agent 项目目录会被拒绝）。",
 		parameters: Type.Object({
-			name: Type.String({ description: "目标会话名字（pi-intercom 别名，与 /alias 或 pi -n 设置一致）" }),
-			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——根目录含 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md；绝对路径或 ~ 开头）" }),
+			name: Type.String({ description: "目标会话名字（pi-intercom 别名，与 /alias 或 pi -n 设置一致）——唤醒只认名字（新会话按此名字启动）" }),
+			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——按 ~/.claude/docs/agents-registry.md 校验，子项目目录会被拒绝；绝对路径或 ~ 开头）" }),
 			wait_seconds: Type.Optional(
 				Type.Number({ description: `等待注册的最长秒数（默认 ${DEFAULT_WAIT_SECONDS}）`, minimum: 3, maximum: 120 }),
 			),
@@ -264,9 +309,9 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		description:
 			"调用另一个 pi 会话（pi-intercom 互通）：先确保对方在线（不在线且提供了 dir 时自动唤醒），再发送消息。mode=send 以本会话身份发送通知（不等待）；mode=ask（默认）阻塞等待对方回复。消息为纯文本，对方看不到本会话上下文，请自带背景与明确请求。",
 		parameters: Type.Object({
-			name: Type.String({ description: "目标会话名字（pi-intercom 别名）" }),
+			name: Type.String({ description: "目标会话：pi-intercom 别名（人格名，如 Kit）或 session-id（或其短前缀，`pi-intercom list` 可见）——同一个 agent 可多开同名会话，此时用 session-id 唯一定位" }),
 			message: Type.String({ description: "消息内容（对方看不到本会话上下文，请自带背景与明确请求）" }),
-			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——根目录含 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md；建议总是提供）" })),
+			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——按 ~/.claude/docs/agents-registry.md 校验，子项目目录会被拒绝；建议总是提供）" })),
 			mode: Type.Optional(
 				StringEnum(["ask", "send"] as const, { description: "ask=阻塞等回复（默认）；send=仅通知、以本会话身份发送" }),
 			),
@@ -294,7 +339,7 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 						return {
 							content: [{
 								type: "text",
-								text: `「${name}」当前不在线，且未提供 dir——无法自动唤醒。请提供目标项目目录后重试，或等对方开启会话。`,
+								text: `「${name}」当前不在线，且未提供 dir——无法自动唤醒。请提供目标 Agent 项目目录后重试，或等对方开启会话（若 ${name} 是 session-id，说明该会话已结束）。`,
 							}],
 						};
 					}

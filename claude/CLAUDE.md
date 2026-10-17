@@ -117,7 +117,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **新建 Agent 项目**：先读 `~/.claude/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.claude/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.claude/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
 - **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.claude/docs/capability-sync.md`。全局 `~/.claude/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
-- **智能体专属文件只属于 Agent 项目（2026-10-12 用户修订，取代原「子项目超集」规则）**：`CLAUDE.md`、`AGENTS.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，**只有 Agent 项目（团队 agent 项目）允许拥有；非 Agent 项目（含各 Agent 负责的子项目）一律不得存在**（存量发现即清理，独有内容先迁回负责的 Agent 项目再删）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，只能以该 Agent 项目的根目录为工作目录**——只有 Agent 项目根目录才有会话启动时加载的项目级智能体专属文件；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.claude/docs/agents-registry.md`。
+- **智能体专属文件：实体只属于 Agent 项目，子项目挂指回负责 Agent 的软链接（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。**子项目根目录改挂两条软链接**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——在子项目目录直接开会话时，会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能（「Agent 进驻子项目」）。两条链接**随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.claude/docs/agents-registry.md`。
 
 ## Skill 编写纪律
 
@@ -211,11 +211,11 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 需要其他 agent（另一条 pi 会话）配合时，用 `agent_call` 工具直接联系对方，不要人工传话、不要让用户中转。要点：
 
-- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的 Agent 项目目录，如 `~/Developer/FullStackEngineerAgent`——2026-10-12 新规：后台会话只能以 Agent 项目根目录为工作目录，不得用子项目目录，只有那里才有会话启动时加载的智能体专属文件）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
+- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的 Agent 项目目录，如 `~/Developer/FullStackEngineerAgent`——后台会话只能以 Agent 项目根目录为工作目录，工具按注册表校验、子项目目录会被拒绝；子项目目录开会话是用户手动操作的场景，不走后台唤醒）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
 - **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
 - **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
 - **联系不上不硬等**：`ask` 超时或唤醒失败时，如实向用户报告「暂时联系不上 XX」，不无限重试、不静默卡住；可改用 `send` 留言、或等对方上线后再联系。
-- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.claude/docs/agents-registry.md` 的注册表一致），对方才能按名字找到你；已在运行的会话可用 `/alias <名字>` 补设。
+- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.claude/docs/agents-registry.md` 的注册表一致，即人格名）；**同一个 Agent 允许同时开多个会话、共用同一个名字**（一个人同时办几件事是合理的：Agent 项目根开会话、子项目目录也可以各开一个）——此时「**人格名 + session-id**」才能唯一确定一个会话：`intercom list` 会列出每个会话的 session-id（短前缀即可唯一定位），`intercom` 与 `agent_call` 都支持按名字（全名）或 session-id（或其短前缀）指定目标。已在运行的会话可用 `/alias <名字>` 补设。
 - **常设授权：其它 agent 仓库有待提交内容 → 自动委派（2026-10-04 用户立）**：检查到或得知任何 agent 项目的仓库有该提交却未提交的内容（工作区脏、暂存区有未提交内容等），**直接 `agent_call` 对方、由它用自己的 `/add` → `/commit` 流程处理**，不要拿这个问题去问用户——用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」。授权边界：只允许「委派对方按它自己的 skill 流程提交」，**不得由本会话替对方仓库执行 git 写操作**；对方的 `/add` 预检、敏感扫描、cache 检测、发版链等安全阀照常生效；对方 /add 预检出现「需人工过目 / 不建议入库」时照旧停在 add 阶段、由对方报告用户。
 - **后台会话用完即清、不活跃即清（2026-10-04 用户立）**：用户**看不到 tmux 后台会话**，「后台会话对他而言等于不存在」——所以不要让它长期挂着。
   - **用完就清**：`agent_call` / `agent_wake` 拉起的会话，使命完成后**主动关闭**（`tmux kill-session -t <会话名>`），不留常驻隐形进程；下次需要时 `agent_call` 会自动重新唤醒（代价只是一次启动）。
