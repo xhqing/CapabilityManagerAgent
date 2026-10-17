@@ -1,8 +1,7 @@
 /**
  * git commit 未授权拦截（pi 端，tool_call 拦截）。
  *
- * 与 ~/.claude/hooks/pre-tool-use-guard.sh 规则 3（CC / Zcode / CodeBuddy /
- * Trae 端共用）的判定逻辑对齐：commit 不论分支 / worktree / 流程一律须
+ * 判定逻辑（2026-10-17 起 pi 端独立维护）：commit 不论分支 / worktree / 流程一律须
  * 用户明确授权（2026-09-21 用户立规，全局 CLAUDE.md 铁律配套工具强制），
  * hook 对无 AI_AUTHORIZED_COMMIT 标记的 git commit 一律 deny。授权标记仅
  * 三种场景使用：/commit skill 的串联命令、用户当轮消息明确授权后、
@@ -18,7 +17,7 @@ const AUTH_MARK = "AI_AUTHORIZED_COMMIT";
 // 真命令（实际误伤过：喂给 CC hook 的测试 payload 里含这句话，把守卫误触发了）。
 // 只匹配 git commit 本体（含 git -C <path> commit 形态与带 -m 等子选项的形式）；
 // 不匹配 git log --grep=commit、git checkout 等非 commit 子命令。
-// 与 CC 端 hook 规则 3（~/.claude/hooks/pre-tool-use-guard.sh 的 is_git_command）同源。
+// 判定逻辑由 pi 端维护（2026-10-17 起为唯一实现）。
 const SEGMENT_SPLIT = /&&|\|\||;|\n|\|/;
 const GIT_COMMIT_SEGMENT = /^git(?:\s+-\S+(?:\s+[^\s-][^\s]*)?)*\s+commit(?![A-Za-z0-9_-])/;
 

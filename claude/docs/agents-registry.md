@@ -17,7 +17,7 @@
 | **Kit** | ExecutiveAssistantAgent | 总经理助理 | 通用助手：用户的第一助理、团队多面手，几乎任何事务都接得住（不分组、直属用户；找单找岗接活归 Hopkins） |
 | **Victor** | DayTradingAgent | 日内交易员 | 信号：港股 / 美股盘中盯盘 → 分析标的 + 计算仓位与止损 → 发出交易信号（信号模式，不下单，人工执行） |
 | **Tinker** | PatchClaudeAgent | 补丁维护匠 | 维护：VSCode Claude Code 扩展升级后重新应用自定义补丁（自愈引擎：定位→应用→校验→回写），独立工具型 agent |
-| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.pi/agent/` 通用能力（全局为权威源、`claude/` 为开源镜像；同步 skills / CLAUDE.md / docs / patch / pi 扩展与 `~/.claude/hooks/` 六部分，原 rules 三条已并入 CLAUDE.md）+ 通用能力开源单一出口（只有本项目镜像全局，其余 agent 项目不再分发副本）+ 团队注册表维护，独立于销售流水线 |
+| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.pi/agent/` 通用能力（全局为权威源、`claude/` 为开源镜像；同步 skills / CLAUDE.md / docs / patch / hooks / pi 扩展 六部分，原 rules 三条已并入 CLAUDE.md）+ 通用能力开源单一出口（只有本项目镜像全局，其余 agent 项目不再分发副本）+ 团队注册表维护，独立于销售流水线 |
 | **Markowitz** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度（离线开发，不盯盘不下单） |
 | **Hermes** | NetOpsAgent | 网络运维管理员 | 网络：代理节点真实流量测速与连通性检测 → 自动选路（纯延迟 / 纯带宽 / 混合）→ 故障转移 → 订阅刷新，基于 Xray-core（`xpilot` CLI），独立于销售流水线 |
 | **Anvil** | BackendEngineerAgent | 后端开发工程师 | 后端：负责所有后端开发工作（服务端逻辑 / API / 数据库 / 系统架构 / 桥接服务），目前在手 CC-BRIDGE（Claude Code 上游桥接框架），独立于销售流水线 |
@@ -62,9 +62,9 @@
 6. **存量清理口径**：子项目里除上述两条链接之外的智能体专属文件（实体副本、或指向其它位置的链接）一律清理；删除前先检查有无「不属于 agent 身份规则」的独有内容（子项目专属说明、上游开发指南、项目专属 skill 等）——有保留价值的先迁到负责的 Agent 项目里（或子项目的普通文档，如 README / docs），再删。各 Agent 项目「子项目清单」节的表述与本规同步（2026-10-17 起）。
 
 - **为什么这样设计**：会话启动时，agent 规则文件按工作目录加载——pi 加载 `CLAUDE.md` / `AGENTS.md`（当前目录 + 逐级上级目录 + 全局 `~/.pi/agent/`）与工作目录下 `.pi/` 的项目级配置（技能 / 扩展 / 提示模板 / 设置）。直接用子项目目录开会话时看不到 agent 身份与规则；挂上两条软链接后，子项目目录开会话也能拿到完整身份，而规则的权威来源始终只有 Agent 项目一份。
-- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前按本文件「子项目映射」表校验目标目录必须是已登记的 **Agent 项目**（子项目目录会被拒绝；2026-10-17 起由原「标记文件存在性检查」升级为注册表校验）；`~/.claude/hooks/settle-repo-check.py`（收尾巡检）同样按下方「子项目映射」表定位子项目（cwd 为子项目目录时也能正确归属）。
+- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前按本文件「子项目映射」表校验目标目录必须是已登记的 **Agent 项目**（子项目目录会被拒绝；2026-10-17 起由原「标记文件存在性检查」升级为注册表校验）；`~/.pi/agent/patch/settle-repo-check/settle-repo-check.py`（收尾巡检，由 pi 扩展调用）同样按下方「子项目映射」表定位子项目（cwd 为子项目目录时也能正确归属）。
 
-**子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md`（或 `.claude/CLAUDE.md`）的「子项目清单」节，保持一致。表中每个子项目根目录都应带两条指回负责 Agent 的软链接（`AGENTS.md`、`.pi`，随仓库提交，见上方规则第 2、3 条）。
+**子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md` 的「子项目清单」节，保持一致。表中每个子项目根目录都应带两条指回负责 Agent 的软链接（`AGENTS.md`、`.pi`，随仓库提交，见上方规则第 2、3 条）。
 
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
@@ -86,5 +86,5 @@
 
 - **已取消 / 已退役的子项目（不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；channels-watch（Atlas，2026-10-17 退役）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。
 
-- **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（或 `.claude/CLAUDE.md`；pi 侧经 `AGENTS.md` 软链接读取）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
+- **子项目清单**：由各 Agent 项目在自己的 `CLAUDE.md`（pi 侧经 `AGENTS.md` 软链接读取）中维护（须与上方「子项目映射」表保持一致）。新增 / 变更子项目时，同步更新映射表与对应 Agent 项目的「子项目清单」节。
 - **边界**：本规则适用于「Agent 项目负责子项目」的情形；当前全部映射见上方「子项目映射」表。

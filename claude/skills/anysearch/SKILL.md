@@ -160,7 +160,7 @@ When a user provides a key in chat, advise them to configure it via `.env` or en
 
 If `<skill_dir>/runtime.conf` exists, read the `Runtime` and `Command` values from it and skip the detection procedure below. Treat this as the normal fast path for routine searches. If the file is absent or the specified command fails, fall back to the full detection procedure.
 
-**Relative-path resolution**: For portability across machines, `Command` may use a path relative to the project root (e.g. `python3 .claude/skills/anysearch/scripts/anysearch_cli.py`) instead of an absolute one. Before executing, the agent MUST resolve any relative path in `Command` against the project root — the cwd skills run from, exposed as `$CLAUDE_PROJECT_DIR` — to an absolute path (i.e. prepend `$CLAUDE_PROJECT_DIR/`). Absolute paths are used as-is. This guarantees the command runs regardless of how `Command` was authored or what cwd it was tested under. If the resolved command still fails, fall back to the full detection procedure below.
+**Relative-path resolution**: For portability across machines, `Command` may use a path relative to the project root (e.g. `python3 .pi/agent/skills/anysearch/scripts/anysearch_cli.py`) instead of an absolute one. Before executing, the agent MUST resolve any relative path in `Command` against the project root the skill runs from (prepend that root to get an absolute path). Absolute paths are used as-is. This guarantees the command runs regardless of how `Command` was authored or what cwd it was tested under. If the resolved command still fails, fall back to the full detection procedure below.
 
 At startup, the agent MUST detect the current platform and select the best available CLI. The priority order is:
 

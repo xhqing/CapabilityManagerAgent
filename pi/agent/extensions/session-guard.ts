@@ -10,7 +10,7 @@
  * 前台会话不行。风险很实：`pkill -f "pi -n"`、`kill <pid>`、`tmux kill-server` 这三类
  * 写法都会误伤用户正在用的会话。
  *
- * 与 CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` 规则 8 同源（判定逻辑同步改）。
+ * 判定逻辑由 pi 端独立维护（2026-10-17 起为唯一实现）。
  *
  * 拦截三类（命令带标记 `AI_AUTHORIZED_SESSION_KILL` 放行）：
  * 1. `tmux kill-server`——一律拦；
@@ -29,7 +29,7 @@ const AUTH_MARK = "AI_AUTHORIZED_SESSION_KILL";
 const ALLOWED_SESSION_PREFIX = "pi-";
 
 // tmux 两条危险操作
-// 2026-10-14 修正：kill-session 判定收紧为与 CC 端规则 8 同源的形式（tmux + 若干“-”选项 +
+// 2026-10-14 修正：kill-session 判定收紧（tmux + 若干“-”选项 +
 // kill-session 紧凑相邻）——原 `(\S+\s+)*?` 允许 tmux 与 kill-session 之间跨越任意词，
 // 会把「命令文本里恰好同时出现 tmux 与 kill-session 字样」的只读命令误判成真命令拦截
 //（实测误伤：一条含 `tmux list-sessions` 与 `grep "kill-session"` 的排查命令被拦）。

@@ -40,7 +40,7 @@
 
 ## 不主动进入 Plan 模式
 
-接到任务（包括复杂、多文件、涉及架构的实现类任务）直接读代码、动手做，**不主动调用 `EnterPlanMode`**、不走「探索 → 给方案 → 等审批」流程。确实需要先对齐方向（方案分叉大、返工成本高）时，在**普通回复里用文字**说清楚「我打算这么做，理由是……」等用户回应，不切 plan 模式；用户主动说「先规划一下」时用文字给方案即可。与配置层 `~/.claude/settings.json` 的 `permissions.deny` 互为双保险。边界：只约束主动行为，用户手动切换 plan 模式不受影响。
+接到任务（包括复杂、多文件、涉及架构的实现类任务）直接读代码、动手做，**不主动调用 `EnterPlanMode`**、不走「探索 → 给方案 → 等审批」流程。确实需要先对齐方向（方案分叉大、返工成本高）时，在**普通回复里用文字**说清楚「我打算这么做，理由是……」等用户回应，不切 plan 模式；用户主动说「先规划一下」时用文字给方案即可。边界：只约束主动行为，用户手动切换 plan 模式不受影响。
 
 ## Git 写操作必须先征得同意
 
@@ -55,7 +55,7 @@
 
 AI 对 git 暂存区（staging area / index）**自主能做的只有只读查询**（`git status`、`git diff --cached`、`git log`、`git ls-files`、`git stash list` 等）。此外两层铁律：
 
-1. **commit 需用户明确授权（2026-09-21 修订：不论哪个分支、哪个 worktree、哪条流程，commit 动作一律须用户明确授权）**，明确授权仅五种形式：① 用户主动发起 `/commit`；② 用户当轮消息明确授权 commit（如明确说「授权 commit」「这个 commit 可以提交」——AI 主动列命令后用户点头不算明确授权）；③ `/add` 预检完全干净后的自动衔接（2026-10-01 用户立：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，当次 `/add` 的授权自动延伸到 `git commit` + `git push`，由 add skill 直接进入 commit skill 完整流程——含其第 10 步的自动发版链（未 bump 时自动 `/bump` → `/add` → `/commit` → `/release`），2026-10-02 起（2026-10-13 起：仅自最新 tag 含 fix / feat 类改动时触发；纯文档 / 杂事类不发版）；`/add` 的来源含用户输入与 bump skill 自动衔接）；④ **跨会话委派**（2026-10-04 用户立）：其它 agent 发现本仓库有待提交内容时，可 `agent_call` 本会话、由本会话按自身 skill 流程（`/add` → `/commit`）提交——用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」）。口头泛指令「提交一下」「commit 吧」不算**单次**明确授权（但仍受下条常设授权约束）；⑤ **常设授权（2026-10-04 用户立）**：工作区 / 暂存区有待提交内容即**直接按 skill 流程提交**，无需逐次询问（用户原话「下次工作区或暂存区有待提交的内容就直接触发 /add 或者 /commit 提交，不用问我」——授权的是流程，敏感扫描 / 人工过目等安全阀照常生效）。，不得执行。已配套工具强制：git-commit-guard（CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` / pi 端 `~/.pi/agent/extensions/git-commit-guard.ts`）对无 `# AI_AUTHORIZED_COMMIT` 标记的 `git commit` 一律 deny；标记只在上述五种明确授权场景使用（`/commit` skill 的串联命令、用户当轮明确授权后、`/add` 预检完全干净后的自动衔接命令、跨会话委派命令、常设授权下的自动提交），其余场景一律不带。commit 后暂存区清空是固有行为，不算对暂存区的增删改。
+1. **commit 需用户明确授权（2026-09-21 修订：不论哪个分支、哪个 worktree、哪条流程，commit 动作一律须用户明确授权）**，明确授权仅五种形式：① 用户主动发起 `/commit`；② 用户当轮消息明确授权 commit（如明确说「授权 commit」「这个 commit 可以提交」——AI 主动列命令后用户点头不算明确授权）；③ `/add` 预检完全干净后的自动衔接（2026-10-01 用户立：预检结果「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，当次 `/add` 的授权自动延伸到 `git commit` + `git push`，由 add skill 直接进入 commit skill 完整流程——含其第 10 步的自动发版链（未 bump 时自动 `/bump` → `/add` → `/commit` → `/release`），2026-10-02 起（2026-10-13 起：仅自最新 tag 含 fix / feat 类改动时触发；纯文档 / 杂事类不发版）；`/add` 的来源含用户输入与 bump skill 自动衔接）；④ **跨会话委派**（2026-10-04 用户立）：其它 agent 发现本仓库有待提交内容时，可 `agent_call` 本会话、由本会话按自身 skill 流程（`/add` → `/commit`）提交——用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」）。口头泛指令「提交一下」「commit 吧」不算**单次**明确授权（但仍受下条常设授权约束）；⑤ **常设授权（2026-10-04 用户立）**：工作区 / 暂存区有待提交内容即**直接按 skill 流程提交**，无需逐次询问（用户原话「下次工作区或暂存区有待提交的内容就直接触发 /add 或者 /commit 提交，不用问我」——授权的是流程，敏感扫描 / 人工过目等安全阀照常生效）。，不得执行。已配套工具强制：git-commit-guard（pi 端 `~/.pi/agent/extensions/git-commit-guard.ts`）对无 `# AI_AUTHORIZED_COMMIT` 标记的 `git commit` 一律 deny；标记只在上述五种明确授权场景使用（`/commit` skill 的串联命令、用户当轮明确授权后、`/add` 预检完全干净后的自动衔接命令、跨会话委派命令、常设授权下的自动提交），其余场景一律不带。commit 后暂存区清空是固有行为，不算对暂存区的增删改。
 2. **对暂存区的删、改（含移动）一律禁止，无论是否授权**：删 = `git rm --cached` / `git reset HEAD <file>` / `git restore --staged <file>` / 影响暂存区的 reset（`--hard` / `--mixed` / 默认）；改 / 移动 = `git mv` 及任何会改变暂存区现有内容的命令。即便用户授权了某次 git 操作，只要它改动暂存区已有内容仍禁止——暂存区已有内容完全由用户把关。
 3. **git add（暂存区「增」）经 add skill 授权例外放行（2026-09-22 修订，原为「无论是否授权一律禁止」）**：用户触发 `/add`（或当轮明确要求 add）= 授权当次执行 add skill 的预检分流——gitleaks 工具扫描 + AI 语义扫描双层预检，干净的文件由 AI 执行 `git add` 加入暂存区，可疑 / 高风险文件留在工作区输出人工过目清单；bump skill 改完版本号文件后的自动衔接同此授权（2026-10-02 起）；用户口头确认「没问题，add」= 当轮授权 add 对应文件。授权范围仅限「预检通过的干净文件 + 用户确认过的文件」，且 add skill 对暂存区已有内容**只增不改**（不动第 2 条红线）。背景：原「暂存区完全由用户亲自 git add 把关」升级为「工具确定性扫描 + AI 语义扫描双引擎预检 + 可疑项人工确认」，把关方式升级而非取消。
 
@@ -83,7 +83,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 项目根 `VERSION` 文件是整个项目版本号的**唯一权威来源**，所有涉及版本信息的文件（`package.json` 的 `version`、CHANGELOG、README 徽章与正文、`package.nls.json`、构建产物命名等）必须与它**核心数字一致**（major.minor.patch 逐一相同）。前缀差异允许（`v1.2.3`、`Version 1.2.3`、`"version": "1.2.3"` 与 `1.2.3` 一致）；后缀（`-beta`、`-rc.1` 等）不自动豁免，需判断是否有意区分。手动改版本号先改 `VERSION` 再同步其它引用处，避免基线漂移。`VERSION` 与 `CHANGELOG.md` 是项目标配（任何项目都必须有，缺失由 commit skill 第 9m 步自动新建）。/commit 流程做一致性检测，不一致即彻底终止。
 
-**项目若还有自带版本号的对外发布物**（如群公告 `docs/community/announcement.txt`），其版本号必须与 `VERSION` **完全一致**——同一套编号，bump 一个必须同步 bump 另一个（2026-10-02 立）。这条由工具强制：全局 git pre-commit hook + pi 端 `version-guard.ts` + CC 端 `pre-tool-use-guard.sh` 规则 5 三层拦截 commit / tag（仅当仓库同时存在 `VERSION` 与 `docs/community/announcement.txt` 时生效，其它项目零影响）；逃生门与详细判定见守卫说明。
+**项目若还有自带版本号的对外发布物**（如群公告 `docs/community/announcement.txt`），其版本号必须与 `VERSION` **完全一致**——同一套编号，bump 一个必须同步 bump 另一个（2026-10-02 立）。这条由工具强制：全局 git pre-commit hook + pi 端 `version-guard.ts` 两层拦截 commit / tag（仅当仓库同时存在 `VERSION` 与 `docs/community/announcement.txt` 时生效，其它项目零影响）；逃生门与详细判定见守卫说明。
 
 ## 版本发布状态必须实测 GitHub Release
 
@@ -127,7 +127,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## 规矩必须配套工具强制（元规则）
 
-任何规矩立下后，都要尽可能用工具强制辅助防遗忘——代码 / hook / settings deny 等硬约束落地，仅靠文本记录在 rules / skills / CLAUDE.md 里不够（规矩刚立几分钟就被违反的实证：「远程禁复用窗口」立规后转头就用了 `open vscode://` URI）。能映射为可检测命令模式的规矩写进 `~/.claude/hooks/pre-tool-use-guard.sh`（PreToolUse 返回 deny 即拦截）或 settings.json 的 `permissions.deny`；不能映射的（输出风格类）才只靠文本。改规矩时同步改对应的强制工具，两边不能脱节。工具强制是下限防线，文本管「判断与边界」。
+任何规矩立下后，都要尽可能用工具强制辅助防遗忘——代码 / hook / settings deny 等硬约束落地，仅靠文本记录在 rules / skills / CLAUDE.md 里不够（规矩刚立几分钟就被违反的实证：「远程禁复用窗口」立规后转头就用了 `open vscode://` URI）。能映射为可检测命令模式的规矩写进 pi 扩展（`~/.pi/agent/extensions/` 下的守卫，命中即拦截）；不能映射的（输出风格类）才只靠文本。改规矩时同步改对应的强制工具，两边不能脱节。工具强制是下限防线，文本管「判断与边界」。
 
 ## 工作规则
 
@@ -162,7 +162,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 - **杀 VSC 进程前必须先问**：任何会让 VSCode 退出 / 重启的手段（`pkill`、`kill`、`killall`、osascript 强制结束等）先向用户说明范围与原因，授权后命令加 `# AI_AUTHORIZED_KILL_VSC` 标记放行。查询类（`ps`）不受限。
 - **远程连接强制新窗口**：触发 VSCode Remote-SSH / Remote Tunnel 用 `code --folder-uri "vscode-remote://ssh-remote+<host>/<远端路径>" --new-window`，禁止 `open vscode://vscode-remote` URI（会复用用户当前窗口、顶替工作现场）。
-- 两条均由 `~/.claude/hooks/pre-tool-use-guard.sh` 硬拦截兜底，文本说明为什么。
+- 两条均由 pi 端守卫扩展（`~/.pi/agent/extensions/session-guard.ts` 等）硬拦截兜底，文本说明为什么。
 
 ### 本机屏幕焦点禁止抢夺（未经授权禁止；取得当次授权可执行；钩子已硬拦截）
 
@@ -172,7 +172,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **要给用户看的网页，一律把链接原文发给他、让他自己点开，不要用 `open` 代开**（2026-10-14 当晚用户追加立规：AI 在用户正看别的东西时打开了 tokenplus 页面抢走焦点，原话「下次不要帮我打开网页页面，给我链接就行」）。
 - **执行方式（按优先级）**：① **本机执行**——先向用户说明理由与影响、取得**当次**明确授权，命令加标记 `# AI_AUTHORIZED_LOCAL_FOCUS` 后运行（授权不跨次复用）；② 想不打扰用户时——登录 **macmini** 执行（`ssh mac-mini`，GUI 会话已登录，可在其屏幕上自由测试）；③ **需要 computer-use 类 GUI 能力**（看屏幕 / 真实点击拖拽 / 输入）时——找 **cuAgent**（其专属能力，见下节）。
 - 未获授权不得执行本机抢焦点操作、不得擅自加标记；授权由用户当次明确给出。
-- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 9）与 pi 端 `~/.pi/agent/extensions/focus-guard.ts` 硬拦截兜底（命令里含 `ssh` 时放行——那是 macmini 等远端机、不是用户本机），两端判定逻辑同源。
+- 由 pi 端 `~/.pi/agent/extensions/focus-guard.ts` 硬拦截兜底（命令里含 `ssh` 时放行——那是 macmini 等远端机、不是用户本机）。
 
 ### 电脑操作（computer-use）：仅限 cuAgent 项目内使用（2026-10-09 修订）
 
@@ -187,7 +187,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **跑任何 `twitter` / `opencli twitter` 命令前先加载隔离环境**：`. ~/.x-isolation.env && twitter status`（先确认账号是查询专用号再继续）。
 - 隔离环境把工具钉在查询专用号上（指定 profile + 显式注入 cookie），**查询号失效时直接报错、不静默切号**；内容与原因见 `~/.x-isolation.env` 注释。
 - 确需不带隔离（如显式指定另一账号）时，命令加标记 `# AI_AUTHORIZED_X_UNSAFE`。
-- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 4）与 pi 端 `~/.pi/agent/extensions/twitter-guard.ts` 硬拦截兜底，两端判定逻辑同步。
+- 由 pi 端 `~/.pi/agent/extensions/twitter-guard.ts` 硬拦截兜底。
 
 ### 密码库与密钥文件不得删除 / 移动（钩子已硬拦截）
 
@@ -197,12 +197,12 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 - **禁止**用写 / 编辑类工具（Write / Edit / MultiEdit）直接改写这些路径（无逃生门）——密码库只应由 KeePassXC / KeePassDX 自己读写。
 - **正常使用不触发本规则**：打开、解锁、保存、同步都由密码管理器程序完成，不需要 AI 碰这些文件；连查看记录、比较 sha256、目录列举都不受限。
 - **确需操作**（用户明确要求清理旧备份 / 迁移文件等）时，Shell 命令里加标记 `# AI_AUTHORIZED_KDBX_OP`，仅限当次授权范围，不得擅自加。
-- 由 `~/.claude/hooks/pre-tool-use-guard.sh`（规则 7）与 pi 端 `~/.pi/agent/extensions/kdbx-guard.ts` 硬拦截兜底，两端判定逻辑同源（2026-10-04 立）。
+- 由 pi 端 `~/.pi/agent/extensions/kdbx-guard.ts` 硬拦截兜底（2026-10-04 立）。
 
 ### 项目级 rules 的 @ 引用纪律
 
-- `.claude/rules/` 没有按文件名自动加载的机制，文件进入上下文的唯一途径是进入某个 CLAUDE.md：**项目新增 rule 文件 → 同步在项目 CLAUDE.md 加 `@` 引用**（路径 + 一句话摘要）；**删除 rule 文件 → 同步去掉引用**；定期核对两边一致（目录有文件没引用 = 漏加载白写；引用了但没文件 = dangling 引用）。
-- 全局规则只存在于全局 CLAUDE.md（`~/.claude/rules/` 目录已废弃删除）；**新增全局规则直接写入全局 CLAUDE.md 对应章节**。
+- 项目级规则文件没有按文件名自动加载的机制，文件进入上下文的唯一途径是进入某个 CLAUDE.md：**项目新增 rule 文件 → 同步在项目 CLAUDE.md 加 `@` 引用**（路径 + 一句话摘要）；**删除 rule 文件 → 同步去掉引用**；定期核对两边一致（目录有文件没引用 = 漏加载白写；引用了但没文件 = dangling 引用）。
+- 全局规则只存在于全局 CLAUDE.md（rules/ 目录已废弃删除）；**新增全局规则直接写入全局 CLAUDE.md 对应章节**。
 
 ### 中英双语 README 内容自动同步
 
@@ -243,5 +243,5 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 - **检查范围**：该 Agent 负责的子项目清单——各 Agent 项目 `CLAUDE.md` 的「子项目清单」节与全局 `~/.pi/agent/docs/agents-registry.md` 的「子项目映射」表（两者須一致）。
 - **处理方式**：按该仓库自己的流程处理——`/add` 预检 → `/commit`（该链条该 bump / 发版就照常走）；多仓库逐个处理；查不到、拿不准是不是在途 WIP 的，向用户说明后再动。
 - **为什么**：子项目随附版同步、文档补记这类零散改动会长期烂在各个工作区里（2026-10-09 实测：全队 22 个子项目仓库有 16 个不干净，其中 Atlas 名下 8 个只挂着上一轮同步改动未提交）。收尾自检让每个 Agent 交付时，名下所有仓库都处于「干净 + 与远端同步」的终态。
-- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/settle-repo-check.ts`（`agent_settled` 钩子自动巡检本会话所在 Agent 项目的子项目仓库：发现不干净时通知用户，并就同一批不干净仓库向会话注入一次提醒促其处理）；CC 端 Stop hook `~/.claude/hooks/settle-repo-check.py`（同类巡检，未干净时阻断收尾一次、让 Claude 先处理；`stop_hook_active` 时放行防循环）。两端判定逻辑同源（同一个 Python 脚本）。
+- **工具强制**：pi 端扩展 `~/.pi/agent/extensions/settle-repo-check.ts`（`agent_settled` 钩子自动巡检本会话所在 Agent 项目的子项目仓库：发现不干净时通知用户，并就同一批不干净仓库向会话注入一次提醒促其处理；底层调用 `~/.pi/agent/patch/settle-repo-check/settle-repo-check.py`）。
 - **边界**：只查「自己负责的」子项目仓库，不越界去动别人的仓库；临时产物仍放各自项目 `tmp/`（已忽略、不算不干净）；**开发流程中刻意留在工作区的在途改动**（如 dev-workflow 先行的测试产物）不适用本条——本条管的是「任务结束时点」的收尾状态，不是干活过程中的中间态。

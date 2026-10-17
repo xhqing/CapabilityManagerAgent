@@ -281,6 +281,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：镜像与全局逐字节一致（`__pycache__` 已排除）；gitleaks 全绿。
 - **镜像同步**：随本批同步（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；版本 1.5.50 发版。
 
+### 变更（settle-repo-check 脚本归位 + 去 CC 化文本批量）
+
+- **为什么改**：① pi 启动时警告「Global hooks/ directory found. Hooks have been renamed to extensions」——`~/.pi/agent/hooks/` 目录名在 pi 中已废弃，被扩展调用的辅助脚本应统一放 `patch/` 下（对齐 session-sweep 等既有模式）；② 2026-10-17 用户立「去 CC 化」：全局文本中「CC 端实现」的对称叙述改为「pi 端为唯一实现」，`.claude/hooks` 相关改为「历史遗留」。
+- **改了什么**：① settle-repo-check 脚本迁至 `~/.pi/agent/patch/settle-repo-check/settle-repo-check.py`（镜像新增 `claude/patch/settle-repo-check/` 目录），删除全局 `~/.pi/agent/hooks/`，引用全面更新（settle-repo-check 扩展、CLAUDE.md、agents-registry、capability-sync）；② 文本批量：`claude/CLAUDE.md`、docs 三件套、skills（commit / release / dev-workflow 含 references/test-cases、anysearch）、12 个 pi 扩展的注释；③ `capability-sync.md` 口径改为五部分（skills / CLAUDE.md / docs / patch + extensions），`claude/hooks/` 标记为历史遗留、不再维护、不参与逐字节比对。
+- **验证**：五部分 diff 全绿（skills / CLAUDE.md / docs / patch / extensions）；hooks 已从比对范围移除。
+- **镜像同步**：全量覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 委派）；提交经 `/add` → `/commit` 流程执行。
+
 ## 2026-10-15
 
 ### 变更（ai-edit-diff：自己的工具改动不通知自己——四层静默机制）

@@ -23,7 +23,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const SWEEPER = join(homedir(), ".claude", "patch", "session-sweep", "session-sweep.py");
+const SWEEPER = join(homedir(), ".pi", "agent", "patch", "session-sweep", "session-sweep.py");
 const STAMP = join(tmpdir(), "pi-session-sweep.stamp");
 const THROTTLE_S = 600; // 全局节流：10 分钟
 const AUTO_KILL_IDLE_MIN = 360; // 自动清理阈值：空闲 ≥ 6 小时（明显僵尸）

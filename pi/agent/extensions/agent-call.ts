@@ -120,11 +120,11 @@ function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: 
 	}
 
 	// 注册表不可读时的退路：标记文件存在性检查
-	const markers = [join(expanded, "CLAUDE.md"), join(expanded, "AGENTS.md"), join(expanded, ".claude", "CLAUDE.md")];
+	const markers = [join(expanded, "CLAUDE.md"), join(expanded, "AGENTS.md"), join(expanded, ".pi")];
 	if (!markers.some((m) => existsSync(m))) {
 		return {
 			ok: false,
-			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .claude/CLAUDE.md，注册表也读不到）。${expected}`,
+			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .pi，注册表也读不到）。${expected}`,
 		};
 	}
 	return { ok: true };

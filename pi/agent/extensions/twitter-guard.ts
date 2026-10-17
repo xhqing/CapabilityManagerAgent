@@ -1,8 +1,7 @@
 /**
  * X/Twitter 查询账号隔离拦截（pi 端，tool_call 拦截）。
  *
- * 与 ~/.claude/hooks/pre-tool-use-guard.sh 规则 4（CC / Zcode / CodeBuddy /
- * Trae 端共用）的判定逻辑对齐：跑任何 twitter / opencli twitter 命令前必须
+ * 判定逻辑由 pi 端独立维护（2026-10-17 起为唯一实现）：跑任何 twitter / opencli twitter 命令前必须
  * 先加载账号隔离环境（2026-09-23 用户立规，全局 CLAUDE.md 配套工具强制）。
  *
  * 背景：twitter-cli 默认遍历所有 Chrome profile，取第一个有 x.com cookie 的

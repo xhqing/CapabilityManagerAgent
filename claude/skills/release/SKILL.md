@@ -104,7 +104,7 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
        3. 先读项目根 `.commit-cache.md` 的「敏感扫描白名单」段（不存在则跳过）：用户此前明确确认可公开的条目按描述范围跳过，汇报里列一行「白名单跳过」（不静默省略）；范围外照常扫；凭证类实值命中不适用白名单。
      - **`--generate-notes` 来源**：其文本由 GitHub 在创建 Release 时才现场生成——为保持「自检早于公开」的不变量，改用 `gh api repos/<owner>/<repo>/releases/generate-notes -X POST -f tag_name=<tag> -f target_commitish=<sha> --jq .body > tmp/release-notes-check.txt` 先预生成文本 → 自检 → 创建时用 `--notes-file` 传入同一文本（不用 `--generate-notes`）。
      - **命中处理**：**暂停本次发布**（不 tag、不推、不建 Release），报告命中文本、位置（RuleID / 行号 / 片段）与处理建议（改写为中性表述；确认可公开的按白名单格式追加进 `.commit-cache.md`）；用户处理后**重新触发 `/release`** 走完整流程——白名单条目当次追加、下次流程起效（与 `/commit` 的机制一致）。自检通过（含白名单跳过）的，在最终汇报中注明。
-     - **完成后的放行标记（工具强制）**：自检通过后，后续公开命令必须在命令末尾加注释标记 `# AI_SENSITIVE_CHECKED`（第 5-7 步及异常分支的 `git tag -a`、`git push origin <tag>`、`gh release create`、`gh release edit` 都适用）——public-text-guard（pi 端 `~/.pi/agent/extensions/public-text-guard.ts` + CC 端 `~/.claude/hooks/pre-tool-use-guard.sh` 规则 6）对未带此标记的「打 annotated tag / 推送 tag / 创建或编辑 Release」一律 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。标记语义 = 「将公开的文本已检查」，只能在自检通过（或确认文本无敏感）后添加，不得为绕过拦截擅自添加。
+     - **完成后的放行标记（工具强制）**：自检通过后，后续公开命令必须在命令末尾加注释标记 `# AI_SENSITIVE_CHECKED`（第 5-7 步及异常分支的 `git tag -a`、`git push origin <tag>`、`gh release create`、`gh release edit` 都适用）——public-text-guard（pi 端 `~/.pi/agent/extensions/public-text-guard.ts`）对未带此标记的「打 annotated tag / 推送 tag / 创建或编辑 Release」一律 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。标记语义 = 「将公开的文本已检查」，只能在自检通过（或确认文本无敏感）后添加，不得为绕过拦截擅自添加。
 
 5. **打 annotated tag**
    - `git tag -a <tag> -m "<notes 首行>" -m "<body>" # AI_SENSITIVE_CHECKED`（notes 首行 = 概述句英译，与 body 分两个 `-m`；body 多行直接用换行；标记见第 4 步「完成后的放行标记」）。
@@ -146,7 +146,7 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 - GitHub Release 对外内容（Release title / notes、tag message）统一全英文；CHANGELOG 是中文时翻译后使用，不回写源文件。
 - Release title 统一「`<项目名> <版本号>`」格式（如 `zcode-cli 3.8.1-27`）；概述句只作 notes / tag message 正文首行，不作 title。
 - 遇 tag 已存在、工作区脏、CHANGELOG 缺条目、Release 已存在等异常，**暂停询问**，不自行 force push / 删除 / 覆盖。
-- **公开文本发布前必过敏感自检**（第 4 步）：notes / tag message 定稿后先检测再发布，命中即暂停本次发布、处理后重新走完整流程；手写 notes 与 `--generate-notes` 来源不在 `/add` / `/commit` 扫描链内，尤其不能跳过。**由 public-text-guard 工具强制**（pi 端 `public-text-guard.ts` + CC 端 `pre-tool-use-guard.sh` 规则 6，2026-10-03 立）：未带 `# AI_SENSITIVE_CHECKED` 标记的打 tag / 推 tag / `gh release create|edit` 一律被 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。
+- **公开文本发布前必过敏感自检**（第 4 步）：notes / tag message 定稿后先检测再发布，命中即暂停本次发布、处理后重新走完整流程；手写 notes 与 `--generate-notes` 来源不在 `/add` / `/commit` 扫描链内，尤其不能跳过。**由 public-text-guard 工具强制**（pi 端 `public-text-guard.ts`，2026-10-03 立）：未带 `# AI_SENSITIVE_CHECKED` 标记的打 tag / 推 tag / `gh release create|edit` 一律被 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。
 - 预发布必带 `--prerelease` 标记（不带标记会把功能分支版本当作正式版暴露给 latest 指针）；预发布不 bump 版本文件，正式发版时统一 `/bump`。
 - 构建产物上传前确认产物存在；**本地探测为空时按第 7 步做产物核查（以项目声明为准，2026-10-04 修订）**——项目已声明要产物（规则 / 文档 / workflow / 下载链接 / fork upstream 等，见第 7 步）则照常构建上传（需构建时先暂停征得同意）；未声明则默认不带产物、直接发布、不再询问，不以本仓库历史 assets 推断。
 - 临时 notes 文件放 `tmp/` 并清理，不污染项目。

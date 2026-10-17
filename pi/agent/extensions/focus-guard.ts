@@ -26,8 +26,7 @@
  * 逃生门：命令里含标记 `AI_AUTHORIZED_LOCAL_FOCUS`（用户当场明确同意在本机执行
  * 一次抢焦点操作时，经授权后加上）。未获授权不得擅自添加标记。
  *
- * 判定逻辑与 `~/.claude/hooks/pre-tool-use-guard.sh` 规则 9（CC / CodeBuddy 端
- * 共用）同源，两处必须同步改，不能只改一边（「规矩必须配套工具强制」）。
+ * 判定逻辑由 pi 端独立维护（2026-10-17 起为唯一实现；原多端共用 hook 已弃用）。
  *
  * 判定全程防御性 catch：本扩展失灵时不阻塞会话（与 git-commit-guard /
  * version-guard / kdbx-guard 一致）。

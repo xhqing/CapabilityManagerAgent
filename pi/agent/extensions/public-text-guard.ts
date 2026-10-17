@@ -15,8 +15,7 @@
  * 相关命令。commit message 也是公开文本，但敏感性无法从命令行文本自动判定，
  * 由 commit skill「公开文本敏感自检」节的纪律约束，不在本守卫的命令模式内。
  *
- * 与 ~/.claude/hooks/pre-tool-use-guard.sh 规则 6 的判定逻辑对齐（两端同步改，
- * 不能只改一边）。标记 AI_SENSITIVE_CHECKED 表示「将公开的文本已做敏感检查」：
+ * 判定逻辑由 pi 端独立维护（2026-10-17 起为唯一实现）。标记 AI_SENSITIVE_CHECKED 表示「将公开的文本已做敏感检查」：
  * 正式发版按 release skill 第 4 步自检、commit / PR / Issue 按 commit skill 的
  * 「公开文本敏感自检」节执行后再加；其它临时场景至少确认文本无敏感内容。
  * 判定全程防御性 catch：本扩展失灵时不阻塞会话（与其它 guard 一致）。
