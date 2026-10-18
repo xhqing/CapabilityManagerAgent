@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.53] - 2026-10-18
+
+ai-edit-diff 增加可直接键入的 diff 开关命令：`/open-diff`、`/close-diff` 用户命令与 `close_diff` 工具（`open_diff` 抽成共用 `runOpenDiffFlow`）；关闭走「请求 + 确认」协议（close-requests / close-acks，配新建的 VSCode 侧助手扩展 diff-bridge——只关闭左侧为 pi 改动前快照的 diff 标签、静默不抢焦点），并修启用提示缺字。子项目映射同步新增 diff-bridge 行（Kit 名下，本地项目）。详见下方 2026-10-18 分节。
+
 ## [1.5.52] - 2026-10-18
 
 会话生命周期联动（session-link 机制）：本机派活会话关闭 → macmini 上由它派活的任务链自动清上下文重启（链标记 `<!-- pi-chain:<id> -->` + replica 侧链注册 + 级联重置），并加「禁止远端设备派活到本机」的方向守卫；duty.sh 重写为多会话守护（duty.conf 清单 + PID 精确匹配），sync 脚本排除 session-link 状态文件。详见下方 2026-10-18 分节。
@@ -260,6 +264,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **改了什么**：① `claude/CLAUDE.md` 在「跨机协作」节下新增「会话生命周期联动（session-link 机制）」；② `pi/agent/extensions/session-link.ts` 新扩展（链标记 `<!-- pi-chain:<id> -->`、replica 侧链注册 chain-registry、source 侧 session_shutdown 联动 ssh 触发级联重置、replica 侧派活方向守卫）；③ `claude/patch/session-link/chain-reset.sh`（任务链级会话重置脚本）；④ `claude/patch/duty-macmini/` 重写（多会话守护 + duty.conf 5 会话清单 + PID 精确匹配修复 + session-link 排除逻辑）；⑤ `claude/patch/sync-to-macmini/` 排除 session-link 状态文件（config.json / local-links.json / chain-registry.json），镜像 `.gitignore` 加同三项双保险并清掉误同步的 config.json。
 - **验证**：五部分一致（CLAUDE.md / patch / extensions，状态文件按规则排除）；gitleaks 全绿；语义预检无凭证（仅 ssh 别名与路径）。
 - **镜像同步**：随本批同步（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 通告）；版本 1.5.52 发版。
+
+### 变更（ai-edit-diff：新增 /open-diff、/close-diff 命令与 close_diff 工具；配 VSCode 侧助手 diff-bridge）
+
+- **为什么改**：2026-10-18 用户需求——diff 的「打开 / 关闭」升级为可直接键入的命令（`/open-diff`、`/close-diff`），并指出启用提示缺字（「正在干活的会话**会**收到文件变更通知」）。打开此前只有 AI 工具可调（`open_diff`）；关闭在 VSCode 没有官方外部接口（`code` CLI 无子命令、AppleScript 查不了 VSCode 窗口——实测报 -1728、UI 脚本抢焦点），需要 VSCode 内部配合。
+- **改了什么**：① 全局 `~/.pi/agent/extensions/ai-edit-diff.ts`：`open_diff` 工具实现抽成共用流程 `runOpenDiffFlow`，新增 `/open-diff`、`/close-diff` 用户命令与 `close_diff` 工具；关闭走「请求 + 确认」协议——pi 写 `state/ai-edit-diff/close-requests/<id>.json` 并等 `close-acks/<id>-*.json`（首个确认后再等 400ms 收其它窗口、总上限 2 秒），汇总后回报；未装 / 未重载助手扩展时如实报告并提示；新增 `close-requests` / `close-acks` 状态目录与清理逻辑；修提示文案缺字。② 新建 VSCode 侧助手扩展项目 **diff-bridge**（`~/Developer/diff-bridge`，属 Kit 子项目、尚未开源）：每个 VSCode 窗口每 1 秒轮询请求目录，只关闭「左侧 = pi 改动前快照」的 diff 标签（`preserveFocus` 静默、不碰用户自己的对比视图），回写确认；含命令面板兜底命令与 `diff-bridge` 输出渠道；本地打包 vsix 已安装（`xhqing.diff-bridge@0.1.0`，窗口重载后生效）。③ 子项目映射同步：`claude/docs/agents-registry.md` 新增 diff-bridge 行（Kit 名下）、EA 项目「子项目清单」与 CHANGELOG 同步登记。
+- **验证**：VSCode 侧 4 条场景（关闭全部 / 按路径过滤 / 陈旧请求不执行 / 非法请求不崩）与 pi 侧 5 条（注册 / 空候选提示 / 写请求与等待 / 带路径解析 / 模拟确认回报）全部通过（交付前临时验证脚本，正式测试用例归测试 Agent 出题）；两镜像 `diff` 逐字节一致。
+- **回归风险评估**：仅新增（命令 / 工具 / 目录 / 清理），既有行为不动；`open_diff` 工具描述与流程未变（仅内部抽函数）；`close_diff` 列入只读工具集（运行期不抑制通知）。
+- **镜像同步**：`ai-edit-diff.ts`、`docs/agents-registry.md` 两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
 ## 2026-10-17
 
