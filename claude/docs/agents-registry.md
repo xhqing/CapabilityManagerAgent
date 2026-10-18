@@ -78,7 +78,7 @@
 | FullStackEngineerAgent（Atlas） | mp4-player | VSCode 视频播放扩展（上游 Brodazz/mp4-player 的独立仓库：编辑器标签页内带音频播放视频，内置 ffmpeg WebAssembly 做音频解码与格式转码；2026-10-09 移交 Atlas，开发目录 ~/Developer/mp4-player） |
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
 | ExecutiveAssistantAgent（Kit） | copybridge | macOS 剪贴板桥接工具（在 VSCode 资源管理器复制的文件可直接粘贴到 Finder / 微信 / 浏览器等系统任意 App：后台修复 VSCode 私有剪贴板格式；2026-10-08 建立、2026-10-09 登记） |
-| ExecutiveAssistantAgent（Kit） | diff-bridge | pi「改动可视化」的 VSCode 侧助手扩展（配合全局 pi 扩展 diff-view（原名 ai-edit-diff，2026-10-18 改名）：按 pi 的 `/close-diff` 请求静默关闭由 pi 打开的 diff 标签；本地项目 `~/Developer/diff-bridge`，2026-10-18 建立、尚未开源） |
+| ExecutiveAssistantAgent（Kit） | diff-view | pi「改动可视化」完整套件（两个组件都装才完整：**diff-view-pie**＝pi 侧扩展（工具 / 命令 / 变更通知）、**diff-view-vsce**＝VSCode 侧扩展（静默关闭由 pi 打开的 diff 标签）；本地项目 `~/Developer/diff-view`（2026-10-18 建立、原 diff-bridge 项目同日并入整合）、尚未开源） |
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | QuantStrategistAgent（Mark） | Intraday | Mark 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
