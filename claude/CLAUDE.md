@@ -254,7 +254,23 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 - **能力边界**：值班会话具备通用能力（跑命令/脚本/网络任务），**暂不具备「某个具体 agent 的身份与项目环境」**——「唤醒具体 agent 会话」的场景另待扩展（依赖 macmini 上的 tmux 与项目环境部署）。
 - **超时**：ask 默认 120 秒；长任务可在命令里加 `--timeout-ms <毫秒>`，或先用 send 派活、稍后再发 ask 询问进度。
 - **注意**：值班会话的 cwd 是 macmini 的 `~`（无项目上下文）；在 macmini 上产出的文件留在 macmini（本机如需取回需显式回传，如 `scp mac-mini:<路径> <本机路径>`）。
-- **已迁移的 Agent**：**Mark**（量化策略师，含子项目 Intraday / Swing / gridtrader）已于 2026-10-17 整体迁至 macmini（单宿主——本机不再保留活跃副本，已归档 `~/Archive-Migrated/`）。呼叫它：`ssh mac-mini '<pi-intercom 路径> ask --to Mark --text "..."'`（其会话 cwd 在 macmini 的 `~/Developer/QuantStrategistAgent`）。
+- **已迁移的 Agent（macmini 常驻会话清单，2026-10-17 起、launchd 守护）**：**Mark** 全体系已整体迁至 macmini（单宿主——本机不再保留活跃副本，已归档 `~/Archive-Migrated/`）；**5 个会话常驻**（统一 Mark 身份、各驻一个项目；掉线自动重拉；值班会话每 6h 自动重启清上下文、**Mark 系永不重启**——长跑保留全部记忆）：
+
+| 呼叫名（intercom） | 进驻项目（cwd） |
+|---|---|
+| `macmini` | 值班会话（`~`，通用任务） |
+| `Mark` | 主项目 QuantStrategistAgent |
+| `Mark-Intraday` | 子项目 Intraday |
+| `Mark-Swing` | 子项目 Swing |
+| `Mark-gridtrader` | 子项目 gridtrader |
+
+标准呼叫：`ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to <呼叫名> --text "..."'`（send 为不等回复）。
+
+- **会话生命周期联动（session-link 机制，2026-10-17 用户方案）**：**后端会话的清零时机绑定在「本机派活会话的关闭」上**——任务没完成用户不会关本机会话，关了 = 用户判定完成、后端会话自动清上下文重启（继续常驻）。用户零操作，只管开关自己的会话。
+  - **机制**：一次派活 = 一条**链**。本机（source）生成链 ID 并注入派活消息（`<!-- pi-chain:xxx -->`）；macmini（replica）会话从收件继承链、继续向下透传；每个环节（含只收指令的末端会话）自动登记进链注册表。
+  - **联动**：本机会话关闭（Ctrl+C / 关窗口 / 退出，不含扩展重载）→ 自动 ssh 通知 macmini → 把该链上全部会话 kill + 立刻重拉（清上下文、保持常驻）——含 macmini 上派生的子会话（级联）。
+  - **方向守卫**：macmini（replica）**禁止跨机出站派活**（目标限 macmini 本地会话清单，从 duty.conf 读）——远端设备不得利用本机资源跑后端进程（2026-10-17 用户立）。本机的互通派活不受限。
+  - **配置**：角色按 hostname 自动判定（Mac-mini → replica，其余 → source），`patch/session-link/` 下的 config / 注册表 / 日志**不参与两机同步**（两端内容不同）。
 
 ### 会话收尾检查：负责的子项目仓库必须干净（2026-10-09 用户立）
 
