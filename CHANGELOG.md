@@ -273,6 +273,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：仅新增（命令 / 工具 / 目录 / 清理），既有行为不动；`open_diff` 工具描述与流程未变（仅内部抽函数）；`close_diff` 列入只读工具集（运行期不抑制通知）。
 - **镜像同步**：`ai-edit-diff.ts`、`docs/agents-registry.md` 两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（ai-edit-diff：取消会话启动时的「已启用改动可视化」提示）
+
+- **为什么改**：2026-10-18 用户反馈——每次会话启动都弹一条「已启用『改动可视化』……」的说明太吵，不需要这条提示。
+- **改了什么**：全局 `~/.pi/agent/extensions/ai-edit-diff.ts` 删除 `session_start` 里的启动通知（`ctx.ui.notify(...)` 三行），并补文件头改造记录；功能本身（变更通知 / `open_diff` / `/open-diff` / `/close-diff`）不受影响，只是不再在启动时提示。
+- **回归风险评估**：仅删一条纯 UI 提示，不涉及任何机制逻辑；[1.5.53] 那条「修启用提示缺字」随本条一并作废（提示已不存在）。
+- **镜像同步**：`ai-edit-diff.ts` 覆盖至 `pi/agent/extensions/`（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-17
 
 ### 变更（channels-watch 退役：从注册表移除）

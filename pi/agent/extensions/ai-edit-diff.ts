@@ -102,6 +102,8 @@
  *         · diff-bridge 在每个 VSCode 窗口内轮询请求目录，只关闭「左 = 本扩展快照」的 diff
  *           标签（preserveFocus 静默关闭；不碰用户自己的对比视图与普通编辑器），处理完回写确认。
  *       未安装 / 未重载 diff-bridge 不静默失败：命令会如实报告「未收到确认」并给出处理办法。
+ * 改造：2026-10-18（用户需求：**取消会话启动时的「已启用改动可视化」提示**——不再在每次会话
+ *       启动时弹那条说明；功能照常运行，用到时按需调用工具/命令即可）。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -1336,9 +1338,6 @@ export default function (pi: ExtensionAPI) {
     // （等用户输入），检测到变更也不发通知（2026-10-14 起）
     poll();
     pollTimer = setInterval(poll, POLL_MS);
-    if (ctx?.ui?.notify) {
-      ctx.ui.notify("已启用「改动可视化」：正在干活的会话会收到文件变更通知（自己的工具改动除外；已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 或 /open-diff 查看、/close-diff 关闭。", "info");
-    }
   });
 
   pi.on("session_shutdown", async () => {
