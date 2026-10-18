@@ -3,7 +3,9 @@
  *
  * 功能：
  *  A) AI 改动 → 登记「改动前快照」（默认不打开任何窗口、不打扰）；用户需要时由 AI 调用
- *     `open_diff` 按需打开 diff（左：改动前快照 / 右：当前内容；先选文件与 VSCode 窗口、经用户确认）。
+ *     `open_diff` 按需打开 diff（左：改动前快照 / 右：当前内容；先选文件与 VSCode 窗口、经用户确认）
+ *     ——2026-10-18 起也可直接键入 `/open-diff` 打开、`/close-diff` 关闭（关闭经 VSCode 侧助手
+ *     diff-bridge 执行，协议见文末改造说明）。
  *  B) 文件变更通知 → 任何来源的变更（用户手动改 / 某个会话改），都会通知给**正在干活
  *     （任务进行中）且碰过该文件的会话**（前台与后台一视同仁），让每个会话都及时更新对该
  *     文件的最新认知；通知附带变更来源、「改动前快照」与「相关性判断依据」（文件名 / 文件
@@ -87,6 +89,19 @@
  *       撤销窗口。
  *       边界：窗口内落在目标目录里的外部改动（用户 / 其它会话）也会被一并静默——与工具运行
  *       窗口同源的取舍，窗口有上限（默认 24 小时 / 活动后 30 分钟）、且只作用于该目录。
+ * 改造：2026-10-18（用户需求：「打开 diff / 关闭 diff」升级为可直接键入的命令——新增
+ *       `/open-diff`、`/close-diff` 两个用户命令与 `close_diff` 工具；原 open_diff 工具实现
+ *       抽成共用流程（选文件 / 选窗口 / 差异预检 / 确认后打开，命令与工具同一套）。
+ *       关闭机制：VSCode 没有「从外部关闭标签页」的官方接口——CLI 无相关子命令，AppleScript
+ *       不支持查询 VSCode 窗口（实测报 -1728 Can't get name of every window），UI 脚本又会抢
+ *       焦点。因此走「请求文件 + 确认文件」协议，与 VSCode 侧助手扩展 diff-bridge（独立项目
+ *       ~/Developer/diff-bridge）协作：
+ *         · pi 写 close-requests/<id>.json（含要关闭的路径，空 = 全部由本扩展打开的 diff），
+ *           等 close-acks/<id>-*.json 确认（首个确认后再等 400ms 收其它窗口、总上限 2 秒），
+ *           汇总各窗口关闭数量后回报用户；
+ *         · diff-bridge 在每个 VSCode 窗口内轮询请求目录，只关闭「左 = 本扩展快照」的 diff
+ *           标签（preserveFocus 静默关闭；不碰用户自己的对比视图与普通编辑器），处理完回写确认。
+ *       未安装 / 未重载 diff-bridge 不静默失败：命令会如实报告「未收到确认」并给出处理办法。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -103,6 +118,10 @@ const SNAP_DIR = path.join(STATE_DIR, "snapshots");    // 改动前快照
 const META_DIR = path.join(STATE_DIR, "meta");         // 每个文件的最新变更记录（共享）
 const TOUCH_DIR = path.join(STATE_DIR, "touched");     // 每个会话碰过的文件（会话私有）
 const CLAIM_DIR = path.join(STATE_DIR, "claims");      // 会话工具的短时声明（归因用）
+const CLOSE_REQ_DIR = path.join(STATE_DIR, "close-requests"); // 「关闭这些 diff」请求（/close-diff 写、VSCode 侧 diff-bridge 处理）
+const CLOSE_ACK_DIR = path.join(STATE_DIR, "close-acks");     // VSCode 侧处理完的确认（含关闭数量）
+const VSCODE_EXT_DIR = path.join(os.homedir(), ".vscode", "extensions"); // 仅用于「diff-bridge 是否安装」的提示判断
+const CLOSE_FILE_KEEP_MS = 10 * 60 * 1000; // 关闭请求 / 确认文件的清理期（防止无人处理时无限堆积）
 
 const TEXT_EXT = new Set([
   ".md", ".txt", ".json", ".jsonl", ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs",
@@ -131,7 +150,7 @@ const SNAP_KEEP_MS = 30 * 24 * 3600 * 1000; // 快照保留期（更早的清掉
 const BG_SUPPRESS_MAX_MS = 10 * 60 * 1000;  // 「自己的后台任务」静默窗口上限（超过恢复正常通知）
 const RUN_STALE_MS = 3 * 3600 * 1000;       // 工具运行登记的最大存活期（防 tool_execution_end 丢失泄漏）
 /** 只读工具：其运行期间检测到的变更一律视为外部（不静默吞掉），也不参与收尾清扫。 */
-const READONLY_TOOLS = new Set(["read", "open_diff", "background_list", "background_stop", "agent_call", "agent_wake", "intercom"]);
+const READONLY_TOOLS = new Set(["read", "open_diff", "close_diff", "background_list", "background_stop", "agent_call", "agent_wake", "intercom"]);
 const DELEGATE_MAX_MS = Math.max(1_000, Number(process.env.AI_EDIT_DIFF_DELEGATE_MS) || 24 * 3600 * 1000);       // 委派窗口上限（默认 24 小时——对方可能隔夜才处理，2026-10-15 实测 10 小时后才动工）
 const DELEGATE_IDLE_MS = Math.max(500, Number(process.env.AI_EDIT_DIFF_DELEGATE_IDLE_MS) || 30 * 60 * 1000);    // 见到对方活动后，安静这么久即关窗（默认 30 分钟）
 const DELEGATE_GRACE_MS = Math.max(500, Number(process.env.AI_EDIT_DIFF_DELEGATE_GRACE_MS) || 30 * 60 * 1000); // 阻塞式委派返回后的尾随静默（默认 30 分钟）
@@ -1085,7 +1104,136 @@ export default function (pi: ExtensionAPI) {
     } catch {}
   });
 
-  // ===== 工具：open_diff —— 按需打开改动 diff（询问选择 + 授权后打开） =====
+  // ===== 工具与命令：open_diff / close_diff（/open-diff、/close-diff 可直接键入） =====
+  // 2026-10-18 增：打开 / 关闭各配一个工具（供 AI 按需调用）与一个用户命令（直接键入，不绕模型）。
+  // 关闭走「请求 + 确认」协议与 VSCode 侧助手扩展 diff-bridge 协作，机制见文件头改造说明。
+
+  /** 打开 diff 的完整流程（选文件 → 选窗口 → 差异预检 → 确认 → 打开）：open_diff 工具与 /open-diff 命令共用。 */
+  async function runOpenDiffFlow(params: { path?: string }, ctx: any): Promise<string> {
+    if (!ctx?.hasUI) {
+      return "当前会话没有可交互界面（需要 TUI 会话），无法进行选择与授权，未打开。";
+    }
+
+    // 候选：最近登记（跨轮）+ 进行中本轮（优先），去重、新在前
+    const merged = new Map<string, { path: string; snap: string; at: number }>();
+    for (const r of recentChanges) if (!merged.has(r.path)) merged.set(r.path, r);
+    for (const [p, snap] of roundChanges) merged.set(p, { path: p, snap, at: Date.now() });
+    const candidates = [...merged.values()].sort((a, b) => b.at - a.at);
+    if (candidates.length === 0) {
+      return "最近没有记录到可查看的改动（每个文件需先有一次「改动前快照」）。";
+    }
+
+    // ① 选文件
+    let target: { path: string; snap: string; at: number };
+    const wanted = params.path ? path.resolve(ctx.cwd, params.path) : "";
+    if (wanted) {
+      const hit = candidates.find((c) => c.path === wanted);
+      if (!hit) return `该文件不在最近的改动记录中：${wanted}`;
+      target = hit;
+    } else if (candidates.length === 1) {
+      target = candidates[0]!;
+    } else {
+      const labels = candidates.map((c) => `${path.basename(c.path)} — ${c.path}`);
+      const pick = await ctx.ui.select("打开哪个文件的 diff？（左：改动前快照 / 右：当前内容）", labels);
+      if (!pick) return "已取消。";
+      target = candidates[labels.indexOf(pick)]!;
+    }
+
+    // ② 列窗口（确保有可用的目标窗口）
+    const windows = listVSCodeWindows();
+    if (windows.length === 0) {
+      return "未发现打开着工作区文件夹的 VSCode 窗口，无法定位打开位置。";
+    }
+    let win = windows[0]!;
+    if (windows.length > 1) {
+      const counts = new Map<string, number>();
+      for (const w of windows) counts.set(w.name, (counts.get(w.name) ?? 0) + 1);
+      const labels = windows.map((w) => ((counts.get(w.name) ?? 0) > 1 ? `${w.name} — ${w.folder}` : w.name));
+      const pick = await ctx.ui.select("在哪个 VSCode 窗口打开 diff？", labels);
+      if (!pick) return "已取消。";
+      win = windows[labels.indexOf(pick)]!;
+    }
+
+    // ③ 差异预检（无差异 / 文件不可读时提前返回，不打扰用户）
+    const current = (() => { try { return fs.readFileSync(target.path, "utf-8"); } catch { return null; } })();
+    if (current === null) {
+      return `目标文件当前无法读取（可能已删除）：${target.path}`;
+    }
+    const snapContent = readSnapshot(target.snap);
+    if (snapContent !== null && snapContent === current) {
+      return "当前内容与改动前快照一致（无差异），未打开窗口。";
+    }
+
+    // ④ 用户确认授权
+    const ok = await ctx.ui.confirm(
+      "打开 diff 视图？",
+      `窗口：${win.name}（${win.folder}）\n文件：${target.path}\n左：改动前快照 / 右：当前内容`,
+    );
+    if (!ok) return "已取消（未获授权，未打开）。";
+
+    // ⑤ 打开
+    const res = await openDiffInWindow(win.uri, target.snap, target.path);
+    if (!res.ok) return `打开失败：${res.err}`;
+    return `已在窗口「${win.name}」打开 ${path.basename(target.path)} 的 diff 视图。`;
+  }
+
+  /** 清理过期的关闭请求 / 确认文件（没人处理时也不会无限堆积）。 */
+  function gcCloseFiles() {
+    const cutoff = Date.now() - CLOSE_FILE_KEEP_MS;
+    for (const dir of [CLOSE_REQ_DIR, CLOSE_ACK_DIR]) {
+      try {
+        for (const f of fs.readdirSync(dir)) {
+          try { if (fs.statSync(path.join(dir, f)).mtimeMs < cutoff) fs.unlinkSync(path.join(dir, f)); } catch {}
+        }
+      } catch {}
+    }
+  }
+
+  /**
+   * 请求关闭 diff 视图：写请求文件 → 等 VSCode 侧 diff-bridge 处理并回写确认（最多约 2 秒）。
+   * @param paths 要关闭的文件（绝对路径）；空数组 = 关闭全部由本扩展打开过的 diff。
+   * @returns 给用户看的说明文字（成功 / 未收到确认 / 失败）。
+   */
+  async function requestCloseDiff(paths: string[]): Promise<string> {
+    const id = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    try {
+      fs.mkdirSync(CLOSE_REQ_DIR, { recursive: true });
+      fs.writeFileSync(path.join(CLOSE_REQ_DIR, `${id}.json`), JSON.stringify({ id, ts: Date.now(), paths }), "utf-8");
+    } catch (e) {
+      return `写入关闭请求失败：${String(e)}`;
+    }
+    // 等确认：首个确认到达后再给 400ms 收其它窗口的确认；总上限 2 秒
+    const hardUntil = Date.now() + 2000;
+    let graceUntil = 0;
+    let closed = 0;
+    let acks = 0;
+    const seen = new Set<string>();
+    while (Date.now() < (graceUntil || hardUntil)) {
+      try {
+        for (const f of fs.readdirSync(CLOSE_ACK_DIR)) {
+          if (!f.endsWith(".json") || !f.startsWith(id) || seen.has(f)) continue;
+          seen.add(f);
+          acks += 1;
+          try {
+            const a = JSON.parse(fs.readFileSync(path.join(CLOSE_ACK_DIR, f), "utf-8"));
+            closed += Number(a?.closed) || 0;
+          } catch {}
+          if (!graceUntil) graceUntil = Date.now() + 400;
+        }
+      } catch {}
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    gcCloseFiles();
+    if (acks === 0) {
+      let installed = false;
+      try { installed = fs.readdirSync(VSCODE_EXT_DIR).some((d) => d.startsWith("xhqing.diff-bridge")); } catch {}
+      return installed
+        ? "关闭请求已发出，但未收到 VSCode 侧确认——diff-bridge 可能尚未生效（安装 / 更新后需在 VSCode 中重载窗口再试）。"
+        : "关闭请求已发出，但没有窗口响应——VSCode 侧助手 diff-bridge 扩展未安装（装好并重载窗口后即可用）。";
+    }
+    return `已关闭 ${closed} 个 diff 标签（${acks} 个 VSCode 窗口响应）。`;
+  }
+
   pi.registerTool({
     name: "open_diff",
     label: "打开改动 Diff",
@@ -1103,75 +1251,46 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (!ctx?.hasUI) {
-        return { content: [{ type: "text", text: "当前会话没有可交互界面（需要 TUI 会话），无法进行选择与授权，未打开。" }] };
-      }
+      return { content: [{ type: "text", text: await runOpenDiffFlow(params, ctx) }] };
+    },
+  });
 
-      // 候选：最近登记（跨轮）+ 进行中本轮（优先），去重、新在前
-      const merged = new Map<string, { path: string; snap: string; at: number }>();
-      for (const r of recentChanges) if (!merged.has(r.path)) merged.set(r.path, r);
-      for (const [p, snap] of roundChanges) merged.set(p, { path: p, snap, at: Date.now() });
-      const candidates = [...merged.values()].sort((a, b) => b.at - a.at);
-      if (candidates.length === 0) {
-        return { content: [{ type: "text", text: "最近没有记录到可查看的改动（每个文件需先有一次「改动前快照」）。" }] };
-      }
+  pi.registerTool({
+    name: "close_diff",
+    label: "关闭改动 Diff",
+    description:
+      "关闭由本扩展（open_diff / /open-diff）打开过的 diff 视图（VSCode 标签页）。不指定 path 时关闭全部；" +
+      "只关闭「左 = 改动前快照」的 diff 标签——不会碰用户自己开的对比视图与普通编辑器。" +
+      "依赖 VSCode 侧助手扩展 diff-bridge，经「请求 + 确认」协议执行（最多等 2 秒）。",
+    promptSnippet: "Close diff views previously opened by open_diff in VSCode (delegates to the diff-bridge helper extension)",
+    promptGuidelines: [
+      "Use close_diff when the user asks to close diff views (e.g. 「把 diff 关掉」「关闭刚才打开的 diff」). It only closes diffs opened by this extension, never user-opened comparison views.",
+    ],
+    parameters: Type.Object({
+      path: Type.Optional(
+        Type.String({ description: "只关闭该文件的 diff（绝对路径或相对当前目录）；省略时关闭全部由本扩展打开的 diff。" }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const paths = params.path ? [path.resolve(ctx.cwd, params.path)] : [];
+      return { content: [{ type: "text", text: await requestCloseDiff(paths) }] };
+    },
+  });
 
-      // ① 选文件
-      let target: { path: string; snap: string; at: number };
-      const wanted = params.path ? path.resolve(ctx.cwd, params.path) : "";
-      if (wanted) {
-        const hit = candidates.find((c) => c.path === wanted);
-        if (!hit) {
-          return { content: [{ type: "text", text: `该文件不在最近的改动记录中：${wanted}` }] };
-        }
-        target = hit;
-      } else if (candidates.length === 1) {
-        target = candidates[0]!;
-      } else {
-        const labels = candidates.map((c) => `${path.basename(c.path)} — ${c.path}`);
-        const pick = await ctx.ui.select("打开哪个文件的 diff？（左：改动前快照 / 右：当前内容）", labels);
-        if (!pick) return { content: [{ type: "text", text: "已取消。" }] };
-        target = candidates[labels.indexOf(pick)]!;
-      }
-
-      // ② 列窗口（确保有可用的目标窗口）
-      const windows = listVSCodeWindows();
-      if (windows.length === 0) {
-        return { content: [{ type: "text", text: "未发现打开着工作区文件夹的 VSCode 窗口，无法定位打开位置。" }] };
-      }
-      let win = windows[0]!;
-      if (windows.length > 1) {
-        const counts = new Map<string, number>();
-        for (const w of windows) counts.set(w.name, (counts.get(w.name) ?? 0) + 1);
-        const labels = windows.map((w) => ((counts.get(w.name) ?? 0) > 1 ? `${w.name} — ${w.folder}` : w.name));
-        const pick = await ctx.ui.select("在哪个 VSCode 窗口打开 diff？", labels);
-        if (!pick) return { content: [{ type: "text", text: "已取消。" }] };
-        win = windows[labels.indexOf(pick)]!;
-      }
-
-      // ③ 差异预检（无差异 / 文件不可读时提前返回，不打扰用户）
-      const current = (() => { try { return fs.readFileSync(target.path, "utf-8"); } catch { return null; } })();
-      if (current === null) {
-        return { content: [{ type: "text", text: `目标文件当前无法读取（可能已删除）：${target.path}` }] };
-      }
-      const snapContent = readSnapshot(target.snap);
-      if (snapContent !== null && snapContent === current) {
-        return { content: [{ type: "text", text: "当前内容与改动前快照一致（无差异），未打开窗口。" }] };
-      }
-
-      // ④ 用户确认授权
-      const ok = await ctx.ui.confirm(
-        "打开 diff 视图？",
-        `窗口：${win.name}（${win.folder}）\n文件：${target.path}\n左：改动前快照 / 右：当前内容`,
-      );
-      if (!ok) return { content: [{ type: "text", text: "已取消（未获授权，未打开）。" }] };
-
-      // ⑤ 打开
-      const res = await openDiffInWindow(win.uri, target.snap, target.path);
-      if (!res.ok) {
-        return { content: [{ type: "text", text: `打开失败：${res.err}` }] };
-      }
-      return { content: [{ type: "text", text: `已在窗口「${win.name}」打开 ${path.basename(target.path)} 的 diff 视图。` }] };
+  // 用户命令（2026-10-18 增）：直接键入 /open-diff、/close-diff 执行，不绕模型。
+  pi.registerCommand("open-diff", {
+    description: "打开最近改动的 diff（选文件与 VSCode 窗口，确认后打开）",
+    handler: async (args: string, ctx: any) => {
+      const text = await runOpenDiffFlow({ path: args?.trim() || undefined }, ctx);
+      try { ctx?.ui?.notify?.(text, "info"); } catch {}
+    },
+  });
+  pi.registerCommand("close-diff", {
+    description: "关闭由 pi 打开的 diff 标签（VSCode 侧 diff-bridge 执行）",
+    handler: async (args: string, ctx: any) => {
+      const paths = args?.trim() ? [path.resolve(ctx?.cwd ?? process.cwd(), args.trim())] : [];
+      const text = await requestCloseDiff(paths);
+      try { ctx?.ui?.notify?.(text, "info"); } catch {}
     },
   });
 
@@ -1201,7 +1320,7 @@ export default function (pi: ExtensionAPI) {
     if (!sessionId) sessionId = `pid-${process.pid}`;
     try { sessionCwd = String(ctx?.cwd ?? process.cwd()); } catch {}
     latestCtx = ctx ?? null; // 保存 ctx：轮询检测到变更时用 ctx.isIdle() 判断会话是否「任务进行中」
-    for (const d of [MIRROR_DIR, SNAP_DIR, META_DIR, TOUCH_DIR, CLAIM_DIR]) {
+    for (const d of [MIRROR_DIR, SNAP_DIR, META_DIR, TOUCH_DIR, CLAIM_DIR, CLOSE_REQ_DIR, CLOSE_ACK_DIR]) {
       try { fs.mkdirSync(d, { recursive: true }); } catch {}
     }
     // 轻量 GC：清掉超过保留期的旧快照（meta 里的老引用已无意义）
@@ -1218,7 +1337,7 @@ export default function (pi: ExtensionAPI) {
     poll();
     pollTimer = setInterval(poll, POLL_MS);
     if (ctx?.ui?.notify) {
-      ctx.ui.notify("已启用「改动可视化」：正在干活的会话收到文件变更通知（自己的工具改动除外；已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 按需查看 diff。", "info");
+      ctx.ui.notify("已启用「改动可视化」：正在干活的会话会收到文件变更通知（自己的工具改动除外；已完成任务、等用户的会话不打扰）；AI 改动可用 open_diff 或 /open-diff 查看、/close-diff 关闭。", "info");
     }
   });
 
