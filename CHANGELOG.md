@@ -288,6 +288,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：纯改名与引用同步，无逻辑改动；`diff -q` 两镜像逐字节一致；全局无其他代码引用旧文件名。
 - **镜像同步**：`diff-view.ts`（新）、`docs/agents-registry.md`、`docs/capability-sync.md` 三处覆盖至镜像；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（diff-view 整合：pi 侧组件源码迁入项目仓库，全局副本转为 install.sh 部署）
+
+- **为什么改**：2026-10-18 用户决定——pi 侧扩展与 VSCode 侧扩展（原 diff-bridge）本是一个功能，整合进同一个项目 `diff-view`（Kit 名下子项目），下设 `diff-view-pie`（pi 侧）、`diff-view-vsce`（VSCode 侧）两个组件，都安装才是完整功能。
+- **改了什么**：① 全局 `~/.pi/agent/extensions/diff-view.ts` 的源头迁至项目 `~/Developer/diff-view/diff-view-pie/diff-view.ts`（全局那份自此为 install.sh 部署副本；本批内容改动：`diff-bridge` → `diff-view-vsce` 名称引用、VSCode 扩展检测前缀改 `xhqing.diff-view-vsce`、头部新增归属与整合说明）；② `claude/docs/agents-registry.md` 子项目行更名（diff-bridge → diff-view，含两组件说明）；③ `claude/docs/capability-sync.md` 新增「特例：`diff-view.ts` 的源头在项目侧（2026-10-18 立）」一条；④ 镜像 `pi/agent/extensions/diff-view.ts` 随全局副本同步。
+- **回归风险评估**：纯整合 + 名称 / 路径引用更新，无协议改动（状态目录 `state/ai-edit-diff/` 与环境变量 `AI_EDIT_DIFF_*` 有意保持，两侧组件都指向它们）；两镜像 `diff` 逐字节一致。
+- **镜像同步**：`diff-view.ts`、`docs/agents-registry.md`、`docs/capability-sync.md` 三处覆盖；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-17
 
 ### 变更（channels-watch 退役：从注册表移除）

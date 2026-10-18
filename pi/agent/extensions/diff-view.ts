@@ -2,12 +2,15 @@
  * diff-view.ts（原 ai-edit-diff.ts，2026-10-18 改名）— 通用「改动可视化 / 跨会话双向知情」扩展（与 git 无关）。
  * 定位：独立于 git 的「文件内容 diff 视图」——改动来源不限（AI 编辑 / 用户手改 / 其它会话 / 脚本），
  * 一律以「改动前快照 ↔ 当前内容」的形式按需查看；不依赖版本控制、不要求仓库干净。
+ * 归属：本文件是 diff-view 项目（~/Developer/diff-view）的 pi 侧组件（diff-view-pie）；
+ * 部署副本位于 ~/.pi/agent/extensions/diff-view.ts（由项目 install.sh 拷贝，勿直接改副本）；
+ * 完整功能需同时安装 VSCode 侧组件（diff-view-vsce）——两者都装才是完整功能，见项目 README。
  *
  * 功能：
  *  A) AI 改动 → 登记「改动前快照」（默认不打开任何窗口、不打扰）；用户需要时由 AI 调用
  *     `open_diff` 按需打开 diff（左：改动前快照 / 右：当前内容；先选文件与 VSCode 窗口、经用户确认）
  *     ——2026-10-18 起也可直接键入 `/open-diff` 打开、`/close-diff` 关闭（关闭经 VSCode 侧助手
- *     diff-bridge 执行，协议见文末改造说明）。
+ *     diff-view-vsce 执行，协议见文末改造说明）。
  *  B) 文件变更通知 → 任何来源的变更（用户手动改 / 某个会话改），都会通知给**正在干活
  *     （任务进行中）且碰过该文件的会话**（前台与后台一视同仁），让每个会话都及时更新对该
  *     文件的最新认知；通知附带变更来源、「改动前快照」与「相关性判断依据」（文件名 / 文件
@@ -96,21 +99,24 @@
  *       抽成共用流程（选文件 / 选窗口 / 差异预检 / 确认后打开，命令与工具同一套）。
  *       关闭机制：VSCode 没有「从外部关闭标签页」的官方接口——CLI 无相关子命令，AppleScript
  *       不支持查询 VSCode 窗口（实测报 -1728 Can't get name of every window），UI 脚本又会抢
- *       焦点。因此走「请求文件 + 确认文件」协议，与 VSCode 侧助手扩展 diff-bridge（独立项目
- *       ~/Developer/diff-bridge）协作：
+ *       焦点。因此走「请求文件 + 确认文件」协议，与 VSCode 侧组件 diff-view-vsce（同项目
+ *       diff-view，原独立项目 diff-bridge）协作：
  *         · pi 写 close-requests/<id>.json（含要关闭的路径，空 = 全部由本扩展打开的 diff），
  *           等 close-acks/<id>-*.json 确认（首个确认后再等 400ms 收其它窗口、总上限 2 秒），
  *           汇总各窗口关闭数量后回报用户；
- *         · diff-bridge 在每个 VSCode 窗口内轮询请求目录，只关闭「左 = 本扩展快照」的 diff
+ *         · diff-view-vsce 在每个 VSCode 窗口内轮询请求目录，只关闭「左 = 本扩展快照」的 diff
  *           标签（preserveFocus 静默关闭；不碰用户自己的对比视图与普通编辑器），处理完回写确认。
- *       未安装 / 未重载 diff-bridge 不静默失败：命令会如实报告「未收到确认」并给出处理办法。
+ *       未安装 / 未重载 diff-view-vsce 不静默失败：命令会如实报告「未收到确认」并给出处理办法。
  * 改造：2026-10-18（用户需求：**取消会话启动时的「已启用改动可视化」提示**——不再在每次会话
  *       启动时弹那条说明；功能照常运行，用到时按需调用工具/命令即可）。
  * 改名：2026-10-18（用户指出原名不严谨——「ai-edit-diff」把范围说窄成「AI 编辑产生的 diff」，
  *       而用户编辑同样产生 diff，实际定位是「独立于 git 的文件内容 diff 视图」；据此更名为
  *       `diff-view.ts`。内部状态目录（`state/ai-edit-diff/`）与环境变量名（`AI_EDIT_DIFF_*`）
- *       保持不动——已装的 VSCode 侧 diff-bridge 与正在运行的会话都指向它们，动了会打断协作；
+ *       保持不动——已装的 VSCode 侧 diff-view-vsce 与正在运行的会话都指向它们，动了会打断协作；
  *       这些属内部管道、不影响对外语义）。
+ * 整合：2026-10-18（用户需求：pi 侧与 VSCode 侧本是一个功能，应放同一项目——整合为 diff-view 项目，
+ *       下设两个组件：diff-view-pie（本文件，pi 侧扩展）与 diff-view-vsce（VSCode 侧扩展，
+ *       原独立项目 diff-bridge 并入）；两者都安装才是完整功能，见项目 README）。
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -127,9 +133,9 @@ const SNAP_DIR = path.join(STATE_DIR, "snapshots");    // 改动前快照
 const META_DIR = path.join(STATE_DIR, "meta");         // 每个文件的最新变更记录（共享）
 const TOUCH_DIR = path.join(STATE_DIR, "touched");     // 每个会话碰过的文件（会话私有）
 const CLAIM_DIR = path.join(STATE_DIR, "claims");      // 会话工具的短时声明（归因用）
-const CLOSE_REQ_DIR = path.join(STATE_DIR, "close-requests"); // 「关闭这些 diff」请求（/close-diff 写、VSCode 侧 diff-bridge 处理）
+const CLOSE_REQ_DIR = path.join(STATE_DIR, "close-requests"); // 「关闭这些 diff」请求（/close-diff 写、VSCode 侧 diff-view-vsce 处理）
 const CLOSE_ACK_DIR = path.join(STATE_DIR, "close-acks");     // VSCode 侧处理完的确认（含关闭数量）
-const VSCODE_EXT_DIR = path.join(os.homedir(), ".vscode", "extensions"); // 仅用于「diff-bridge 是否安装」的提示判断
+const VSCODE_EXT_DIR = path.join(os.homedir(), ".vscode", "extensions"); // 仅用于「diff-view-vsce 是否安装」的提示判断
 const CLOSE_FILE_KEEP_MS = 10 * 60 * 1000; // 关闭请求 / 确认文件的清理期（防止无人处理时无限堆积）
 
 const TEXT_EXT = new Set([
@@ -1115,7 +1121,7 @@ export default function (pi: ExtensionAPI) {
 
   // ===== 工具与命令：open_diff / close_diff（/open-diff、/close-diff 可直接键入） =====
   // 2026-10-18 增：打开 / 关闭各配一个工具（供 AI 按需调用）与一个用户命令（直接键入，不绕模型）。
-  // 关闭走「请求 + 确认」协议与 VSCode 侧助手扩展 diff-bridge 协作，机制见文件头改造说明。
+  // 关闭走「请求 + 确认」协议与 VSCode 侧组件 diff-view-vsce 协作，机制见文件头改造说明。
 
   /** 打开 diff 的完整流程（选文件 → 选窗口 → 差异预检 → 确认 → 打开）：open_diff 工具与 /open-diff 命令共用。 */
   async function runOpenDiffFlow(params: { path?: string }, ctx: any): Promise<string> {
@@ -1199,7 +1205,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   /**
-   * 请求关闭 diff 视图：写请求文件 → 等 VSCode 侧 diff-bridge 处理并回写确认（最多约 2 秒）。
+   * 请求关闭 diff 视图：写请求文件 → 等 VSCode 侧 diff-view-vsce 处理并回写确认（最多约 2 秒）。
    * @param paths 要关闭的文件（绝对路径）；空数组 = 关闭全部由本扩展打开过的 diff。
    * @returns 给用户看的说明文字（成功 / 未收到确认 / 失败）。
    */
@@ -1235,10 +1241,10 @@ export default function (pi: ExtensionAPI) {
     gcCloseFiles();
     if (acks === 0) {
       let installed = false;
-      try { installed = fs.readdirSync(VSCODE_EXT_DIR).some((d) => d.startsWith("xhqing.diff-bridge")); } catch {}
+      try { installed = fs.readdirSync(VSCODE_EXT_DIR).some((d) => d.startsWith("xhqing.diff-view-vsce")); } catch {}
       return installed
-        ? "关闭请求已发出，但未收到 VSCode 侧确认——diff-bridge 可能尚未生效（安装 / 更新后需在 VSCode 中重载窗口再试）。"
-        : "关闭请求已发出，但没有窗口响应——VSCode 侧助手 diff-bridge 扩展未安装（装好并重载窗口后即可用）。";
+        ? "关闭请求已发出，但未收到 VSCode 侧确认——diff-view-vsce 可能尚未生效（安装 / 更新后需在 VSCode 中重载窗口再试）。"
+        : "关闭请求已发出，但没有窗口响应——VSCode 侧组件 diff-view-vsce 未安装（装好并重载窗口后即可用）。";
     }
     return `已关闭 ${closed} 个 diff 标签（${acks} 个 VSCode 窗口响应）。`;
   }
@@ -1270,8 +1276,8 @@ export default function (pi: ExtensionAPI) {
     description:
       "关闭由本扩展（open_diff / /open-diff）打开过的 diff 视图（VSCode 标签页）。不指定 path 时关闭全部；" +
       "只关闭「左 = 改动前快照」的 diff 标签——不会碰用户自己开的对比视图与普通编辑器。" +
-      "依赖 VSCode 侧助手扩展 diff-bridge，经「请求 + 确认」协议执行（最多等 2 秒）。",
-    promptSnippet: "Close diff views previously opened by open_diff in VSCode (delegates to the diff-bridge helper extension)",
+      "依赖 VSCode 侧组件 diff-view-vsce，经「请求 + 确认」协议执行（最多等 2 秒）。",
+    promptSnippet: "Close diff views previously opened by open_diff in VSCode (delegates to the diff-view-vsce helper extension)",
     promptGuidelines: [
       "Use close_diff when the user asks to close diff views (e.g. 「把 diff 关掉」「关闭刚才打开的 diff」). It only closes diffs opened by this extension, never user-opened comparison views.",
     ],
@@ -1295,7 +1301,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
   pi.registerCommand("close-diff", {
-    description: "关闭由 pi 打开的 diff 标签（VSCode 侧 diff-bridge 执行）",
+    description: "关闭由 pi 打开的 diff 标签（VSCode 侧 diff-view-vsce 执行）",
     handler: async (args: string, ctx: any) => {
       const paths = args?.trim() ? [path.resolve(ctx?.cwd ?? process.cwd(), args.trim())] : [];
       const text = await requestCloseDiff(paths);
