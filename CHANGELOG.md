@@ -280,6 +280,14 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **回归风险评估**：仅删一条纯 UI 提示，不涉及任何机制逻辑；[1.5.53] 那条「修启用提示缺字」随本条一并作废（提示已不存在）。
 - **镜像同步**：`ai-edit-diff.ts` 覆盖至 `pi/agent/extensions/`（全局权威优先）；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
 
+### 变更（ai-edit-diff 更名为 diff-view：功能定位是「独立于 git 的文件内容 diff 视图」）
+
+- **为什么改**：2026-10-18 用户指出原名不严谨——「ai-edit-diff」把范围说窄成「AI 编辑产生的 diff」，但用户手改同样产生 diff；该扩展的实际定位是「独立于 git 的文件内容 diff 视图」（改动来源不限），据此更名为 `diff-view.ts`。
+- **改了什么**：① 全局 `~/.pi/agent/extensions/ai-edit-diff.ts` → `diff-view.ts`（文件改名 + 头部新增定位说明与改名记录）；② 引用同步——`claude/docs/agents-registry.md`（diff-bridge 行）、`claude/docs/capability-sync.md`（镜像纳入说明）；③ 镜像侧同步：`pi/agent/extensions/ai-edit-diff.ts` → `diff-view.ts`；④ 下游引用同步：diff-bridge 仓库（README 双语 / `extension.js` 注释 / CHANGELOG，Kit 自行提交）、EA 项目（`CLAUDE.md` 子项目清单行 / `.pi/extensions/input-llm-dump.ts` 注释 / CHANGELOG）。
+- **保持不变（有意）**：内部状态目录 `state/ai-edit-diff/`、环境变量名 `AI_EDIT_DIFF_*` 未动——已装的 VSCode 侧 diff-bridge 与正在运行的会话都指向它们，动了会打断「/close-diff 协作」；对外语义（工具 / 命令 / 通知）不受影响，仅文件名与文档引用更新。
+- **回归风险评估**：纯改名与引用同步，无逻辑改动；`diff -q` 两镜像逐字节一致；全局无其他代码引用旧文件名。
+- **镜像同步**：`diff-view.ts`（新）、`docs/agents-registry.md`、`docs/capability-sync.md` 三处覆盖至镜像；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；版本 bump 与提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-17
 
 ### 变更（channels-watch 退役：从注册表移除）
