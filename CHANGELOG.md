@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.52] - 2026-10-18
+
+会话生命周期联动（session-link 机制）：本机派活会话关闭 → macmini 上由它派活的任务链自动清上下文重启（链标记 `<!-- pi-chain:<id> -->` + replica 侧链注册 + 级联重置），并加「禁止远端设备派活到本机」的方向守卫；duty.sh 重写为多会话守护（duty.conf 清单 + PID 精确匹配），sync 脚本排除 session-link 状态文件。详见下方 2026-10-18 分节。
+
 ## [1.5.51] - 2026-10-17
 
 跨机协作机制落地：`CLAUDE.md` 新增「跨机协作：macmini 值班会话」节（标准呼叫命令、用途、能力边界）；`agents-registry.md` 新增「宿主机归属」段（单宿主规则 + Mark 及子项目迁至 macmini 的记录）；`patch/` 新增 `duty-macmini/`（screen + launchd 值班会话守护，含 SCREENDIR 固定与冷却防重复拉起）与 `sync-to-macmini/`（fs.watch 防抖 watcher + rsync 单向同步）。详见下方 2026-10-17 分节。
@@ -247,6 +251,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-18
+
+### 变更（会话生命周期联动：session-link 机制）
+
+- **为什么改**：2026-10-17 用户方案——后端会话的清上下文时机绑定本机派活会话的关闭（用户关了本机会话 = 判定任务完成），并禁止远端设备派活到本机跑后端进程。
+- **改了什么**：① `claude/CLAUDE.md` 在「跨机协作」节下新增「会话生命周期联动（session-link 机制）」；② `pi/agent/extensions/session-link.ts` 新扩展（链标记 `<!-- pi-chain:<id> -->`、replica 侧链注册 chain-registry、source 侧 session_shutdown 联动 ssh 触发级联重置、replica 侧派活方向守卫）；③ `claude/patch/session-link/chain-reset.sh`（任务链级会话重置脚本）；④ `claude/patch/duty-macmini/` 重写（多会话守护 + duty.conf 5 会话清单 + PID 精确匹配修复 + session-link 排除逻辑）；⑤ `claude/patch/sync-to-macmini/` 排除 session-link 状态文件（config.json / local-links.json / chain-registry.json），镜像 `.gitignore` 加同三项双保险并清掉误同步的 config.json。
+- **验证**：五部分一致（CLAUDE.md / patch / extensions，状态文件按规则排除）；gitleaks 全绿；语义预检无凭证（仅 ssh 别名与路径）。
+- **镜像同步**：随本批同步（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Kit 通告）；版本 1.5.52 发版。
 
 ## 2026-10-17
 

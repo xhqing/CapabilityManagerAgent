@@ -17,7 +17,7 @@ set -euo pipefail
 HOST="${1:-mac-mini}"
 G="$HOME/.pi/agent"
 T=".pi/agent"
-EX="--exclude=__pycache__ --exclude=*.pyc --exclude=.env --exclude=*.env --exclude=endpoints.json --exclude=*.lock --exclude=*.log --exclude=tmp --exclude=.lock.d"
+EX="--exclude=__pycache__ --exclude=*.pyc --exclude=.env --exclude=*.env --exclude=endpoints.json --exclude=*.lock --exclude=*.log --exclude=tmp --exclude=.lock.d --exclude=session-link/config.json --exclude=session-link/local-links.json --exclude=session-link/chain-registry.json"
 
 # 并发锁（watcher 与手动执行互斥；已在跑则幂等跳过）
 LOCK="$G/patch/sync-to-macmini/.lock.d"
