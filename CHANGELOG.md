@@ -256,6 +256,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-19
+
+### 变更（diff-view 开源到 GitHub：注册表行更新为已开源）
+
+- **为什么改**：2026-10-19 用户指示把 Kit 名下子项目 diff-view 开源到 GitHub；公开仓库 `github.com/xhqing/diff-view` 已建并发布 `v0.2.0`（产物为唯一 zip：内含 vsix 与 pi 扩展文件、共用同一版本号）。
+- **改了什么**：`claude/docs/agents-registry.md` 子项目行——「尚未开源」更新为「已开源 github.com/xhqing/diff-view（2026-10-19，v0.2.0）」，项目路径说明同步微调；其余内容不变。
+- **回归风险评估**：纯状态文字更新（未开源 → 已开源），无机制改动；镜像与全局 `diff -q` 逐字节一致。
+- **镜像同步**：`docs/agents-registry.md` 覆盖至镜像；本条 CHANGELOG 由 Kit（ExecutiveAssistantAgent 会话）记录；提交 / 发版流程委派 Prometheus（CapabilityManagerAgent 会话）执行。
+
 ## 2026-10-18
 
 ### 变更（会话生命周期联动：session-link 机制）
