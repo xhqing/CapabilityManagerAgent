@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.54] - 2026-10-22
+
+新增通用扩展 `ark-key-pool`：为火山方舟 Agent Plan 提供多 Key 自动切换（不同账号的 Key 池、额度耗尽 / Key 失效自动换下一个、冷却状态跨进程共享），配套文档 `docs/ark-key-pool.md`。详见下方 2026-10-22 分节。
+
 ## [1.5.53] - 2026-10-18
 
 ai-edit-diff 增加可直接键入的 diff 开关命令：`/open-diff`、`/close-diff` 用户命令与 `close_diff` 工具（`open_diff` 抽成共用 `runOpenDiffFlow`）；关闭走「请求 + 确认」协议（close-requests / close-acks，配新建的 VSCode 侧助手扩展 diff-bridge——只关闭左侧为 pi 改动前快照的 diff 标签、静默不抢焦点），并修启用提示缺字。子项目映射同步新增 diff-bridge 行（Kit 名下，本地项目）。详见下方 2026-10-18 分节。
@@ -255,6 +259,15 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 ## [1.1.0] - 2026-10-03
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
+
+## 2026-10-22
+
+### 新增（ark-key-pool：Agent Plan 多 Key 自动切换扩展）
+
+- **为什么改**：2026-10-22 用户需求——火山方舟 Agent Plan 有两个不同账号的 Key，希望一个不能用时自动切换另一个。pi 原生凭证模型是「一个 provider 一份凭证」（`auth.json` 单条），既不能配两个 Key，也没有故障切换；Agent Plan 额度耗尽返回 `429 AccountQuotaExceeded`、Key 失效返回 `401`，原生只会用同一个 Key 重试。
+- **改了什么**：① 新增 `pi/agent/extensions/ark-key-pool.ts`：`before_provider_headers` 每次请求从池中挑可用 Key 覆盖 `Authorization`；`message_end` 识别 401/403/429 写冷却（状态文件跨进程共享，只存 Key 的 SHA-256 前缀）；401/403 原本不被 pi 重试，扩展把 `errorMessage` 改写成可重试形态（带 429），让 pi 的自动重试带着下一个 Key 继续；429 额度耗尽本就触发 pi 重试，重试时自然换 Key；冷却时间优先解析响应里的 `reset at` 时间，上限 1 天；另提供 `/ark-key-pool` 查看状态与 `/ark-key-pool reset` 清除冷却。② 新增 `claude/docs/ark-key-pool.md`（原理、配置、命令、已知边界、测试记录）。配置模板 `ark-agent-plan-keys.json.example` 留在本机 `~/.pi/agent/` 根目录（含凭证占位，不入镜像）；真实配置 `ark-agent-plan-keys.json` 与本机同目录、0600 权限、仅本机。
+- **验证**：本地 mock 跑四个场景全过——正常请求、额度耗尽切换（key-A 429 → key-B 成功）、Key 失效切换（key-A 401 → 改写 → key-B 成功）、两个 Key 都耗尽（各试一次后兜底 auth.json Key）；另验证跨进程冷却共享（新进程直接跳过已冷却 Key）与冷却到期自动恢复。全程未消耗真实额度。
+- **镜像同步**：随本批同步（全局权威优先）；版本 1.5.54 发版。
 
 ## 2026-10-19
 
