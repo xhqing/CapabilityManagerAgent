@@ -18,6 +18,16 @@ HOST="${1:-mac-mini}"
 G="$HOME/.pi/agent"
 T=".pi/agent"
 EX="--exclude=__pycache__ --exclude=*.pyc --exclude=.env --exclude=*.env --exclude=endpoints.json --exclude=*.lock --exclude=*.log --exclude=tmp --exclude=.lock.d --exclude=session-link/config.json --exclude=session-link/local-links.json --exclude=session-link/chain-registry.json"
+# 2026-10-23 修：rsync 原本未指定 ssh 选项，跨网段 / 离线时会一直挂起（实测卡了 1 小时
+# 11 分钟，堵死 watcher 后续全部同步）。两条防护：① 预检连不上就跳过；② rsync 走带
+# ConnectTimeout 的 ssh，最长 10 秒必返回。
+RSYNC_SSH="ssh -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+
+# 连通性预检：跨网段 / 离线时直接跳过，不建卡死的 rsync 子进程
+if ! ssh -o BatchMode=yes -o ConnectTimeout=6 "$HOST" true 2>/dev/null; then
+  echo "⏭️  无法连接 ${HOST}（可能跨网段 / 离线），跳过本次同步"
+  exit 0
+fi
 
 # 并发锁（watcher 与手动执行互斥；已在跑则幂等跳过）
 LOCK="$G/patch/sync-to-macmini/.lock.d"
@@ -27,13 +37,13 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 echo "== 同步 $G → $HOST:~/$T =="
 
 # 核心文件（含凭据 auth.json——保持两机一致可用；如 macmini 独立授权请自行排除）
-rsync -a "$G/CLAUDE.md" "$G/settings.json" "$G/models.json" "$G/mcp-adapter.json" "$G/auth.json" "$HOST:$T/"
+rsync -a -e "$RSYNC_SSH" "$G/CLAUDE.md" "$G/settings.json" "$G/models.json" "$G/mcp-adapter.json" "$G/auth.json" "$HOST:$T/"
 
 # 能力目录
-rsync -a --delete $EX "$G/skills/" "$HOST:$T/skills/"
-rsync -a --delete --exclude='__pycache__' "$G/docs/" "$HOST:$T/docs/"
-rsync -a --delete $EX "$G/patch/" "$HOST:$T/patch/"
-rsync -a --delete --exclude='__pycache__' "$G/extensions/" "$HOST:$T/extensions/"
+rsync -a -e "$RSYNC_SSH" --delete $EX "$G/skills/" "$HOST:$T/skills/"
+rsync -a -e "$RSYNC_SSH" --delete --exclude='__pycache__' "$G/docs/" "$HOST:$T/docs/"
+rsync -a -e "$RSYNC_SSH" --delete $EX "$G/patch/" "$HOST:$T/patch/"
+rsync -a -e "$RSYNC_SSH" --delete --exclude='__pycache__' "$G/extensions/" "$HOST:$T/extensions/"
 
 # 目标侧修正：路径（/Users/xhq → /Users/mac）+ 权限
 ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST" 'chmod 600 ~/.pi/agent/auth.json; perl -pi -e "s|/Users/xhq|/Users/mac|g" ~/.pi/agent/skills/anysearch/runtime.conf 2>/dev/null || true'
