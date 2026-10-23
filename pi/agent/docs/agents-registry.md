@@ -1,6 +1,6 @@
 # 智能体命名注册表与团队结构
 
-> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目前（名称查重）、判断某子任务该移交给哪个 agent 时、新增 / 变更 Agent 或子项目的注册信息时。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `claude/docs/`。
+> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目前（名称查重）、判断某子任务该移交给哪个 agent 时、新增 / 变更 Agent 或子项目的注册信息时。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `pi/agent/docs/`。
 
 ## 智能体命名注册表（避免重名 + 跨 agent 推荐）
 
@@ -17,7 +17,7 @@
 | **Kit** | ExecutiveAssistantAgent | 总经理助理 | 通用助手：用户的第一助理、团队多面手，几乎任何事务都接得住（不分组、直属用户；找单找岗接活归 Hopkins） |
 | **Victor** | DayTradingAgent | 日内交易员 | 信号：港股 / 美股盘中盯盘 → 分析标的 + 计算仓位与止损 → 发出交易信号（信号模式，不下单，人工执行） |
 | **Tinker** | PatchClaudeAgent | 补丁维护匠 | 维护：VSCode Claude Code 扩展升级后重新应用自定义补丁（自愈引擎：定位→应用→校验→回写），独立工具型 agent |
-| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.pi/agent/` 通用能力（全局为权威源、`claude/` 为开源镜像；同步 skills / CLAUDE.md / docs / patch / hooks / pi 扩展 六部分，原 rules 三条已并入 CLAUDE.md）+ 通用能力开源单一出口（只有本项目镜像全局，其余 agent 项目不再分发副本）+ 团队注册表维护，独立于销售流水线 |
+| **Prometheus** | CapabilityManagerAgent | 通用能力管家 | 底座：维护 `~/.pi/agent/` 通用能力（全局为权威源、`pi/agent/` 为开源镜像；同步 skills / CLAUDE.md / docs / patch / extensions 五部分 + npm 清单，原 rules 三条已并入 CLAUDE.md）+ 通用能力开源单一出口（只有本项目镜像全局，其余 agent 项目不再分发副本）+ 团队注册表维护，独立于销售流水线 |
 | **Mark** | QuantStrategistAgent | 量化策略师 | 量化策略：设计可回测的交易策略代码 → 历史回测标定可信度（离线开发，不盯盘不下单）；2026-10-17 由 Markowitz 更名为 Mark（取自现代投资组合理论之父 Harry Markowitz 的常用名） |
 | **Hermes** | NetOpsAgent | 网络运维管理员 | 网络：代理节点真实流量测速与连通性检测 → 自动选路（纯延迟 / 纯带宽 / 混合）→ 故障转移 → 订阅刷新，基于 Xray-core（`xpilot` CLI），独立于销售流水线 |
 | **Anvil** | BackendEngineerAgent | 后端开发工程师 | 后端：负责所有后端开发工作（服务端逻辑 / API / 数据库 / 系统架构 / 桥接服务），目前在手 CC-BRIDGE（Claude Code 上游桥接框架），独立于销售流水线 |
@@ -79,6 +79,7 @@
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
 | ExecutiveAssistantAgent（Kit） | copybridge | macOS 剪贴板桥接工具（在 VSCode 资源管理器复制的文件可直接粘贴到 Finder / 微信 / 浏览器等系统任意 App：后台修复 VSCode 私有剪贴板格式；2026-10-08 建立、2026-10-09 登记） |
 | ExecutiveAssistantAgent（Kit） | diff-view | pi「改动可视化」完整套件（两个组件都装才完整：**diff-view-pie**＝pi 侧扩展（工具 / 命令 / 变更通知）、**diff-view-vsce**＝VSCode 侧扩展（静默关闭由 pi 打开的 diff 标签）；项目 `~/Developer/diff-view`（2026-10-18 建立，原 diff-bridge 同日并入）；已开源 github.com/xhqing/diff-view（2026-10-19，v0.2.0）） |
+| ExecutiveAssistantAgent（Kit） | ark-key-pool | pi 的火山方舟 Agent Plan 多 Key 自动切换扩展（不同账号的 Key 组成池，额度耗尽 / Key 失效自动切下一个，冷却跨进程共享；项目 `~/Developer/ark-key-pool`，2026-10-22 建立，本地未开源） |
 | NetOpsAgent（Hermes） | XPilot | Xray-core 节点管理 CLI（Python） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | QuantStrategistAgent（Mark） | Intraday | Mark 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |

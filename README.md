@@ -5,7 +5,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Version](https://img.shields.io/badge/Version-1.5.54-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.5.55-blue.svg)](#)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/CapabilityManagerAgent.json" alt="Visits/day (14d)" />
 
@@ -18,19 +18,19 @@
 
 [简体中文](README_cn.md)
 
-CapabilityManagerAgent manages the **common-capability backbone** of the agent team: everything under the user-level `~/.claude/` directory that is **not specific to one agent but shared by all** — global skills, global rules (in `CLAUDE.md`), `settings.json`, and slash commands — plus the cross-project sync that keeps every agent project's `.claude/` copy consistent with the global authoritative copy.
+CapabilityManagerAgent manages the **common-capability backbone** of the agent team: everything under the user-level `~/.pi/agent/` directory that is **not specific to one agent but shared by all** — global skills, global rules (in `CLAUDE.md`), reference docs, helper scripts under `patch/`, and pi extensions — plus the open-source mirror under `pi/agent/` that stays byte-identical to the global authoritative copy.
 
 ---
 
 ## Who is Prometheus?
 
-This agent is personified as **Prometheus** — the capability steward of the team. Where other agents trade, produce, or market, Prometheus guards the **shared foundation** they all stand on: the global skills, rules, and config under `~/.claude/`.
+This agent is personified as **Prometheus** — the capability steward of the team. Where other agents trade, produce, or market, Prometheus guards the **shared foundation** they all stand on: the global skills, rules, and config under `~/.pi/agent/`.
 
 The name **Prometheus** ("the one who brings fire") fits the role: guarding the common fire — the shared capabilities — that lets every agent do its work. Its edge is not domain expertise but **consistency and care**:
 
-- **Global is authoritative.** The global `~/.claude/` copy is the source of truth; project copies are only mirrors.
+- **Global is authoritative.** The global `~/.pi/agent/` copy is the source of truth; the `pi/agent/` mirror in this repository is only the open-source snapshot.
 
-- **Back up before you touch the foundation.** Anything under `~/.claude/` affects the whole team; back up and confirm before editing.
+- **Back up before you touch the foundation.** Anything under `~/.pi/agent/` affects the whole team; back up and confirm before editing.
 
 ---
 
@@ -38,19 +38,21 @@ The name **Prometheus** ("the one who brings fire") fits the role: guarding the 
 
 | Location | Content |
 |---|---|
-| `~/.claude/skills/` | Global common skills (anysearch, commit, image-ocr, release, …) |
-| `~/.claude/settings.json` | Global config (env, availableModels, effortLevel, theme, hooks) |
-| `~/.claude/commands/` | Global slash commands |
-| `~/.claude/CLAUDE.md` | Global preferences + working rules + team registry + scaffolding conventions (meta-rules) |
+| `~/.pi/agent/skills/` | Global common skills (anysearch, commit, image-ocr, release, …) |
+| `~/.pi/agent/CLAUDE.md` | Global preferences + working rules + team registry + scaffolding conventions (meta-rules) |
+| `~/.pi/agent/docs/` | Reference docs (agent registry, scaffolding, capability sync, …) |
+| `~/.pi/agent/patch/` | Self-maintained helper mechanisms (session sweep, npm manifest, session link, …) |
+| `~/.pi/agent/extensions/` | Tool-enforcement and mechanism extensions for pi |
+| `pi/agent/npm/` | Third-party pi package manifest (generated mirror) |
 
 **Out of scope** (owned elsewhere; Prometheus does not touch): each agent's domain skills and business config; VSCode extension patches (Tinker / PatchClaudeAgent).
 
 ---
 
-## Core workflow: global ↔ project sync
+## Core workflow: global ↔ open-source mirror sync
 
 
-Two sync rules are codified today (from the global `~/.claude/CLAUDE.md`, byte-identical to `claude/CLAUDE.md`):
+Two sync rules are codified today (from the global `~/.pi/agent/CLAUDE.md`, byte-identical to `pi/agent/CLAUDE.md`):
 
 
 
