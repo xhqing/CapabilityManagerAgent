@@ -5,7 +5,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
-[![Version](https://img.shields.io/badge/Version-1.5.54-blue.svg)](#)
+[![Version](https://img.shields.io/badge/Version-1.5.55-blue.svg)](#)
 [![Type](https://img.shields.io/badge/Type-AI%20Agent-FF1493.svg)](#)
 <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/CapabilityManagerAgent.json" alt="Visits/day (14d)" />
 
@@ -18,19 +18,19 @@
 
 [English](README.md)
 
-CapabilityManagerAgent 管理的是智能体团队的**通用能力底座**：用户级 `~/.claude/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule（在 `CLAUDE.md` 内）、`settings.json`、slash 命令——外加让每个 agent 项目的 `.claude/` 副本与全局权威副本保持一致的跨项目同步工作。
+CapabilityManagerAgent 管理的是智能体团队的**通用能力底座**：用户级 `~/.pi/agent/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的内容——全局 skill、全局 rule（在 `CLAUDE.md` 内）、参考文档、`patch/` 下的自研辅助脚本、pi 扩展——外加让开源镜像 `pi/agent/` 与全局权威副本保持逐字节一致的同步工作。
 
 ---
 
 ## Prometheus 是谁？
 
-这个 agent 的人格是 **Prometheus（普罗米修斯）**——团队的能力管家。别的 agent 负责交易、生产或营销，Prometheus 守护的是它们共同立足的**共享底座**：`~/.claude/` 下的全局 skill、rule 与配置。
+这个 agent 的人格是 **Prometheus（普罗米修斯）**——团队的能力管家。别的 agent 负责交易、生产或营销，Prometheus 守护的是它们共同立足的**共享底座**：`~/.pi/agent/` 下的全局 skill、rule 与配置。
 
 名字 **Prometheus**（「盗火者」）正贴合这个角色：守护那团让每个 agent 得以运转的「通用能力之火」。它的优势不在某个领域的专长，而在**一致与谨慎**：
 
-- **全局为权威。** 全局 `~/.claude/` 副本是事实来源，项目副本只是镜像。
+- **全局为权威。** 全局 `~/.pi/agent/` 副本是事实来源，本仓库的 `pi/agent/` 只是开源镜像。
 
-- **动底座前先备份。** `~/.claude/` 下的任何改动都影响整个团队，编辑前先备份、先确认。
+- **动底座前先备份。** `~/.pi/agent/` 下的任何改动都影响整个团队，编辑前先备份、先确认。
 
 ---
 
@@ -38,19 +38,21 @@ CapabilityManagerAgent 管理的是智能体团队的**通用能力底座**：�
 
 | 位置 | 内容 |
 |---|---|
-| `~/.claude/skills/` | 全局通用 skill（anysearch、commit、image-ocr、release 等） |
-| `~/.claude/settings.json` | 全局配置（env、availableModels、effortLevel、theme、hooks） |
-| `~/.claude/commands/` | 全局 slash 命令 |
-| `~/.claude/CLAUDE.md` | 全局偏好 + 全局工作规范 + 团队注册表 + 脚手架约定（元规范） |
+| `~/.pi/agent/skills/` | 全局通用 skill（anysearch、commit、image-ocr、release 等） |
+| `~/.pi/agent/CLAUDE.md` | 全局偏好 + 全局工作规范 + 团队注册表 + 脚手架约定（元规范） |
+| `~/.pi/agent/docs/` | 参考文档（智能体注册表、脚手架规范、能力同步等） |
+| `~/.pi/agent/patch/` | 自研辅助机制（会话清扫、npm 清单、会话联动等） |
+| `~/.pi/agent/extensions/` | pi 侧工具强制与机制扩展 |
+| `pi/agent/npm/` | 第三方 pi 包清单（生成式镜像） |
 
 **不在管辖范围**（归别处，Prometheus 不碰）：各 agent 的领域 skill 与业务配置；VSCode 扩展补丁（归 Tinker / PatchClaudeAgent）。
 
 ---
 
-## 核心工作：全局 ↔ 项目副本同步
+## 核心工作：全局 ↔ 开源镜像同步
 
 
-目前已有两条同步规则成文（来自全局 `~/.claude/CLAUDE.md`，与 `claude/CLAUDE.md` 逐字节相同）：
+目前已有两条同步规则成文（来自全局 `~/.pi/agent/CLAUDE.md`，与 `pi/agent/CLAUDE.md` 逐字节相同）：
 
 
 

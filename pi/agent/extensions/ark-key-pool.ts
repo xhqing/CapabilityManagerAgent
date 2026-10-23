@@ -111,6 +111,8 @@ function loadConfig(): PoolConfig | undefined {
 	if (!raw || !Array.isArray(raw.keys)) return undefined;
 	const keys = raw.keys
 		.filter((k): k is PoolKey => typeof k?.key === "string" && k.key.trim().length > 0)
+		// 跳过模板占位符，避免 install.sh 刚创建的模板被当成真实 Key 发请求。
+		.filter((k) => !/REPLACE_ME|^sk-\.\.\.$/i.test(k.key.trim()))
 		.map((k, i) => ({ name: (k.name || `key${i + 1}`).trim(), key: k.key.trim() }));
 	if (keys.length === 0) return undefined;
 	return { ...raw, keys };

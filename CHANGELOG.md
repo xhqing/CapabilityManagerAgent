@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.55] - 2026-10-23
+
+镜像结构全面转向 pi-harness：原 `claude/` 目录（skills / docs / patch / CLAUDE.md）整体迁入 `pi/agent/` 下对应路径（git mv 保留历史），`claude/hooks/`（Claude Code 遗留脚本）删除，此后不再维护 `claude/` 镜像；同步更新 `.gitignore`（敏感文件规则改到 `pi/agent/`）、`capability-sync.md`（重写为五部分 + 第六类 npm 清单，去掉 hooks）、注册表与脚手架文档、项目级 capability-manager skill 与 README 双语的路径 / 范围描述。详见下方 2026-10-23 分节。
+
 ## [1.5.54] - 2026-10-22
 
 新增通用扩展 `ark-key-pool`：为火山方舟 Agent Plan 提供多 Key 自动切换（不同账号的 Key 池、额度耗尽 / Key 失效自动换下一个、冷却状态跨进程共享），配套文档 `docs/ark-key-pool.md`。详见下方 2026-10-22 分节。
@@ -260,12 +264,22 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 
 自 1.0.0 以来的通用能力变更汇总（每项详情见下方各日期分节）：新增 pre-commit 凭证扫描 skill、auto-rc 预发布工作流、`agent-call` 跨会话协作扩展与 `version-guard` 版本一致性守卫扩展；实现发版自动链（`/commit` 第 10 步自动衔接 `/bump` → `/add` → `/commit` → `/release`）与 `/add` 预检完全干净后自动衔接提交推送；新增敏感扫描白名单机制、修正 gitleaks 单路径调用；开源镜像扩展至六部分；dev-workflow 修订测试产物不单独提交、不单独开 PR；release skill 新增公开文本发布前敏感自检（notes / tag message 定稿后、公开动作前检测，2026-10-03）。
 
+## 2026-10-23
+
+### 变更（镜像结构迁移：claude/ → pi/agent/，全面转向 pi-harness）
+
+- **为什么改**：2026-10-22 用户决定——团队已全面转向 pi-harness，`claude/` 目录是 Claude Code 时代的镜像结构，不再需要；通用能力镜像应与全局 `~/.pi/agent/` 的路径一一对应，clone 者拿到的目录结构也要与 pi 时代一致。
+- **改了什么**：① `git mv` 迁移——`claude/skills/` → `pi/agent/skills/`、`claude/docs/` → `pi/agent/docs/`、`claude/patch/` → `pi/agent/patch/`、`claude/CLAUDE.md` → `pi/agent/CLAUDE.md`；`claude/hooks/`（3 个 CC 遗留脚本）`git rm`，不迁移；`claude/` 目录随后删除。② `.gitignore` 的本机敏感文件规则同步改到 `pi/agent/` 新路径（find-skill 的 .env / cache、backup 的 endpoints、session-link 的运行状态）。③ `capability-sync.md` 重写：镜像范围由「五部分 + 生成式清单（含 hooks 遗留）」改为「五部分（skills / CLAUDE.md / docs / patch / extensions）+ 第六类 npm 清单」，去掉全部 `claude/` 与 hooks 描述，补 2026-10-22 迁移说明。④ `agents-registry.md` / `new-agent-scaffold.md` 的镜像路径引用更新（`claude/docs/` → `pi/agent/docs/`，六部分 → 五部分 + 清单）。⑤ 全局 `~/.pi/agent/CLAUDE.md` 的镜像路径引用同步更新。⑥ 项目级 `.claude/README.md` 与 `capability-manager` skill（SKILL.md + references）全部路径与同步范围描述更新（`~/.claude/` → `~/.pi/agent/`、`claude/` → `pi/agent/`、六部分 → 五部分、第七类 → 第六类、删除 hooks 同步块）。⑦ README 双语更新：去掉「项目副本同步」等 Claude Code 时代口径，管理范围表改为 pi 的目录结构（skills / CLAUDE.md / docs / patch / extensions + npm 清单）。
+- **验证**：五部分 diff 逐字节一致（`CLAUDE.md` / `docs` / `extensions` / `patch` / `skills`，敏感文件与本机产物按规则排除）；`git check-ignore` 确认新路径规则生效；git 识别 88 个 rename + 4 个 rename-with-modify + 3 个 delete（hooks），无内容丢失。
+- **回归风险评估**：`claude/` 只作为开源镜像存在、不是运行依赖（运行时只加载全局 `~/.pi/agent/`），迁移不影响任何 agent 的实际运行；`hooks/` 自 pi 起已退役（hooks 改名 extensions），删除无功能影响。
+- **镜像同步**：本条目即迁移记录本身；版本 1.5.55 发版。
+
 ## 2026-10-22
 
 ### 新增（ark-key-pool：Agent Plan 多 Key 自动切换扩展）
 
 - **为什么改**：2026-10-22 用户需求——火山方舟 Agent Plan 有两个不同账号的 Key，希望一个不能用时自动切换另一个。pi 原生凭证模型是「一个 provider 一份凭证」（`auth.json` 单条），既不能配两个 Key，也没有故障切换；Agent Plan 额度耗尽返回 `429 AccountQuotaExceeded`、Key 失效返回 `401`，原生只会用同一个 Key 重试。
-- **改了什么**：① 新增 `pi/agent/extensions/ark-key-pool.ts`：`before_provider_headers` 每次请求从池中挑可用 Key 覆盖 `Authorization`；`message_end` 识别 401/403/429 写冷却（状态文件跨进程共享，只存 Key 的 SHA-256 前缀）；401/403 原本不被 pi 重试，扩展把 `errorMessage` 改写成可重试形态（带 429），让 pi 的自动重试带着下一个 Key 继续；429 额度耗尽本就触发 pi 重试，重试时自然换 Key；冷却时间优先解析响应里的 `reset at` 时间，上限 1 天；另提供 `/ark-key-pool` 查看状态与 `/ark-key-pool reset` 清除冷却。② 新增 `claude/docs/ark-key-pool.md`（原理、配置、命令、已知边界、测试记录）。配置模板 `ark-agent-plan-keys.json.example` 留在本机 `~/.pi/agent/` 根目录（含凭证占位，不入镜像）；真实配置 `ark-agent-plan-keys.json` 与本机同目录、0600 权限、仅本机。
+- **改了什么**：① 新增 `pi/agent/extensions/ark-key-pool.ts`：`before_provider_headers` 每次请求从池中挑可用 Key 覆盖 `Authorization`；`message_end` 识别 401/403/429 写冷却（状态文件跨进程共享，只存 Key 的 SHA-256 前缀）；401/403 原本不被 pi 重试，扩展把 `errorMessage` 改写成可重试形态（带 429），让 pi 的自动重试带着下一个 Key 继续；429 额度耗尽本就触发 pi 重试，重试时自然换 Key；冷却时间优先解析响应里的 `reset at` 时间，上限 1 天；另提供 `/ark-key-pool` 查看状态与 `/ark-key-pool reset` 清除冷却。② 新增 `pi/agent/docs/ark-key-pool.md`（原理、配置、命令、已知边界、测试记录）。配置模板 `ark-agent-plan-keys.json.example` 留在本机 `~/.pi/agent/` 根目录（含凭证占位，不入镜像）；真实配置 `ark-agent-plan-keys.json` 与本机同目录、0600 权限、仅本机。
 - **验证**：本地 mock 跑四个场景全过——正常请求、额度耗尽切换（key-A 429 → key-B 成功）、Key 失效切换（key-A 401 → 改写 → key-B 成功）、两个 Key 都耗尽（各试一次后兜底 auth.json Key）；另验证跨进程冷却共享（新进程直接跳过已冷却 Key）与冷却到期自动恢复。全程未消耗真实额度。
 - **镜像同步**：随本批同步（全局权威优先）；版本 1.5.54 发版。
 

@@ -1,12 +1,12 @@
 # 新建 Agent 项目脚手架与开源约定
 
-> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `claude/docs/`。
+> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `pi/agent/docs/`。
 
 **为什么**：agent 越来越多，统一脚手架避免重造轮子、避免泄露密钥。**怎么用**：复制已有 agent 项目（如 FullStackEngineerAgent）再按角色改写。
 
 ## 通用能力开源单一出口
 
-**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **CapabilityManagerAgent（Prometheus）的 `claude/` 镜像**（`skills/`、`CLAUDE.md`、`docs/`、`hooks/`、`patch/`、`pi/agent/extensions/` 六部分）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
+**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **CapabilityManagerAgent（Prometheus）的 `pi/agent/` 镜像**（`skills/`、`CLAUDE.md`、`docs/`、`patch/`、`extensions/` 五部分 + npm 清单）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
 
 - **为什么**：全局 `~/.pi/agent/` 是运行时实际加载的「活」源头；每个项目放一份副本意味着通用能力一改动就要同步到所有项目，副本容易过期分叉（新建 NetOpsAgent 时即发现 anysearch `runtime.conf` 副本与全局不一致、find-skill 副本多出 `.env.example`）。统一单一出口后，全局改一处、镜像同步一处，各项目零维护。
 - **边界**：单一出口模式已全量落地——各 agent 项目的 anysearch 等通用 skill 副本已全部清除（2026-09-13 核验，`~/Developer/*/.claude/skills/` 下无任何 anysearch 副本），「既有项目副本」这层维护已终结，不再存在项目间分发。
@@ -15,7 +15,7 @@
 
 - **AutoMemory 已全局弃用**：新建项目**不配 AutoMemory**（不建 memory 目录、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ CLAUDE.md，不依赖 AutoMemory 自动记。
 - **目录名 / 名称** = 以 `Agent` 结尾即可，前缀尽可能简单（2026-10-09 用户修订，如 `cuAgent`）；不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名。
-- **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 CapabilityManagerAgent `claude/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
+- **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 CapabilityManagerAgent `pi/agent/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
 - **子项目挂指回负责 Agent 的软链接、不放实体（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：新建子项目时，在子项目根目录建两条相对路径软链接——`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——并**随仓库提交**（2026-10-17 用户决定：仓库主要作用户本人的备份；跨仓库关联是团队网络的组成部分，团队整体是一个大项目、gh 上只是分仓库存放，看到仓库里的这两条链接即表示「某 Agent 项目进驻该子项目」的关联链，在说明文档中写明即可）。子项目**不建**智能体专属文件的实体副本、不复制内容进去；`.claude/` 也不挂链接（Claude Code 侧不再维护）。效果：在子项目目录直接开会话时会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能。后台开启会话（intercom / `agent_call` / `agent_wake`）仍只能以 Agent 项目根目录为工作目录。细则见 `~/.pi/agent/docs/agents-registry.md`「智能体专属文件归属与子项目映射」节。
 - **角色化 `CLAUDE.md` 直接放项目根目录**（你是谁 / 产物契约 / 工具 / 约束 / 流水线位置，不放 `.claude/` 下）；**建项目根 `CLAUDE.md` 的同时，在项目根建一条软链接 `AGENTS.md` 指向它**（`ln -s CLAUDE.md AGENTS.md`，两文件内容天然同步，兼容只认 `AGENTS.md` 的 agent 工具）+ **中英双语 `README.md`**（含名称 + topics）。README 顶部必须有 **logo**（`assets/logo.svg`，统一模板：640×200 渐变色卡 + 角色 emoji + 名字 + 职称，配色按角色区分）+ **标准徽章**（shields.io：**License / Version / Type** 三枚是必须含有的底线——License 标开源许可证（如 MIT）、Version 标项目版本号（取自 VERSION 文件）、Type 标项目类型（如 AI Agent）；**不含** Forks，也不含 Stars / Last Commit 等 GitHub 动态数值 / 时间徽章；另**不含**点明 LLM / 厂商的徽章，如 "Built with Claude Code"）。logo 的视觉规范（英文文字、agent 门面模板 vs 子项目象征）见 icon-design skill。
 - **访问量徽章（Visitors，团队仓库专用例外）**：团队各仓库（agent 主仓库及其子项目）的 README 在标准三枚之外**另挂一枚 Visitors 徽章**——shields.io endpoint 形式，URL 指向 `xhqing/xhqing` 仓库的 `traffic/badges/<repo>.json`（如 `https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/xhqing/xhqing/main/traffic/badges/DayTradingAgent.json`），徽章名 `Visitors`（badge JSON 的 `label` 字段为 `Visits/day`，即该徽章展示的是日均访问量）。数据由 xhqing 仓库的集中式采集（`scripts/update_traffic.py` + 每日 GitHub Action，secret `FLEET_TRAFFIC_PAT`）从官方 Traffic API 按日拉取、按日去重累计。**为什么允许这枚「动态徽章」**：它不是 shields.io 从 GitHub 实时抓取的动态数值徽章，而是指向本仓库静态 JSON 的 endpoint 徽章，与「不含动态徽章」规矩不冲突；且这是团队统一部署的去重访问统计，属有意为之的例外。**边界**：只豁免这一种 URL 形态（指向 `xhqing/xhqing` 的 `traffic/badges/` 下 JSON 的 endpoint 徽章）；komarev / seeyoufarm 等第三方计数图片、以及其它任何动态徽章仍不挂。

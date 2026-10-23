@@ -1,18 +1,18 @@
 # 团队注册表与新项目脚手架（场景 C 详细流程）
 
-本文件是 SKILL.md「场景 C」的详细展开。覆盖给团队新增 agent（定名 + 入注册表）、搭新 agent 项目脚手架、开源到 GitHub 的全流程。规则细节见全局 `~/.claude/docs/agents-registry.md`（「智能体命名注册表」「新建 Agent 时自动维护注册表」两节）与 `~/.claude/docs/new-agent-scaffold.md`（脚手架清单 / 命名规则 / 徽章规范 / 开源约定）——本文件把它们编排成可执行步骤。
+本文件是 SKILL.md「场景 C」的详细展开。覆盖给团队新增 agent（定名 + 入注册表）、搭新 agent 项目脚手架、开源到 GitHub 的全流程。规则细节见全局 `~/.pi/agent/docs/agents-registry.md`（「智能体命名注册表」「新建 Agent 时自动维护注册表」两节）与 `~/.pi/agent/docs/new-agent-scaffold.md`（脚手架清单 / 命名规则 / 徽章规范 / 开源约定）——本文件把它们编排成可执行步骤。
 
 ## 任务一：给团队新增一个 agent（定名 + 入表）
 
 ### 1. 定名（命名规则 + 查重）
 
 - **命名规则**（2026-10-09 修订）：**以 `Agent` 结尾、前缀尽可能简单**（如 `cuAgent`）——直接取项目用途的短前缀即可；不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名（历史 agent 多为拟人名，保留不动）。用户主动要求拟人名时才按历史惯例（蕴含主要能力、双关优先——如制造生产类取 Wright「制造匠」、修补维护类取 Tinker「修补匠」）。
-- **查重**：先读全局 `~/.claude/docs/agents-registry.md` 的「智能体命名注册表」表格，新名**全局不可重复**（拟人名与项目名都查；首字母尽量错开以利辨识）。
+- **查重**：先读全局 `~/.pi/agent/docs/agents-registry.md` 的「智能体命名注册表」表格，新名**全局不可重复**（拟人名与项目名都查；首字母尽量错开以利辨识）。
 - **与用户确认名字**：名称有分歧时，把候选名 + 由来写进汇报让用户拍板。
 
 ### 2. 追加进注册表（免确认）
 
-名字定了就**直接**改全局 `~/.claude/docs/agents-registry.md` 的注册表（这步本身免确认，该文件「新建 Agent 时自动维护注册表」节）：
+名字定了就**直接**改全局 `~/.pi/agent/docs/agents-registry.md` 的注册表（这步本身免确认，该文件「新建 Agent 时自动维护注册表」节）：
 
 - 在表格末尾加一行：
   ```
@@ -22,13 +22,13 @@
 
 **授权边界**：免确认**仅限**「追加新 agent 行 + 补位置说明」。改已有 agent 行 / 改语言偏好 / 改 git 规则等其它编辑仍要先征得用户同意。
 
-### 3. 镜像本项目 claude/ + 验证
+### 3. 镜像本项目 pi/agent/ + 验证
 
 ```bash
 AUTH=~/Developer/CapabilityManagerAgent
-cp ~/.claude/docs/agents-registry.md "$AUTH/claude/docs/agents-registry.md"
-diff ~/.claude/docs/agents-registry.md "$AUTH/claude/docs/agents-registry.md" && echo "✅ 一致"
-# 若团队 agent 总数有变：全局 CLAUDE.md 的「团队结构参考」计数也一并改，并同步 claude/CLAUDE.md
+cp ~/.pi/agent/docs/agents-registry.md "$AUTH/pi/agent/docs/agents-registry.md"
+diff ~/.pi/agent/docs/agents-registry.md "$AUTH/pi/agent/docs/agents-registry.md" && echo "✅ 一致"
+# 若团队 agent 总数有变：全局 CLAUDE.md 的「团队结构参考」计数也一并改，并同步 pi/agent/CLAUDE.md
 ```
 
 注册表改动只动 `docs/agents-registry.md`（可能连带 `CLAUDE.md` 计数），不涉及 skills；单一出口后无需分发到各项目。
@@ -49,7 +49,7 @@ git init   # 免确认（CLAUDE.md「新建项目 git init 免确认」）
 
 ### 2. 建根目录文件（不建 `.claude/`）
 
-**新建项目一律不建 `.claude/` 目录、不复制任何通用能力副本**（单一出口，见 `~/.claude/docs/new-agent-scaffold.md`「通用能力开源单一出口」节）——通用 skill / hooks 由全局 `~/.claude/` 在运行时直接提供，开源分发统一走本项目 `claude/` 镜像。新项目根目录只建：
+**新建项目一律不建 `.claude/` 目录、不复制任何通用能力副本**（单一出口，见 `~/.pi/agent/docs/new-agent-scaffold.md`「通用能力开源单一出口」节）——通用 skill / 扩展由全局 `~/.pi/agent/` 在运行时直接提供，开源分发统一走本项目 `pi/agent/` 镜像。新项目根目录只建：
 
 - **LICENSE.md**：MIT（版权人 `All Contributors`）。
 - **CLAUDE.md**（角色化）+ **`AGENTS.md` 软链接**（`ln -s CLAUDE.md AGENTS.md`）。
@@ -95,6 +95,6 @@ gh repo edit --description "<English summary> | <简体中文摘要>" \
 
 ## 完成后的闭环
 
-- **记 CHANGELOG**（本 CapabilityManagerAgent 项目的）：若本次任务改了全局 `docs/agents-registry.md` / `CLAUDE.md`（并镜像到 `claude/docs/` / `claude/`）、或新增了通用 skill，记一条。
+- **记 CHANGELOG**（本 CapabilityManagerAgent 项目的）：若本次任务改了全局 `docs/agents-registry.md` / `CLAUDE.md`（并镜像到 `pi/agent/docs/` / `pi/agent/`）、或新增了通用 skill，记一条。
 - **新 agent 项目自己的 CHANGELOG**：新项目的变更记它**自己**的 CHANGELOG（各项目独立），不混进本项目。
 - **提示用户后续**：新项目内容改完后，由用户自行 `git add` + `/commit` 提交（本 skill 不动暂存区）。
