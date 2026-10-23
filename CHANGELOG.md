@@ -4,6 +4,10 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.57] - 2026-10-23
+
+pi-harness 改名登记（注册表子项目行 `pi` → `pi-harness`：GitHub 2026-10-18 改名、本地目录 2026-10-23 同步改名），并修复 `sync-to-macmini` 脚本 rsync 未指定 ssh 超时导致跨网段 / 离线卡死的问题（增加连通性预检 + ConnectTimeout / ServerAlive 保活）。详见下方 2026-10-23 分节。
+
 ## [1.5.56] - 2026-10-23
 
 修复后台会话自动清扫长期静默失效（用户实测：本机积到 18 个僵尸会话、跑了 5~15 天没被清，pi-Hopper 空转 8 天 11 小时持续吃 87% CPU 且上下文 99.3% 卡死，导致 8GB 内存的 MacBook Air 负载冲到 14、swap 用满 11.4GB、磁盘只剩 8GB）。根因三层，逐层修：① `session-sweep.py` 的批量安全阀原为「候选 > 3 个就整体拒绝执行」——僵尸积到第 4 个后永久死锁、越积越多，现改为**分批清理**（每批最多 3 个、按空闲降序优先清最老的，其余 `deferred` 留待下次巡视，`--force` 一次清完），安全阀意图保留但不再制造死锁；② `--json` 与低阈值拒绝路径现在**始终输出合法 JSON 且退出码 0**（原实现返回非零退出码 + 人类可读文字，上层 `execFileSync` 抛异常后被 `catch {}` 静默吞掉，清理失败长期无人知晓），扩展侧同步改用 `spawnSync` + 容错解析 + **写日志到 `~/.pi/agent/logs/session-sweep.log`**（`SWEEP` / `ERROR` / `REFUSED` / `FATAL` 四类留痕），失败可见可追；③ 新增 **runaway（忙死型）检测**——原清扫靠记录文件 mtime 判「空闲」，失控会话持续重试写日志会一直刷新 mtime、永远被判「刚活动过」而躲过清理（pi-Hopper 正是如此），现对「运行 ≥ 24 小时且生命周期平均 CPU ≥ 20%」的会话单独标记提示、不自动杀（长跑真任务也会命中，交人判断）。同步镜像与全局两端逐字节一致。
@@ -279,6 +283,13 @@ release skill 产物核查改为「以项目声明为准」（取消「历史 as
 - **验证**：五部分 diff 逐字节一致（`CLAUDE.md` / `docs` / `extensions` / `patch` / `skills`，敏感文件与本机产物按规则排除）；`git check-ignore` 确认新路径规则生效；git 识别 88 个 rename + 4 个 rename-with-modify + 3 个 delete（hooks），无内容丢失。
 - **回归风险评估**：`claude/` 只作为开源镜像存在、不是运行依赖（运行时只加载全局 `~/.pi/agent/`），迁移不影响任何 agent 的实际运行；`hooks/` 自 pi 起已退役（hooks 改名 extensions），删除无功能影响。
 - **镜像同步**：本条目即迁移记录本身；版本 1.5.55 发版。
+
+### 变更（pi-harness 改名登记 + sync-to-macmini 挂起修复）
+
+- **为什么改**：① pi 仓库已改名 `xhqing/pi-harness`（GitHub 2026-10-18；本地开发目录 2026-10-23 同步改名 `~/Developer/pi-harness`），注册表子项目行需对应更新（Atlas 更新全局）；② `sync-to-macmini` 脚本的 rsync 未指定 ssh 选项，跨网段 / 离线时会一直挂起（实测卡 1 小时 11 分钟、堵死 watcher 后续全部同步），需加连接预检与超时。
+- **改了什么**：① `pi/agent/docs/agents-registry.md` 子项目行 `pi` → `pi-harness`（描述补改名历史）；② `pi/agent/patch/sync-to-macmini/sync-to-macmini.sh` 增加连通性预检（连不上直接跳过）与 `-e "$RSYNC_SSH"`（ConnectTimeout 10s + ServerAlive 保活），涵盖核心文件与各能力目录的同步命令。
+- **验证**：两文件与全局逐字节一致。
+- **镜像同步**：两文件覆盖（全局权威优先）；本条 CHANGELOG 由 Prometheus 记录（Atlas 委派 + 顺带纳入同批已同步的脚本修复）；版本 1.5.57 发版。
 
 ## 2026-10-22
 
