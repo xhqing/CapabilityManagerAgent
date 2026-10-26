@@ -68,6 +68,12 @@
 
 **宿主机归属（2026-10-17 用户立）**：**每个 Agent 只允许存在于一个宿主机**（其项目目录所在的机器，即其活跃工作位置的唯一性）；**迁移 = 转移而非双活**——迁移后原机器必须清理活跃副本（归档即可）。默认全部在本机（MacBook Air）；**已迁移到 macmini 的**：**Mark**（QuantStrategistAgent 及其子项目 Intraday / Swing / gridtrader，2026-10-17 整体迁移；本机已归档 `~/Archive-Migrated/`、不再保留活跃副本）。跨机呼叫已迁移 Agent 的方式见全局 CLAUDE.md「跨机协作」节。
 
+**Mark 已迁回本机（2026-10-26 用户决定）**：Mark 全部项目（QuantStrategistAgent 及子项目 Intraday / Swing / gridtrader）已由用户从 macmini **拷回本机**，`~/Developer/` 下的本机目录即**权威源**（已逐个核实与本机之外副本同一提交）。**macmini 上的同名目录与 4 个 Mark 常驻会话（`Mark` / `Mark-Intraday` / `Mark-Swing` / `Mark-gridtrader`，`duty.conf` 未改）暂时保留、不再权威**——用户 2026-10-26 明确选择「两边都不动、只改本机口径」。
+
+- 这属于对「迁移 = 转移而非双活」的**已知例外**（不是遗漏）：期间两边内容可能各自漂移，**一律以本机为准**；拿不准时先在本机核实，不要把 macmini 的版本当作最新。
+- **给 macmini 上的 Mark-\* 会话派活会改 macmini 副本、不会回流本机**——非「必须用 macmini 环境（32GB / x64）」的任务，一律在本机会话里做。
+- macmini 仍作远程算力 / 环境使用（值班会话 `macmini`），只是不再承载 Mark 的身份与项目。
+
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
 |---|---|---|
 | BackendEngineerAgent（Anvil） | CC-BRIDGE | Claude Code 上游桥接框架（Node.js） |
@@ -85,8 +91,9 @@
 | QuantStrategistAgent（Mark） | Intraday | Mark 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
 | QuantStrategistAgent（Mark） | Swing | 日 K 趋势跟随策略工具集（美股大盘股，Python，完整文档 + 回测验证 + 可信度标定） |
 | QuantStrategistAgent（Mark） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
+| QuantStrategistAgent（Mark） | NewsScoreStudy | 面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」：模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，交付 `PLAN.md` / `REPORT.md` / `NOTES.md`；私有远程 `github.com/xhqing/NewsScoreStudy`；2026-10-26 建立、同日由 Victor 移交 Mark 负责，仓库仍在 `~/Developer/NewsScoreStudy`） |
 | DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
-| DayTradingAgent（Victor） | NewsScoreStudy | 面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」：模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，交付 `PLAN.md` / `REPORT.md` / `NOTES.md`；2026-10-26 建立） |
+| DayTradingAgent（Victor） | NewsScoreStudy | ~~面试实操题研究仓库~~ **已于 2026-10-26 移交 Mark**（现行归属见上方 QuantStrategistAgent 行；本行仅留转移痕迹） |
 | SocialMediaManagerAgent（Gatsby） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 `~/Developer/xhs-mentor-scam`，绑定 GitHub 私有远程持续备份、launchd 自动提交推送；2026-10-13 由 Kit 设立、2026-10-15 移交 Gatsby 负责） |
 
 - **已取消 / 已退役的子项目（不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；channels-watch（Atlas，2026-10-17 退役）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。

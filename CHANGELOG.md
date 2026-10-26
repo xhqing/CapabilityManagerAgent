@@ -6,9 +6,13 @@
 
 ## [Unreleased]
 
-### 2026-10-26 注册表同步（新增子项目 NewsScoreStudy）
+### 2026-10-26 注册表与跨机协作口径同步（新增子项目 NewsScoreStudy 归 Mark；Mark 从 macmini 迁回本机）
 
-`pi/agent/docs/agents-registry.md` 的「子项目映射」表新增一行：`DayTradingAgent（Victor） | NewsScoreStudy`——面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」，模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，2026-10-26 建立，本地 `~/Developer/NewsScoreStudy`，已挂 `AGENTS.md` / `.pi` 两条指回 DayTradingAgent 的软链接）。同步动作：全局 `~/.pi/agent/docs/agents-registry.md` 改完拷回镜像，两端逐字节一致（`diff -rq` 校验无其它分叉）。仅改文档一行 + 同步，无代码 / 机制变更，其它 agent 项目零影响。
+**① `pi/agent/docs/agents-registry.md`**：子项目映射表新增 `QuantStrategistAgent（Mark） | NewsScoreStudy`——面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」，模拟数据、代码匿名化，交付 PLAN / REPORT / NOTES；私有远程 `github.com/xhqing/NewsScoreStudy`）。该仓库 2026-10-26 由 Victor（DayTradingAgent）建立并移交 Mark，Victor 行保留一行带删除线的「已移交」指针以免归属丢失。「宿主机归属」节新增一段：**Mark 已由用户从 macmini 拷回本机，本机为权威源**；macmini 上的同名目录与 4 个 Mark 常驻会话暂保留但不权威（用户当日选择「两边都不动、只改本机口径」，属对「迁移 = 转移而非双活」的已知例外，非遗漏）。
+
+**② `pi/agent/CLAUDE.md`（「跨机协作：macmini 值班会话」节）**：原「已迁移的 Agent」段改写为「已迁回的 Agent」——Mark 全体系拷回本机、本机权威；会话表增加「现行口径」列（值班会话正常使用，4 个 Mark 会话保留但不权威）；并加一条告警：**给 macmini 上的 Mark-\* 会话派活改的是 macmini 副本、不会回流本机**，非必须用 macmini 环境的任务一律在本机做。
+
+全局与镜像逐字节一致（两文件 `diff -q` 校验；`diff -rq` 确认无其它分叉，仅本机私有的 `skills/anysearch/.env`、`skills/backup/endpoints/endpoints.json` 不在镜像内属预期）。无代码 / 机制变更，其它 agent 项目零影响。
 
 ## [1.5.57] - 2026-10-23
 
