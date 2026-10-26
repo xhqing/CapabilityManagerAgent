@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+## [1.5.58] - 2026-10-26
+
 ### 2026-10-26 名册同步规矩落地（新增守卫扩展 + 校验脚本；registry 补规则节；顺带补齐 ark-key-pool 镜像）
 
 **① 新增 `pi/agent/extensions/roster-sync-guard.ts` + `pi/agent/patch/roster-sync/`（`roster-sync-check.py` 与 `allowlist.json`）**：用户 2026-10-26 立规——`agents-registry.md` 的任何改动（新增 / 删除 Agent 或子项目、归属变更、迁机）必须**与 `xhqing` 主页 README 名册在同一批里同步**（英文 + 中文两份）。按团队元规则「规矩必须配套工具强制」，这条规矩落地为机器校验：脚本把 registry「智能体命名注册表」+「子项目映射」两张表与两份 README 名册做集合比对（缺 / 多都报，带删除线的「已移交」痕迹行自动跳过，`allowlist.json` 登记待用户确认的有意豁免），退出码 1 表示有漂移；扩展在某次工具调用写到 registry 后立即跑一次比对并当场插话，每轮收尾（`agent_settled`）再兜底比一次（Kit 会话注入提醒、其它会话只弹通知），同一批漂移只提醒一次。本机实测：正向退出码 0（只剩豁免项）、负向能准确报出缺 / 多、扩展四条路径（插话 / 去重 / 无关写入不触发 / 非 Kit 会话不插话）全过。
