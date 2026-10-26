@@ -17,7 +17,7 @@
   - 非 `pi-` 前缀的 tmux 会话（用户自己的 tmux 工作区）；
   - 有客户端附着的会话（有人在看）；
   - 不是 tmux 的 pi 进程（用户终端里的会话，`ps -o tty=` 有真实 tty）；
-  - 记录文件匹配不到的会话（拿不准就不动，除非显式 `--kill-unknown`）。
+  - 记录文件匹配不到、且运行时长也不够的会话（拿不准就不动）。
 
 用法：
     session-sweep.py                  # 干跑：列出候选
@@ -36,6 +36,18 @@
   新增 runaway 检测：「忙死」型会话（跑得久 + 平均 CPU 高）靠 mtime 判空闲永远躲过
   清扫（实测 pi-Hopper 空转 8 天 11 小时吃 87% CPU、上下文 99.3% 卡死，却因持续重试
   写日志被判「刚活动过」而从未被清理）。现在这类会话会单独标记提示，交人判断。
+
+2026-10-26 修复（僵尸会话仍然漏清，第二处根因）：
+  用户实测本机卡顿，查出 tmux 后台的 pi-reload-test 存活 **18 天**、pi-Gatsby 存活
+  **10 天**，日志里每轮巡视都写着它们「匹配不到记录文件（拿不准）」，却从未被清。
+  根因：本脚本靠「进程启动时间 ≈ 记录文件名里的 UTC 时间戳」匹配记录文件（容差 5
+  分钟），匹配不到就 `idle_min=None`；而 main() 对 `idle_min=None` 的处理是**一律
+  「拿不准 → 保留」**（除非显式 `--kill-unknown`，而扩展调用时不带这个参数）。于是
+  记录文件一旦对不上（被清理过、归档过、命名规则变过），该会话就**永久**躲过清扫。
+  现在改为**运行时长兜底**：无人在看 + 进程已跑远超阈值 + 不是「忙死型」（runaway）
+  时按僵尸处理；兜底阈值取 `max(idle_min × 2, 360)`，避免误伤刚启动、记录尚未落盘的
+  会话（实测 18 天 / 10 天判为候选，刚启动 6 分钟的仍保留）。`--kill-unknown` 语义不变
+  （显式强制清），「忙死型」仍然只报告不自动杀。
 """
 
 from __future__ import annotations
@@ -55,6 +67,7 @@ MATCH_TOLERANCE_S = 300  # 进程启动时间与文件名时间戳的最大允�
 BATCH_MAX = 3  # 单次巡视最多清理几个（防批量误伤；其余留待下次，不整体拒绝）
 RUNAWAY_MIN_HOURS = 24  # 疑似失控判定：运行时长下限（小时）
 RUNAWAY_MIN_CPU = 20.0  # 疑似失控判定：进程生命周期平均 CPU 下限（%）
+UNKNOWN_FALLBACK_MULT = 2  # 记录文件匹配不到时，按运行时长兜底的阈值倍数（见 main()）
 
 
 def run(*args: str) -> str:
@@ -201,8 +214,21 @@ def main() -> int:
         elif r["attached"] > 0:
             skipped.append((r, "有人在看（有 tmux 客户端附着）"))
         elif r["idle_min"] is None:
-            (candidates if args.kill_unknown else skipped).append(
-                (r, "匹配不到记录文件（拿不准）"))
+            # 2026-10-26 修复（僵尸会话长期漏清事故）：记录文件匹配不到时，原实现一律
+            # 「拿不准 → 保留」，于是这类会话永远躲过清扫——实测 pi-reload-test 存活 18 天、
+            # pi-Gatsby 存活 10 天，日志里每轮都写「匹配不到记录文件」，从未被清过。
+            # 现改为用**进程运行时长**兜底：无人在看 + 跑得远超阈值 + 不是「忙死型」，
+            # 按僵尸处理。兜底阈值取 2 倍保守值，避免误伤刚启动、记录尚未落盘的会话。
+            fallback_min = max(args.idle_min * UNKNOWN_FALLBACK_MULT, 360)
+            rh = r.get("run_hours")
+            if args.kill_unknown:
+                candidates.append((r, "匹配不到记录文件（--kill-unknown 强制清理）"))
+            elif rh is not None and rh * 60 >= fallback_min and not r.get("runaway"):
+                r["idle_min"] = round(rh * 60)
+                r["idle_estimated"] = True
+                candidates.append((r, f"匹配不到记录文件，按运行时长 {rh:.1f} 小时兜底"))
+            else:
+                skipped.append((r, "匹配不到记录文件、运行时间也不足（拿不准）"))
         elif r["idle_min"] >= args.idle_min:
             candidates.append((r, "空闲 ≥ 阈值"))
         else:
@@ -264,8 +290,10 @@ def main() -> int:
         print()
     print(f"【候选清理 {len(candidates)} 个】")
     for r, why in candidates:
-        print(f"  - {r['session']:<18} 启动 {r['started']}  最后活动 {r['last_active']}"
-              f"  空闲 {r['idle_min']} 分钟  ({why})")
+        last = r["last_active"] or "无记录"
+        est = "（按运行时长估算）" if r.get("idle_estimated") else ""
+        print(f"  - {r['session']:<18} 启动 {r['started']}  最后活动 {last}"
+              f"  空闲 {r['idle_min']} 分钟{est}  ({why})")
     if not candidates:
         print("  （无）")
     print(f"\n【保留 {len(skipped)} 个】")

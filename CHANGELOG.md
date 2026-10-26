@@ -6,6 +6,20 @@
 
 ## [Unreleased]
 
+### 2026-10-26 修 session-sweep 僵尸会话漏清（第二处根因：记录文件匹配失败即永久放过）
+
+`pi/agent/patch/session-sweep/session-sweep.py` 修复一处长期漏清的判定缺陷。
+
+**起因**：用户报告本机卡顿，排查发现 6 个 pi 进程里有 tmux 后台会话 `pi-reload-test` 存活 **18 天**、`pi-Gatsby` 存活 **10 天**。日志 `~/.pi/agent/logs/session-sweep.log` 显示每轮巡视都在写它们「匹配不到记录文件（拿不准）」，却从未被清。
+
+**根因**：脚本靠「进程启动时间 ≈ 记录文件名里的 UTC 时间戳」匹配 session 记录文件（容差 5 分钟），匹配不到就置 `idle_min=None`；而 `main()` 对 `idle_min=None` 的处理是**一律「拿不准 → 保留」**（除非显式 `--kill-unknown`，而扩展 `session-sweep.ts` 调用时不带该参数）。于是记录文件一旦对不上（被清理过、归档过、命名规则变过），该会话就**永久**躲过清扫——上一轮 2026-10-23 的修复只修了「候选 > 3 个整体拒绝」那条死锁，没发现这条。
+
+**修法**：改为**运行时长兜底**——无人在看（`attached=0`）+ 进程已跑远超阈值 + 不是「忙死型」（`runaway`）时按僵尸处理；兜底阈值取 `max(idle_min × 2, 360)`（新增常量 `UNKNOWN_FALLBACK_MULT = 2`），避免误伤刚启动、记录尚未落盘的会话。`--kill-unknown` 语义不变（显式强制清），「忙死型」仍只报告不自动杀。干跑输出新增「（按运行时长估算）」标记，`last_active` 为空时显示「无记录」。
+
+**验证**：单测（`--idle-min 360` 模拟扩展调用）四条用例全过——18 天与 10 天且匹配不到记录的判为候选、刚启动 6 分钟的保留、`runaway`（600 小时 + 45% CPU）保留。同轮实测清理三个后台会话（`pi-Kit`、`pi-reload-test`、`pi-Gatsby`）。
+
+全局与镜像逐字节一致（`diff -q` 校验）。
+
 ### 2026-10-26 名册同步规则增补：私有仓库默认放空不写
 
 `pi/agent/docs/agents-registry.md`「名册同步」节新增一条（用户 2026-10-26 立）：**凡私有仓库（GitHub `--private`）的 Agent 项目 / 子项目，在 xhqing 公开名册里默认不写、直接登记 allowlist 豁免，且不必询问用户**——不要为这种事阻塞；用户显式要求写时才写，描述语用用户给的原话。存量私有仓库（`xhs-mentor-scam`、按用户显式要求写入的 `NewsScoreStudy`）不受影响。
