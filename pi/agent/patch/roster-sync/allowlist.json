@@ -1,0 +1,12 @@
+{
+  "_说明": "roster-sync-check.py 的豁免清单：登记有意暂不同步到公开 README 名册的条目，必须写理由 + 日期。没有理由的豁免等于没查。格式：missing_in_readme（registry 有、README 无）/ extra_in_readme（README 有、registry 无）/ agents（整行 Agent）。",
+  "missing_in_readme": [
+    {
+      "repo": "NewsScoreStudy",
+      "reason": "私有研究仓库，公开名册的描述语待用户确认；确认前不写进公开 README（2026-10-26 用户指示）",
+      "since": "2026-10-26"
+    }
+  ],
+  "extra_in_readme": [],
+  "agents": []
+}
