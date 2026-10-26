@@ -6,6 +6,17 @@
 
 ## [Unreleased]
 
+### 2026-10-26 名册同步规矩落地（新增守卫扩展 + 校验脚本；registry 补规则节；顺带补齐 ark-key-pool 镜像）
+
+**① 新增 `pi/agent/extensions/roster-sync-guard.ts` + `pi/agent/patch/roster-sync/`（`roster-sync-check.py` 与 `allowlist.json`）**：用户 2026-10-26 立规——`agents-registry.md` 的任何改动（新增 / 删除 Agent 或子项目、归属变更、迁机）必须**与 `xhqing` 主页 README 名册在同一批里同步**（英文 + 中文两份）。按团队元规则「规矩必须配套工具强制」，这条规矩落地为机器校验：脚本把 registry「智能体命名注册表」+「子项目映射」两张表与两份 README 名册做集合比对（缺 / 多都报，带删除线的「已移交」痕迹行自动跳过，`allowlist.json` 登记待用户确认的有意豁免），退出码 1 表示有漂移；扩展在某次工具调用写到 registry 后立即跑一次比对并当场插话，每轮收尾（`agent_settled`）再兜底比一次（Kit 会话注入提醒、其它会话只弹通知），同一批漂移只提醒一次。本机实测：正向退出码 0（只剩豁免项）、负向能准确报出缺 / 多、扩展四条路径（插话 / 去重 / 无关写入不触发 / 非 Kit 会话不插话）全过。
+
+**② `pi/agent/docs/agents-registry.md`**：在「子项目映射」表下方新增「名册同步（2026-10-26 用户立，硬性规定 + 工具强制）」节——规矩原文、责任人（名册归 Kit，但改 registry 的会话负责同批补齐）、「公开描述语先问用户、未认可先登记豁免」、工具强制入口、以及脚本查不到的部分（描述文字与 Host machine 列）靠人。
+
+**③ 顺带补齐 `pi/agent/extensions/ark-key-pool.ts`**：全局副本早已领先（2026-10-24 起的按「Key + 模型」粒度额度冷却、逐次翻倍重试、冷却只记实际插入 header 的那把 Key），镜像停在旧版本——按「发现分叉立即同步、全局权威优先」补齐。
+
+全局与镜像逐字节一致（上述四文件 `diff -q` 校验；`diff -rq` 全面核对 skills / CLAUDE.md / docs / patch / extensions 五部分无其它分叉，仅本机私有的 `skills/anysearch/.env`、`skills/backup/endpoints/endpoints.json` 与 `patch/session-link/config.json`、`local-links.json` 不在镜像内属预期）。
+
+
 ### 2026-10-26 注册表与跨机协作口径同步（新增子项目 NewsScoreStudy 归 Mark；Mark 从 macmini 迁回本机）
 
 **① `pi/agent/docs/agents-registry.md`**：子项目映射表新增 `QuantStrategistAgent（Mark） | NewsScoreStudy`——面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」，模拟数据、代码匿名化，交付 PLAN / REPORT / NOTES；私有远程 `github.com/xhqing/NewsScoreStudy`）。该仓库 2026-10-26 由 Victor（DayTradingAgent）建立并移交 Mark，Victor 行保留一行带删除线的「已移交」指针以免归属丢失。「宿主机归属」节新增一段：**Mark 已由用户从 macmini 拷回本机，本机为权威源**；macmini 上的同名目录与 4 个 Mark 常驻会话暂保留但不权威（用户当日选择「两边都不动、只改本机口径」，属对「迁移 = 转移而非双活」的已知例外，非遗漏）。
