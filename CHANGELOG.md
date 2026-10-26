@@ -4,6 +4,12 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-26 注册表同步（新增子项目 NewsScoreStudy）
+
+`pi/agent/docs/agents-registry.md` 的「子项目映射」表新增一行：`DayTradingAgent（Victor） | NewsScoreStudy`——面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」，模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，2026-10-26 建立，本地 `~/Developer/NewsScoreStudy`，已挂 `AGENTS.md` / `.pi` 两条指回 DayTradingAgent 的软链接）。同步动作：全局 `~/.pi/agent/docs/agents-registry.md` 改完拷回镜像，两端逐字节一致（`diff -rq` 校验无其它分叉）。仅改文档一行 + 同步，无代码 / 机制变更，其它 agent 项目零影响。
+
 ## [1.5.57] - 2026-10-23
 
 pi-harness 改名登记（注册表子项目行 `pi` → `pi-harness`：GitHub 2026-10-18 改名、本地目录 2026-10-23 同步改名），并修复 `sync-to-macmini` 脚本 rsync 未指定 ssh 超时导致跨网段 / 离线卡死的问题（增加连通性预检 + ConnectTimeout / ServerAlive 保活）。详见下方 2026-10-23 分节。
