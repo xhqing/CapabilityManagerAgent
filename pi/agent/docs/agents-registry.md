@@ -101,7 +101,11 @@
 **名册同步（2026-10-26 用户立，硬性规定 + 工具强制）**：本文件任何改动——新增 / 删除 Agent 项目、子项目新增 / 删除 / 归属变更、Agent 迁机（宿主机归属变化）——必须**在同一批改动里**同步更新 `xhqing` 仓库（`~/Developer/xhqing`）README 的名册表格，也就是「Subprojects (🌐 public · 🔒 private)」那张表（**英文 `README.md` 与中文 `README_cn.md` 两份都要改**，双语文档同步）。不是「下次顺手改」，而是和 registry 改动一起做完。
 
 - **谁做**：名册归 Kit（ExecutiveAssistantAgent）负责，但**改动 registry 的那个会话有责任同批补齐**（或当场交给 Kit 处理），不得留到下一次。
-- **描述语要先问用户**：公开 README 上怎么写某仓库（尤其私有仓库）需要用户认可先用词——没拿到认可的不写，先进 `~/.pi/agent/patch/roster-sync/allowlist.json` 登记豁免（repo + 理由 + 日期），确认后再写进 README 并从豁免里删掉。
+- **描述语要先问用户**：公开 README 上怎么写某仓库需要用户认可先用词——没拿到认可的不写，先进 `~/.pi/agent/patch/roster-sync/allowlist.json` 登记豁免（repo + 理由 + 日期），确认后再写进 README 并从豁免里删掉。
+- **私有仓库默认放空不写（2026-10-26 用户立）**：
+  - 凡**私有仓库**（GitHub `--private`）的 Agent 项目 / 子项目，在公开名册里**默认不写、直接登记进 allowlist 豁免**（理由固定写「私有仓库，默认不公开」），**不必询问用户**——不要为这种事阻塞；用户**显式要求**要写时再写（描述语同样遵上一条：拿用户给的原话写，不自行扩写）。
+  - 已在名册里的存量私有仓库（如 `xhs-mentor-scam`、按用户显式要求写入的 `NewsScoreStudy`）不受此默认影响，维持现状；要撤就等用户发话。
+  - 理由：公开主页列私有仓库等于把「不想公开的内容存在」这件事本身暴露出去；默认关掉比默认公开更安全，且不用为单个仓库反复征询。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/roster-sync-guard.ts`——某次工具调用写到本文件后立即比对，发现名册没跟上就当场插话促其同批补齐；每轮收尾（`agent_settled`）再兜底比一次（Kit 会话注入提醒，其它会话只弹通知）。判定逻辑在 `~/.pi/agent/patch/roster-sync/roster-sync-check.py`（registry 两张表 ↔ 两份 README 名册的集合比对，缺 / 多都报；也可手工随时跑：`python3 ~/.pi/agent/patch/roster-sync/roster-sync-check.py`）。
 - **脚本查不到的部分靠人**：脚本只比「名字集合」，不查描述文字，也不查名册的 **Host machine 列**——迁机改宿主机归属时，README 里对应 Agent 的 Host 列要手工同步。
 
