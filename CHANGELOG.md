@@ -4,6 +4,26 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.60] - 2026-10-26
+
+### 2026-10-26 注销 Hermes（NetOpsAgent）、XPilot 移交 Atlas；Atlas 子项目名 pi → pi-harness
+
+`pi/agent/docs/agents-registry.md` 同步全局改动（用户在 Kit 会话交办）：瘦身团队结构，把代理工具链并入全栈线。
+
+**为什么改**：Hermes 名下只有 XPilot 一个子项目、职责单一（代理节点测速 / 选路 / 故障转移 / 订阅刷新），而这类 CLI 工具的构建发布、Python 工程化本就是全栈范畴；用户决定不再为单项目维持一个独立 Agent，直接把项目并入 Atlas。同时修正一处长期漂移——Atlas 行的在手项目清单里仍写着旧名 `pi`，而项目在 2026-10-18 已改名 `pi-harness`（注册表该处没跟上，子项目映射表已是新名，两张表口径不一致）。
+
+**改了什么**：
+
+- 智能体命名注册表：移除 **Hermes**（NetOpsAgent）整行。
+- Atlas（FullStackEngineerAgent）行：在手项目 `pi` 更正为 `pi-harness`，并补入 `XPilot`。
+- 基础设施小组描述：删除 Hermes 及其网络运维职责。
+- 子项目映射表：`NetOpsAgent（Hermes） | XPilot` 改为 `FullStackEngineerAgent（Atlas） | XPilot`，说明栏补注完整职责与移交来源。
+- 新增「已注销 / 已退役的 Agent」清单（此前只有子项目级退役清单，Agent 级退役无处记录）。
+
+**同批配套改动**（各自项目记录）：XPilot 两条身份软链接改指 `../FullStackEngineerAgent/`；Atlas 项目「子项目清单」节补入 XPilot；Hopper（TestEngineerAgent）移除两处 Hermes 的小组同组列举；xhqing 主页中英双语名册删除 NetOpsAgent 行、XPilot 并入 Atlas 行。
+
+全局与镜像逐字节一致（`diff -q` 校验）。
+
 ## [1.5.59] - 2026-10-26
 
 ### 2026-10-26 修 session-sweep 僵尸会话漏清（第二处根因：记录文件匹配失败即永久放过）
