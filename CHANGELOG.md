@@ -4,7 +4,7 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
-## [Unreleased]
+## [1.5.59] - 2026-10-26
 
 ### 2026-10-26 修 session-sweep 僵尸会话漏清（第二处根因：记录文件匹配失败即永久放过）
 
