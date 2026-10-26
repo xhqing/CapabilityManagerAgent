@@ -254,15 +254,17 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 - **能力边界**：值班会话具备通用能力（跑命令/脚本/网络任务），**暂不具备「某个具体 agent 的身份与项目环境」**——「唤醒具体 agent 会话」的场景另待扩展（依赖 macmini 上的 tmux 与项目环境部署）。
 - **超时**：ask 默认 120 秒；长任务可在命令里加 `--timeout-ms <毫秒>`，或先用 send 派活、稍后再发 ask 询问进度。
 - **注意**：值班会话的 cwd 是 macmini 的 `~`（无项目上下文）；在 macmini 上产出的文件留在 macmini（本机如需取回需显式回传，如 `scp mac-mini:<路径> <本机路径>`）。
-- **已迁移的 Agent（macmini 常驻会话清单，2026-10-17 起、launchd 守护）**：**Mark** 全体系已整体迁至 macmini（单宿主——本机不再保留活跃副本，已归档 `~/Archive-Migrated/`）；**5 个会话常驻**（统一 Mark 身份、各驻一个项目；掉线自动重拉；值班会话每 6h 自动重启清上下文、**Mark 系永不重启**——长跑保留全部记忆）：
+- **已迁回的 Agent（2026-10-26 用户决定：Mark 全体系拷回本机，本机为权威源）**：**Mark**（QuantStrategistAgent 及子项目 Intraday / Swing / gridtrader，另有同日移交的 NewsScoreStudy）原于 2026-10-17 整体迁至 macmini；**2026-10-26 已由用户拷回本机**——`~/Developer/` 下的目录即权威源。macmini 上的同名目录与 4 个 Mark 常驻会话**保留但不再权威**（用户当日明确选择「两边都不动、只改本机口径」，属对单宿主规则的已知例外）；5 个会话仍列在 `duty.conf` 里（值班会话每 6h 重启、Mark 系不重启），但**非必须用 macmini 环境的任务一律不在那边做**：
 
-| 呼叫名（intercom） | 进驻项目（cwd） |
-|---|---|
-| `macmini` | 值班会话（`~`，通用任务） |
-| `Mark` | 主项目 QuantStrategistAgent |
-| `Mark-Intraday` | 子项目 Intraday |
-| `Mark-Swing` | 子项目 Swing |
-| `Mark-gridtrader` | 子项目 gridtrader |
+| 呼叫名（intercom） | 进驻项目（cwd） | 现行口径 |
+|---|---|---|
+| `macmini` | 值班会话（`~`，通用任务） | 正常使用（远程算力 / 环境） |
+| `Mark` | 主项目 QuantStrategistAgent | 保留但不权威；优先在本机会话做 |
+| `Mark-Intraday` | 子项目 Intraday | 同上 |
+| `Mark-Swing` | 子项目 Swing | 同上 |
+| `Mark-gridtrader` | 子项目 gridtrader | 同上 |
+
+⚠️ **给 macmini 上的 Mark-\* 会话派活，改的是 macmini 副本、不会回流本机**（session-link 只负责清上下文重启，不做内容回传）；两边若不一致一律以本机为准。
 
 标准呼叫：`ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to <呼叫名> --text "..."'`（send 为不等回复）。
 
