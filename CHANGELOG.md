@@ -24,6 +24,20 @@
 
 > 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
 
+### 2026-10-27 修 duty-macmini 的 screen 启动漏 `-U`（macmini 上 pi 界面双重编码乱码）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户从本机 `macmini-pi` 接进 macmini 的 pi 会话后，整屏边框线、项目符号、中文全是乱码（`â` / `å` 连片、末尾显示 `â¢ macmini`）。实测定位：macmini 自带 `screen 4.00.03` 只有在**创建会话时带 `-U`** 才按 UTF-8 处理；不带 `-U` 时按 8-bit 处理，把 UTF-8 多字节字符逐字节拆开、丢掉 C1 控制字节（0x80–0x9F）再按 UTF-8 重编码——`─`（E2 94 80）变 `â`、`•`（E2 80 A2）变 `â¢`、`中文` 变 `ä¸...`。而 `duty.sh` 起会话时只写了 `screen -dmS`，macmini 上所有常驻 pi 会话（`pi-macmini` / `pi-Mark*`）由此全部中招。
+
+**改了什么**：`pi/agent/patch/duty-macmini/duty.sh` 的拉起行由 `$SCREEN -dmS "$name" ...` 改为 `$SCREEN -U -dmS "$name" ...`，并在上方加注释说明成因与回归风险。
+
+**验证**：同环境对照实验（都用无 LANG 的 `env -i` 模拟 launchd，只差 `-U`）——不带 `-U` 抓到的客户端字节是 `LINE:[âââ] BUL:[â¢] CJK:[ä¸...]`；带 `-U` 抓到的边框字节是完整 `E2 94 80`（`─`），双重编码残留计数 0。真 pi 会话同样验证：不带 `-U` 边框变 `âââ…`，带 `-U` 正常。另外确认 `screen -X "utf8 on"` 无法给已存在的会话补救（对已连上的客户端不生效），**旧会话必须重建**。
+
+**回归风险**：无。`-U` 只是让 screen 按 UTF-8 解析，不影响会话名、cwd、intercom 名与重启周期；已同步到 macmini（两边 sha 一致）。`pi-Mark*` 系会话的 `restart_h=0`（不自动重启），要享受修复需重建一次。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.5.60] - 2026-10-26
 
 ### 2026-10-26 注销 Hermes（NetOpsAgent）、XPilot 移交 Atlas；Atlas 子项目名 pi → pi-harness
