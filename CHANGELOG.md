@@ -4,6 +4,26 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-27 新增「禁止 Agent 自行关闭 xpilot」规则 + 工具强制守卫 xpilot-guard.ts
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-27 立规。起因：AI 为「逐节点验证老虎白名单」用 `xpilot stop` + `xpilot start <节点>` 把 6 个节点挨个切了一遍（共停起 7 次），而 **xpilot 是本机全局出口**——停掉它等于同时掐断 AI 自己的老虎 API、以及 `system_proxy.enabled=true` 下用户浏览器等全部代理流量。用户原话：「你关了 xpilot 你自己也断了知道吗！禁止所有 Agent 自己关闭 xpilot，确实需要的话必须经过用户授权。」
+
+**改了什么**：
+
+1. `pi/agent/CLAUDE.md` 新增一节「禁止 Agent 自行关闭 xpilot（必须用户授权；已硬拦截并向用户汇报）」——列明禁止动作（`stop` / `restart` / `uninstall-launchd` / 进程终止类命令指向 xpilot / `launchctl unload·bootout` xpilot 守护项）、放行的只读动作（`status` / `node list` / `test --node` / `config show` / `switch`）、确需停重开时的授权流程（说明影响 → 当次授权 → 命令加 `# AI_AUTHORIZED_XPILOT_STOP`）、以及对应工具强制落点。
+2. 新增 `pi/agent/extensions/xpilot-guard.ts`：`tool_call` 拦截，命中禁止动作即 **block 暂停执行 + `ctx.ui.notify` 直接向用户汇报**（汇报含「AI 想自主关闭 xpilot、已被拦下」+ 被拦命令摘要 + 授权方式）；覆盖 `bash` 与 `background_run` 两条执行路径（只拦 bash 会被后台任务绕过）；逃生门为当次授权标记。
+3. 判定函数 `isXpilotStopCommand()` 单独导出，配 20 条用例实测（拦 9 条：直连 CLI / `python -m xpilot.cli stop` / `restart` / `uninstall-launchd` / 两种进程终止写法 / 带 pgrep 的命令替换 / `launchctl unload` / 链式命令；放 11 条：带授权标记、`status` / `test` / `switch` / `start` / `node list`、以及 `grep`·`echo`·`cat`·`git commit -m` 里出现该字样的读文本场景）——全部通过。
+
+**局限（如实记录）**：`kill -9 <pid>` 这种**不出现 xpilot 字样**的精确 PID 杀法拦不住（无从静态判断 PID 归属）；本守卫只提高绕过成本，不是银弹——与 focus-guard / kdbx-guard 同一取舍。
+
+**回归风险**：无。① 新守卫只拦「停 xpilot」这一类动作，其它命令（含 `xpilot start` / `switch` / `test`）一律放行；② 全程防御性 catch，扩展失灵时不阻塞会话；③ 不改动任何既有扩展与规则条文。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.5.60] - 2026-10-26
 
 ### 2026-10-26 注销 Hermes（NetOpsAgent）、XPilot 移交 Atlas；Atlas 子项目名 pi → pi-harness

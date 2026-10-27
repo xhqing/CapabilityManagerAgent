@@ -189,6 +189,15 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - 确需不带隔离（如显式指定另一账号）时，命令加标记 `# AI_AUTHORIZED_X_UNSAFE`。
 - 由 pi 端 `~/.pi/agent/extensions/twitter-guard.ts` 硬拦截兜底。
 
+### 禁止 Agent 自行关闭 xpilot（必须用户授权；已硬拦截并向用户汇报）
+
+**xpilot 是本机全局出口，不是某个项目的私有进程。** 关掉它 = 本机所有走代理的流量一起断：AI 自己的老虎 API / 外部请求断、`system_proxy.enabled=true` 下用户浏览器等程序也断（stop 会摘掉系统代理设置）。**禁止任何 Agent 自己关闭 xpilot；确实需要关闭 / 重开时，必须先经用户授权。**（2026-10-27 用户立规。立规起因：AI 为「逐节点验证老虎白名单」用 `xpilot stop` + `xpilot start` 把 6 个节点挨个切了一遍、共停起 7 次，等于把本机出口掐断若干分钟——用户原话「你关了 xpilot 你自己也断了知道吗！」）
+
+- **禁止的动作**（无授权一律不得执行）：`xpilot stop`、`xpilot restart`、`xpilot uninstall-launchd`、`pkill` / `killall` / `kill` 指向 xpilot、`launchctl unload|bootout` xpilot 的守护项。
+- **放行的只读 / 非破坏动作**：`xpilot status`、`xpilot node list`、`xpilot test`（含 `--node <id>`，它另起临时实例、不动主代理）、`xpilot config show`、`xpilot switch`（只改配置、不影响运行实例，需 restart 才生效）。**验证节点 / 白名单优先用这些**，不要动主代理。
+- **确需停 / 重开时的授权流程**：先说明理由与影响（会断本机全部代理流量、包括用户自己的）→ 取得**当次**明确授权（建议 `AskUserQuestion`）→ 命令加标记 `# AI_AUTHORIZED_XPILOT_STOP` 再执行。授权不跨次复用，**未获授权不得擅自加标记**。
+- **工具强制**：pi 端 `~/.pi/agent/extensions/xpilot-guard.ts`——命中禁止动作时**暂停执行**（block）并**用 `ctx.ui.notify` 直接向用户汇报**（说明「AI 想自主关闭 xpilot、已被拦下」+ 被拦命令摘要 + 如何授权），bash 与 `background_run` 两条路径都盖。局限（诚实）：`kill -9 <pid>` 这种**不出现 xpilot 字样**的精确 PID 杀法拦不住；本守卫只提高绕过成本、不是银弹。
+
 ### 密码库与密钥文件不得删除 / 移动（钩子已硬拦截）
 
 KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就回不来的东西**：内容无法重建，而文件同步会把本机删除**传到对端**（本地删一下 = 手机和 Mac 同时失去数据，只剩对端 `.stversions` 里的归档可救）。用户对此明确提过担心，所以定了硬规矩。
