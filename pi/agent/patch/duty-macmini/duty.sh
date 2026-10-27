@@ -58,7 +58,11 @@ while IFS='|' read -r name ikey cwd restart_h; do
   pid=$(printf '%s\n' "$LS_OUT" | grep -oE "[0-9]+\.${name}[[:space:]]" | head -1 | cut -d. -f1)
   [ -n "$pid" ] && $SCREEN -S "$pid" -X quit 2>/dev/null
   sleep 1
-  $SCREEN -dmS "$name" /bin/zsh -lc "export TERM=xterm-256color; cd '$cwd' || exit 1; exec $PI -n '$ikey'"
+  # -U（UTF-8）不能少：macmini 自带的 screen 4.00.03 不带 -U 时按 8-bit 处理，
+  # 会把 pi TUI 的边框线（─）、项目符号（•）、中文逐字节拆开、丢掉 C1 控制字节
+  # 再按 UTF-8 重编码——从本机接进会话看到的就是整屏 â / å 双重编码乱码
+  # （2026-10-27 实测定位：同环境加 -U 后字节完全正常，不加必乱）。
+  $SCREEN -U -dmS "$name" /bin/zsh -lc "export TERM=xterm-256color; cd '$cwd' || exit 1; exec $PI -n '$ikey'"
   date +%s > "$stamp"
   echo "[$(date '+%F %T')] ${name}：已启动（${reason}，cwd=${cwd}，intercom=${ikey}）"
 done < "$CONF"
