@@ -282,6 +282,7 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 - **能力边界**：值班会话具备通用能力（跑命令/脚本/网络任务），**暂不具备「某个具体 agent 的身份与项目环境」**——「唤醒具体 agent 会话」的场景另待扩展（依赖 macmini 上的 tmux 与项目环境部署）。
 - **超时**：ask 默认 120 秒；长任务可在命令里加 `--timeout-ms <毫秒>`，或先用 send 派活、稍后再发 ask 询问进度。
 - **注意**：值班会话的 cwd 是 macmini 的 `~`（无项目上下文）；在 macmini 上产出的文件留在 macmini（本机如需取回需显式回传，如 `scp mac-mini:<路径> <本机路径>`）。
+- **全量镜像（2026-10-28 用户立）**：本机与 macmini 已建立全量双向镜像——`~/Developer`（全部 Agent / 非 Agent 项目）与 `~/.pi/agent`（全局能力层）逐字节同步，任一方改动自动同步；**macmini 已切断 GitHub**（push / PR / Release / clone / fetch 只在本机做）。同步范围、排除项（sessions / state / npm / bin / node_modules 等运行时或架构相关数据）、冲突处理、状态检查命令见 `~/.pi/agent/docs/macmini-mirror.md`。**同一个 git 仓库同一时间只在一台机器上做写操作**——两边同时写会让 `.git` 产生冲突。
 - **已迁回的 Agent（2026-10-26 用户决定：Mark 全体系拷回本机，本机为权威源）**：**Mark**（QuantStrategistAgent 及子项目 Intraday / Swing / gridtrader，另有同日移交的 NewsScoreStudy）原于 2026-10-17 整体迁至 macmini；**2026-10-26 已由用户拷回本机**——`~/Developer/` 下的目录即权威源。macmini 上的同名目录与 4 个 Mark 常驻会话**保留但不再权威**（用户当日明确选择「两边都不动、只改本机口径」，属对单宿主规则的已知例外）；5 个会话仍列在 `duty.conf` 里（值班会话每 6h 重启、Mark 系不重启），但**非必须用 macmini 环境的任务一律不在那边做**：
 
 | 呼叫名（intercom） | 进驻项目（cwd） | 现行口径 |
@@ -292,7 +293,7 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 | `Mark-Swing` | 子项目 Swing | 同上 |
 | `Mark-gridtrader` | 子项目 gridtrader | 同上 |
 
-⚠️ **给 macmini 上的 Mark-\* 会话派活，改的是 macmini 副本、不会回流本机**（session-link 只负责清上下文重启，不做内容回传）；两边若不一致一律以本机为准。
+⚠️ **2026-10-28 起镜像为双向**：给 macmini 上的 Mark-\* 会话派活，改动**会同步回流本机**（原「不会回流本机」的说法自镜像建立起失效）。为避免 `.git` 冲突，同一仓库同一时间只在一台机器上做 git 写操作；提交 / 发版仍统一在本机做（macmini 已断 GitHub）。
 
 标准呼叫：`ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to <呼叫名> --text "..."'`（send 为不等回复）。
 

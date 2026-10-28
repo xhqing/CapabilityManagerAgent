@@ -1,0 +1,14 @@
+// macmini-mirror：机器相关 / 可重建内容，不同步（2026-10-28 建立）
+// 依赖与构建缓存（架构相关：本机 arm64 / macmini x64，直接拷贝会跑不起来）
+(?d)node_modules
+(?d).lake
+(?d).venv
+(?d)venv
+(?d)__pycache__
+*.pyc
+// 系统垃圾
+(?d).DS_Store
+(?d)._*
+// git 瞬时锁文件（提交过程中产生，同步过去会让对端误判 index 被锁）
+**/.git/*.lock
+**/.git/**/*.lock
