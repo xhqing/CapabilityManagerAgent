@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+### 2026-10-28 新增「`.pi/` 目录只放 pi 自己要读的东西」规则 + 工具强制守卫 pi-dir-guard.ts
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-28 立规，起因是一起真实事故——某个 git worktree 把 git 的 `pre-push` 钩子挂在 `.pi/hooks/` 下、用 `core.hooksPath` 指过去，结果：① pi 每次启动都把 `.pi/hooks` 当成「已废弃的旧版钩子目录」，弹迁移警告并要求按任意键；② 更危险的是 `.pi` 在团队里经常是**软链接**（子项目挂 `../<Agent 项目>/.pi`），一旦恢复成软链接，`core.hooksPath` 指向的目录就不存在了，而 git 遇到不存在的 hooks 目录**不报错、不提示、直接跳过所有钩子**——「推 main 会被拦」的保护无声消失。用户原话：「定一个全局规矩，没必要放在 `.pi` 目录下面的内容禁止放在 `.pi` 目录下面」。
+
+**改了什么**：
+
+1. `pi/agent/CLAUDE.md`「工作规则」新增一节「`.pi/` 目录只放 pi 自己要读的东西」——判断标准一条（**pi 自己会不会去读它？**不会就禁止放）、允许清单（`settings.json` / `extensions/` / `skills/` / `prompts/` / `themes/` / `npm/` / `git/` / `sessions/`，均已按 pi 官方文档核实）、四类内容的正确去处（git 钩子 → 仓库或 worktree 的 gitdir；临时产物 → `tmp/`；项目脚本 / 配置 → 项目正式目录；只对本机生效且不入库的 → `.git` 内部）、三条理由（静默失效 > 被 pi 迁移逻辑误判 > 语义混淆易被整体重置）、全局 `~/.pi/agent/` 的同类约定（非 pi 内容放 `patch/`、`docs/`）。
+2. 新增 `pi/agent/extensions/pi-dir-guard.ts`：`tool_call` 拦截三类动作——① 写 / 编辑类工具的目标路径落在 `.pi/` 下且首段不在白名单；② shell 命令里「写动作（`mv` / `cp` / `ln` / `mkdir` / `touch` / `tee` / `rsync` / `install` / `unzip` / `tar` / `chmod` / `chown` / `dd` / `truncate` / `shred` / `sed -i` / 重定向）+ `.pi/` 下非白名单条目」同时命中；③ 任何把 `core.hooksPath` 指向 `.pi` 的命令（无例外）。
+3. 判定函数 `checkTargetPath()` / `checkCommand()` 单独导出，配 23 条用例实测（拦：`.pi/hooks` 各种写法、`mv` / `cp` / `mkdir` / 重定向写入、`hooksPath` 指 `.pi`；放：`.pi/extensions` 与 `.pi/settings.json` 等白名单、`ls` / `cat` / `grep` 等只读、全局 `~/.pi/agent/` 下任意路径、`pkg/.pix/` 这类同前缀目录）——全部通过。
+
+**局限（如实记录）**：守卫按命令文本里是否出现 `.pi/` 判断，`cd .pi && mkdir hooks` 这类「先切目录、再用相对路径写」绕得过去；命令里同时出现写动词与只读的 `.pi` 路径时可能误报（如 `grep -rn mv .pi/hooks`）。它是下限防线，判断仍靠规则本身。
+
+**回归风险**：无。① 只影响「往 `.pi/` 下写非 pi 内容」这一类动作，pi 自身资源（扩展 / skills / prompts / settings 等）与全局 `~/.pi/agent/` 完全不受影响；② 只读命令不拦，日常查看 `.pi` 不受干扰；③ 全程防御性 catch，扩展失灵时不阻塞会话；④ 不改动任何既有扩展与规则条文。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-27 新增「禁止 Agent 自行关闭 xpilot」规则 + 工具强制守卫 xpilot-guard.ts
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
