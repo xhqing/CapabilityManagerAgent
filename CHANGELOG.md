@@ -16,7 +16,7 @@
 
 1. **两台机器各跑 Syncthing 2.1.5**（本机 brew、macmini 独立二进制 + launchd `com.local.syncthing`），共享两个目录：`developer`（`~/Developer` ↔ macmini `~/Developer`）与 `pi-agent`（`~/.pi/agent` ↔ macmini `~/.pi/agent`），类型 `sendreceive`、fsWatcher 近实时（3 秒）、staggered 版本库保留 30 天。
 2. **新增 `pi/agent/docs/macmini-mirror.md`**：拓扑、同步语义（冲突副本 / 删除可恢复）、排除项及理由、GitHub 断连与恢复方法、日常操作、已知边界（双机同时改同一文件 / 同一 git 仓库的风险）。
-3. **新增 `pi/agent/patch/macmini-mirror/`**：`setup.py`（幂等配置两机 Syncthing）、`status.py`（状态检查 + 异常通知）、`verify.py`（逐字节 SHA-256 校验）、`stignore-developer` / `stignore-pi-agent`（排除项模板）。
+3. **新增 `pi/agent/patch/macmini-mirror/`**：`setup.py`（幂等配置两机 Syncthing，重扫间隔 600 秒）、`status.py`（状态检查 + 异常通知，launchd 每 10 分钟）、`verify.py`（逐字节 SHA-256 校验）、`verify-daily.sh`（每日 03:00 全量校验，launchd）、`stignore-developer` / `stignore-pi-agent`（排除项模板）。
 4. **同步范围与排除**：`~/Developer` 排除 `node_modules` / `.lake` / `.venv` / `venv` / `__pycache__` / `*.pyc` / `.DS_Store` / `.git` 瞬时锁；`~/.pi/agent` 排除 `sessions` / `state` / `logs` / `tmp` / `intercom` / `npm` / `bin`（运行时与架构相关）以及记录本机绝对路径的配置（`trust.json` / `mcp-*cache` / `anysearch/runtime.conf` / `session-link` 的 config 与注册表）。排除项均确认未被任何仓库跟踪；其余能力层逐字节同步。
 5. **macmini 断 GitHub**：SSH 密钥移到 `~/.ssh/disabled-github-20261028/`；`~/.ssh/config` 把 `github.com` 指向 `127.0.0.1:9`；git 全局 `insteadOf` 把 GitHub 的 https / ssh / git 协议地址改写到不存在的域名。实测 `git ls-remote`（https / scp / ssh）与 `ssh -T git@github.com` 全部失败，同步不依赖 GitHub。
 6. **更新全局规则与注册表口径**：`pi/agent/CLAUDE.md`「跨机协作」新增「全量镜像」条并修正「给 macmini 的 Mark-\* 会话派活不会回流本机」的旧说法（镜像为双向，改动会回流，须避免双机同时写同一仓库）；`pi/agent/docs/agents-registry.md` 同步更新镜像说明与 Mark 段。

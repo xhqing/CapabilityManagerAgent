@@ -30,7 +30,7 @@
 
 - **双向**：folder 类型 `sendreceive`，任一方新增 / 修改 / 删除都会传播到另一方。
 - **近实时**：`fsWatcherEnabled=true`、`fsWatcherDelayS=3`——文件改动约 3 秒后开始同步；
-  另有每小时一次的全量重扫兜底（`rescanIntervalS=3600`）。
+  另有每 10 分钟一次的全量重扫兜底（`rescanIntervalS=600`）。
 - **冲突不覆盖**：同一文件在两台机器上都被改过时，Syncthing **不会**用一方覆盖另一方，
   而是在旁边生成 `*.sync-conflict-<日期>-<时间>-<设备>.ext` 副本，两份都保留。
   这类副本会被 `status.py` 统计，需要人工合并。
@@ -126,6 +126,10 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:
   `npm install` 一次即可（依赖目录不参与同步，两边各自安装）。
 - **健康检查**：本机 launchd `com.xhq.mirror-check` 每 10 分钟跑一次 `status.py --check`，
   异常（断链 / 同步未完成 / 出现冲突）时发系统通知；日志在 `~/Library/Logs/macmini-mirror.log`。
+- **每日深度校验**：本机 launchd `com.xhq.mirror-verify` 每天 03:00 跑一次 `verify.py all`
+  （全量 SHA-256 比对，约 25 秒），发现差异时发通知；日志在 `~/Library/Logs/macmini-mirror-verify.log`。
+  这样即使出现「删除与写入竞争」留下的孤儿文件（Syncthing 自认为已一致、实际磁盘上多出一份），
+  也会在当天被发现。
 
 ## 六、首次迁移记录（2026-10-28）
 
@@ -167,5 +171,7 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:
 | `patch/macmini-mirror/verify.py` | 逐字节 SHA-256 校验 |
 | `patch/macmini-mirror/stignore-developer` | `~/Developer/.stignore` 模板 |
 | `patch/macmini-mirror/stignore-pi-agent` | `~/.pi/agent/.stignore` 模板 |
+| `patch/macmini-mirror/verify-daily.sh` | 每日全量校验脚本（launchd 调用） |
 | `~/Library/LaunchAgents/com.xhq.mirror-check.plist` | 本机每 10 分钟健康检查 |
+| `~/Library/LaunchAgents/com.xhq.mirror-verify.plist` | 本机每日 03:00 全量逐字节校验 |
 | macmini `~/Library/LaunchAgents/com.local.syncthing.plist` | macmini Syncthing 守护 |
