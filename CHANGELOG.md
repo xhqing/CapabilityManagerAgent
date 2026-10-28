@@ -4,6 +4,23 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.63] - 2026-10-28
+
+### 2026-10-28 镜像校验修正 + 每日全量校验（verify.py 按 .stignore 实际规则、重扫 600 秒）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：v1.5.62 的镜像工具落地后暴露两处不足——① `verify.py` 用写死的跳过规则，比两边 `.stignore` 的实际规则更宽（`pi-agent` 侧无条件跳过 `*.log`、`developer` 侧无条件跳过 `*.lock`），像 `*.log`、`Cargo.lock` 这类排除规则不一致的文件会被误当成「已排除」而不参与比对，校验会给出虚假的「一致」结论；② 文件监听在「删除与写入竞争」时会漏掉最终状态，形成 Syncthing 自认为一致、磁盘上却多出一份的孤儿文件。
+
+**改了什么**：
+
+1. **`verify.py` 按两边 `.stignore` 的实际规则校验**：每个共享目录各自带 `skip_exact` / `skip_prefix` / `skip_suffix` / `skip_rel`（`developer` 侧只在 `.git` 内跳过 `*.lock`），不再共用一刀切的黑名单；并支持指向目录的符号链接（记录链接目标、不跟进去）。
+2. **重扫间隔 3600 → 600 秒**（`setup.py`）：缩短兜底周期，让孤儿文件在 10 分钟内被纠正。
+3. **新增 `pi/agent/patch/macmini-mirror/verify-daily.sh`**：每天 03:00 由 launchd `com.xhq.mirror-verify` 跑一次全量 SHA-256 比对（约 25 秒），结果追加到 `~/Library/Logs/macmini-mirror-verify.log`，发现差异时发系统通知（不抢焦点）。
+4. **`macmini-mirror.md`**：补「每日深度校验」段与 `verify-daily.sh` / `com.xhq.mirror-verify.plist` 文件清单，重扫间隔说明同步为 600 秒。
+
+**回归风险**：无。① 比对规则变严格只会多查出真实差异（此前是漏报），不会误报已排除项；② 重扫间隔缩短只增加少量磁盘扫描开销（两次全量扫描各约数秒）；③ 每日校验是独立 launchd 任务，失败只发通知，不影响同步本身。
+
 ## [1.5.62] - 2026-10-28
 
 ### 2026-10-28 本机 ↔ macmini 全量双向镜像（Syncthing）+ macmini 切断 GitHub
@@ -16,7 +33,7 @@
 
 1. **两台机器各跑 Syncthing 2.1.5**（本机 brew、macmini 独立二进制 + launchd `com.local.syncthing`），共享两个目录：`developer`（`~/Developer` ↔ macmini `~/Developer`）与 `pi-agent`（`~/.pi/agent` ↔ macmini `~/.pi/agent`），类型 `sendreceive`、fsWatcher 近实时（3 秒）、staggered 版本库保留 30 天。
 2. **新增 `pi/agent/docs/macmini-mirror.md`**：拓扑、同步语义（冲突副本 / 删除可恢复）、排除项及理由、GitHub 断连与恢复方法、日常操作、已知边界（双机同时改同一文件 / 同一 git 仓库的风险）。
-3. **新增 `pi/agent/patch/macmini-mirror/`**：`setup.py`（幂等配置两机 Syncthing，重扫间隔 600 秒）、`status.py`（状态检查 + 异常通知，launchd 每 10 分钟）、`verify.py`（逐字节 SHA-256 校验）、`verify-daily.sh`（每日 03:00 全量校验，launchd）、`stignore-developer` / `stignore-pi-agent`（排除项模板）。
+3. **新增 `pi/agent/patch/macmini-mirror/`**：`setup.py`（幂等配置两机 Syncthing）、`status.py`（状态检查 + 异常通知）、`verify.py`（逐字节 SHA-256 校验）、`stignore-developer` / `stignore-pi-agent`（排除项模板）。
 4. **同步范围与排除**：`~/Developer` 排除 `node_modules` / `.lake` / `.venv` / `venv` / `__pycache__` / `*.pyc` / `.DS_Store` / `.git` 瞬时锁；`~/.pi/agent` 排除 `sessions` / `state` / `logs` / `tmp` / `intercom` / `npm` / `bin`（运行时与架构相关）以及记录本机绝对路径的配置（`trust.json` / `mcp-*cache` / `anysearch/runtime.conf` / `session-link` 的 config 与注册表）。排除项均确认未被任何仓库跟踪；其余能力层逐字节同步。
 5. **macmini 断 GitHub**：SSH 密钥移到 `~/.ssh/disabled-github-20261028/`；`~/.ssh/config` 把 `github.com` 指向 `127.0.0.1:9`；git 全局 `insteadOf` 把 GitHub 的 https / ssh / git 协议地址改写到不存在的域名。实测 `git ls-remote`（https / scp / ssh）与 `ssh -T git@github.com` 全部失败，同步不依赖 GitHub。
 6. **更新全局规则与注册表口径**：`pi/agent/CLAUDE.md`「跨机协作」新增「全量镜像」条并修正「给 macmini 的 Mark-\* 会话派活不会回流本机」的旧说法（镜像为双向，改动会回流，须避免双机同时写同一仓库）；`pi/agent/docs/agents-registry.md` 同步更新镜像说明与 Mark 段。
