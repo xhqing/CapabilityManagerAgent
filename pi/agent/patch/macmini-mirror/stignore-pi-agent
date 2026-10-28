@@ -1,0 +1,27 @@
+// macmini-mirror：两机各自的运行时数据与架构相关二进制，不同步（2026-10-28 建立）
+// 运行时目录（活进程在写，同步会互相打架）
+(?d)sessions
+(?d)state
+(?d)logs
+(?d)tmp
+(?d)intercom
+// 架构相关（本机 arm64 / macmini x64）
+(?d)npm
+(?d)bin
+// 系统 / 缓存垃圾
+(?d).DS_Store
+(?d)__pycache__
+*.pyc
+*.log
+(?d).lock.d
+// 记录本机绝对路径或运行时状态的配置（两机各自维护）
+models-store.json
+mcp-cache.json
+mcp-npx-cache.json
+mcp-last-seen-version.json
+trust.json
+mcp-project-approvals.json
+skills/anysearch/runtime.conf
+patch/session-link/config.json
+patch/session-link/local-links.json
+patch/session-link/chain-registry.json

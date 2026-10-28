@@ -63,14 +63,15 @@
 - **为什么这样设计**：会话启动时，agent 规则文件按工作目录加载——pi 加载 `CLAUDE.md` / `AGENTS.md`（当前目录 + 逐级上级目录 + 全局 `~/.pi/agent/`）与工作目录下 `.pi/` 的项目级配置（技能 / 扩展 / 提示模板 / 设置）。直接用子项目目录开会话时看不到 agent 身份与规则；挂上两条软链接后，子项目目录开会话也能拿到完整身份，而规则的权威来源始终只有 Agent 项目一份。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/agent-call.ts` 在自动唤醒前按本文件「子项目映射」表校验目标目录必须是已登记的 **Agent 项目**（子项目目录会被拒绝；2026-10-17 起由原「标记文件存在性检查」升级为注册表校验）；`~/.pi/agent/patch/settle-repo-check/settle-repo-check.py`（收尾巡检，由 pi 扩展调用）同样按下方「子项目映射」表定位子项目（cwd 为子项目目录时也能正确归属）。
 
+> **全量镜像（2026-10-28 用户立）**：本机与 macmini 已建立全量双向镜像——`~/Developer`（全部 Agent / 非 Agent 项目）与 `~/.pi/agent`（全局能力层）逐字节同步，任一方改动自动同步；macmini 已切断 GitHub，所有 GitHub 操作只在本机做。镜像不改变「每个 Agent 的活跃工作位置只有一处」的原则（两机各有一份副本，属于备份 / 热备性质）；同一仓库同一时间只在一台机器上做 git 写操作。范围、排除项与操作见 `docs/macmini-mirror.md`。
+
 **子项目映射（完整清单，权威）**：当前全部 Agent → 子项目对应关系如下表，新增 / 变更子项目时以此表为准，并同步更新对应 Agent 项目 `CLAUDE.md` 的「子项目清单」节，保持一致。表中每个子项目根目录都应带两条指回负责 Agent 的软链接（`AGENTS.md`、`.pi`，随仓库提交，见上方规则第 2、3 条）。
 
 **宿主机归属（2026-10-17 用户立）**：**每个 Agent 只允许存在于一个宿主机**（其项目目录所在的机器，即其活跃工作位置的唯一性）；**迁移 = 转移而非双活**——迁移后原机器必须清理活跃副本（归档即可）。默认全部在本机（MacBook Air）；**已迁移到 macmini 的**：**Mark**（QuantStrategistAgent 及其子项目 Intraday / Swing / gridtrader，2026-10-17 整体迁移；本机已归档 `~/Archive-Migrated/`、不再保留活跃副本）。跨机呼叫已迁移 Agent 的方式见全局 CLAUDE.md「跨机协作」节。
 
 **Mark 已迁回本机（2026-10-26 用户决定）**：Mark 全部项目（QuantStrategistAgent 及子项目 Intraday / Swing / gridtrader）已由用户从 macmini **拷回本机**，`~/Developer/` 下的本机目录即**权威源**（已逐个核实与本机之外副本同一提交）。**macmini 上的同名目录与 4 个 Mark 常驻会话（`Mark` / `Mark-Intraday` / `Mark-Swing` / `Mark-gridtrader`，`duty.conf` 未改）暂时保留、不再权威**——用户 2026-10-26 明确选择「两边都不动、只改本机口径」。
 
-- 这属于对「迁移 = 转移而非双活」的**已知例外**（不是遗漏）：期间两边内容可能各自漂移，**一律以本机为准**；拿不准时先在本机核实，不要把 macmini 的版本当作最新。
-- **给 macmini 上的 Mark-\* 会话派活会改 macmini 副本、不会回流本机**——非「必须用 macmini 环境（32GB / x64）」的任务，一律在本机会话里做。
+- **2026-10-28 起两机已建立全量双向镜像**（`~/Developer` + `~/.pi/agent` 逐字节同步，见 `docs/macmini-mirror.md`）：macmini 上的改动**会同步回流本机**，原「不会回流本机」的说法失效。为避免 `.git` 冲突，**同一个仓库同一时间只在一台机器上做 git 写操作**；macmini 已切断 GitHub，提交 / 发版仍统一在本机做。非「必须用 macmini 环境（32GB / x64）」的任务，仍建议在本机会话里做。
 - macmini 仍作远程算力 / 环境使用（值班会话 `macmini`），只是不再承载 Mark 的身份与项目。
 
 | Agent 项目（拟人名） | 子项目（仓库） | 说明 |
