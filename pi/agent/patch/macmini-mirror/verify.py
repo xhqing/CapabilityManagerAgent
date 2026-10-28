@@ -3,8 +3,9 @@
 
 用法：python3 verify.py [developer|pi-agent|all]
 
-做法：两端各自遍历目录（跳过 .stignore 里声明的排除项），对每个文件算 SHA-256 +
-权限位，逐条比对；输出缺失 / 内容不同 / 权限不同的清单。符号链接比较链接目标。
+做法：两端各自遍历目录，**严格按两边 .stignore 的实际规则**跳过排除项，对每个文件算
+SHA-256 + 权限位，逐条比对；符号链接比较链接目标（含指向目录的链接）。
+输出缺失 / 内容不同 / 权限不同的清单。
 """
 import hashlib
 import json
@@ -20,12 +21,20 @@ FOLDERS = {
         "local": HOME / "Developer",
         "remote": "/Users/mac/Developer",
         "skip_dirs": {"node_modules", ".lake", ".venv", "venv", "__pycache__", ".stfolder"},
+        "skip_exact": {".DS_Store"},
+        "skip_prefix": ("._",),
+        "skip_suffix": (".pyc",),
         "skip_rel": set(),
+        "git_locks_only": True,
     },
     "pi-agent": {
         "local": HOME / ".pi/agent",
         "remote": "/Users/mac/.pi/agent",
-        "skip_dirs": {"sessions", "state", "logs", "tmp", "npm", "bin", "intercom", "__pycache__", ".stfolder"},
+        "skip_dirs": {"sessions", "state", "logs", "tmp", "npm", "bin", "intercom",
+                      "__pycache__", ".stfolder", ".lock.d"},
+        "skip_exact": {".DS_Store"},
+        "skip_prefix": ("._",),
+        "skip_suffix": (".pyc", ".log", ".lock"),
         "skip_rel": {
             "models-store.json", "mcp-cache.json", "mcp-npx-cache.json",
             "mcp-last-seen-version.json", "trust.json", "mcp-project-approvals.json",
@@ -33,53 +42,79 @@ FOLDERS = {
             "patch/session-link/config.json", "patch/session-link/local-links.json",
             "patch/session-link/chain-registry.json",
         },
+        "git_locks_only": False,
     },
 }
 
 SCANNER = r'''
 import hashlib, json, os, sys
-root, skip_dirs, skip_rel = sys.argv[1], set(json.loads(sys.argv[2])), set(json.loads(sys.argv[3]))
+root = sys.argv[1]
+cfg = json.loads(sys.argv[2])
+skip_dirs, skip_exact = set(cfg["skip_dirs"]), set(cfg["skip_exact"])
+skip_prefix, skip_suffix = tuple(cfg["skip_prefix"]), tuple(cfg["skip_suffix"])
+skip_rel, git_locks_only = set(cfg["skip_rel"]), cfg["git_locks_only"]
 out = {}
-def bad(name):
-    return (name == ".DS_Store" or name.startswith("._") or name.endswith(".pyc")
-            or name.endswith(".log") or name.endswith(".lock") or name == ".lock.d")
+def skip_file(name, rel):
+    if rel in skip_rel or name in skip_exact:
+        return True
+    if name.startswith(skip_prefix) or name.endswith(skip_suffix):
+        return True
+    if name.endswith(".lock"):
+        if git_locks_only:
+            return "/.git/" in "/" + rel
+        return True
+    return False
+def record(full, rel):
+    if os.path.islink(full):
+        out[rel] = "L:" + os.readlink(full)
+    elif os.path.isfile(full):
+        h = hashlib.sha256()
+        try:
+            with open(full, "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
+        except OSError as e:
+            out[rel] = "ERR:" + str(e)
+            return
+        out[rel] = "%s:%s" % (oct(os.stat(full).st_mode & 0o777), h.hexdigest())
 for dirpath, dirnames, filenames in os.walk(root):
-    dirnames[:] = [d for d in dirnames if d not in skip_dirs and not bad(d)]
     rel_dir = os.path.relpath(dirpath, root)
-    for name in filenames:
-        if bad(name):
+    for d in list(dirnames):
+        if d in skip_dirs:
+            dirnames.remove(d)
             continue
-        full = os.path.join(dirpath, name)
-        rel = os.path.normpath(os.path.join(rel_dir, name))
-        if rel in skip_rel:
-            continue
+        full = os.path.join(dirpath, d)
+        rel = os.path.normpath(os.path.join(rel_dir, d))
         if os.path.islink(full):
             out[rel] = "L:" + os.readlink(full)
-        elif os.path.isfile(full):
-            h = hashlib.sha256()
-            try:
-                with open(full, "rb") as f:
-                    for chunk in iter(lambda: f.read(1 << 20), b""):
-                        h.update(chunk)
-            except OSError as e:
-                out[rel] = f"ERR:{e}"
-                continue
-            out[rel] = f"{oct(os.stat(full).st_mode & 0o777)}:{h.hexdigest()}"
+            dirnames.remove(d)
+    for name in filenames:
+        full = os.path.join(dirpath, name)
+        rel = os.path.normpath(os.path.join(rel_dir, name))
+        if skip_file(name, rel):
+            continue
+        record(full, rel)
 print(json.dumps(out))
 '''
 
 
-def scan_local(path, skip_dirs, skip_rel):
-    out = subprocess.run([sys.executable, "-c", SCANNER, str(path),
-                          json.dumps(sorted(skip_dirs)), json.dumps(sorted(skip_rel))],
+def cfg_json(spec):
+    out = {}
+    for k in ("skip_dirs", "skip_exact", "skip_prefix", "skip_suffix", "skip_rel", "git_locks_only"):
+        v = spec[k]
+        out[k] = sorted(v) if isinstance(v, (set, tuple)) else v
+    return json.dumps(out, sort_keys=True)
+
+
+def scan_local(path, spec):
+    out = subprocess.run([sys.executable, "-c", SCANNER, str(path), cfg_json(spec)],
                          capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
 
-def scan_remote(path, skip_dirs, skip_rel):
+def scan_remote(path, spec):
     cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", REMOTE_HOST,
-           "python3 - " + json.dumps(path) + " " + json.dumps(json.dumps(sorted(skip_dirs)))
-           + " " + json.dumps(json.dumps(sorted(skip_rel)))]
+           "python3 - " + json.dumps(path) + " " + json.dumps(cfg_json(spec))]
     out = subprocess.run(cmd, input=SCANNER, capture_output=True, text=True, check=True)
     return json.loads(out.stdout)
 
@@ -91,8 +126,8 @@ def main():
     for name in names:
         spec = FOLDERS[name]
         print(f"== {name} ==", flush=True)
-        local = scan_local(spec["local"], spec["skip_dirs"], spec["skip_rel"])
-        remote = scan_remote(spec["remote"], spec["skip_dirs"], spec["skip_rel"])
+        local = scan_local(spec["local"], spec)
+        remote = scan_remote(spec["remote"], spec)
         only_local = sorted(set(local) - set(remote))
         only_remote = sorted(set(remote) - set(local))
         diff = sorted(k for k in set(local) & set(remote) if local[k] != remote[k])
