@@ -91,7 +91,7 @@ def folder_spec(fid, label, path, device_ids, versions_path):
         "path": path,
         "type": "sendreceive",
         "devices": [{"deviceID": d, "introducedBy": "", "encryptionPassword": ""} for d in device_ids],
-        "rescanIntervalS": 3600,
+        "rescanIntervalS": 600,
         "fsWatcherEnabled": True,
         "fsWatcherDelayS": 3,
         "ignorePerms": False,
