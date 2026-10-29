@@ -95,7 +95,7 @@
 | FullStackEngineerAgent（Atlas） | ghostty | Ghostty 终端的独立分叉仓库（2026-09-20 起与原上游 ghostty-org/ghostty 断开 fork 关系、自主演进；当前为 v1.3.1 基线 + 「Cmd+V 粘贴剪贴板图片为临时文件路径」补丁，GitHub Actions 云构建） |
 | FullStackEngineerAgent（Atlas） | mp4-player | VSCode 视频播放扩展（上游 Brodazz/mp4-player 的独立仓库：编辑器标签页内带音频播放视频，内置 ffmpeg WebAssembly 做音频解码与格式转码；2026-10-09 移交 Atlas，开发目录 ~/Developer/mp4-player） |
 | ExecutiveAssistantAgent（Kit） | xhqing | 用户 GitHub 个人主页仓库 |
-| ExecutiveAssistantAgent（Kit） | copybridge | macOS 剪贴板桥接工具（在 VSCode 资源管理器复制的文件可直接粘贴到 Finder / 微信 / 浏览器等系统任意 App：后台修复 VSCode 私有剪贴板格式；2026-10-08 建立、2026-10-09 登记） |
+| ExecutiveAssistantAgent（Kit） | vscode-copy-anywhere | 让 VSCode 资源管理器里复制的文件能粘到任意 App 的 macOS 后台小工具（Finder / 微信 / 浏览器上传框等；后台把 VSCode 私有剪贴板格式转成系统格式；2026-10-08 建立、2026-10-09 登记；2026-10-30 由 `copybridge` 改名为现名——原名看不出用途） |
 | ExecutiveAssistantAgent（Kit） | diff-view | pi「改动可视化」完整套件（两个组件都装才完整：**diff-view-pie**＝pi 侧扩展（工具 / 命令 / 变更通知）、**diff-view-vsce**＝VSCode 侧扩展（静默关闭由 pi 打开的 diff 标签）；项目 `~/Developer/diff-view`（2026-10-18 建立，原 diff-bridge 同日并入）；已开源 github.com/xhqing/diff-view（2026-10-19，v0.2.0）） |
 | ExecutiveAssistantAgent（Kit） | ark-key-pool | pi 的火山方舟 Agent Plan 多 Key 自动切换扩展（不同账号的 Key 组成池，额度耗尽 / Key 失效自动切下一个，冷却跨进程共享；项目 `~/Developer/ark-key-pool`，2026-10-22 建立；已开源 github.com/xhqing/ark-key-pool（2026-10-22，v0.1.0）） |
 | ExecutiveAssistantAgent（Kit） | macmini-tmux | 在 Mac mini 上方便使用 tmux 的 CLI 封装（`macmini tmux` 不带参数时每次新开会话、名字自动递增 `session#N`；`-s` 按名字接上 / 新建、`-a` 接回最近会话、`-l` 列表；另可透传任意命令到 macmini；项目 `~/Developer/macmini-tmux`，2026-10-29 建立；已开源 github.com/xhqing/macmini-tmux（2026-10-29，v0.1.0）） |
