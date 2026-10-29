@@ -16,8 +16,14 @@
  * 1. `tmux kill-server`——一律拦；
  * 2. `tmux kill-session`——只有 `-t` 指向 `pi-` 前缀的名字才放行；
  * 3. `kill` / `pkill` / `killall` 打 pi 进程——按两种方式识别：
- *    a) 命令文本里出现 pi 相关特征（`pi` 单词、`.pi/agent`）；或
+ *    a) **kill 命令的目标参数**里出现 pi 相关特征（`pi` 单词、`pi -n`、`.pi/agent`）；
  *    b) 目标是具体 pid 且实测该 pid 的命令名就是 `pi`（运行 `ps` 判断，抓裸 `kill <pid>`）。
+ *
+ * 2026-10-29 修正（用户澄清口径：只禁止杀前台 pi 会话，其它进程可以杀）：原实现是
+ * 「整条命令里同时出现 kill 类词与 pi 字样」即拦，导致 `pkill -f mosh-server` 与同一条
+ * 命令里的 `tmux kill-session -t pi-xxx` 连坐误报。现改为只检查 kill 的**目标参数**——
+ * `pkill -f mosh-server` 放行，`pkill -f "pi -n"` / `killall pi` 仍拦。
+ * 目标为空（如 `... | xargs kill`）时退回整条命令判断，保持保守、避免漏拦。
  */
 
 import { execFileSync } from "node:child_process";
@@ -39,6 +45,21 @@ const TMUX_KILL_SESSION = /(^|[^A-Za-z0-9_])tmux\s+(-\S+\s+)*kill-session([^A-Za
 const KILLISH = /(^|[^A-Za-z0-9_])(kill|pkill|killall)([ \t]|$)/;
 // 文本里是否提到 pi 进程
 const PI_MENTION = /(^|[^A-Za-z0-9_.-])pi([^A-Za-z0-9_]|$)|\.pi\/agent|pi\s+-n\b/;
+
+/**
+ * 命令里每个 kill / pkill / killall 的「目标参数」部分（不含命令词本身）。
+ * 只在这部分里找 pi 特征，避免同一条命令别处的 pi 字样连坐。
+ * `kill-session`、`pkillall` 之类的词不会被误当成 kill 命令（命令词后必须是空白或行尾）。
+ */
+function killTargets(command: string): string[] {
+	const targets: string[] = [];
+	for (const m of command.matchAll(
+		/(?:^|[\s;&|(`])(kill|pkill|killall)(?=[ \t]|$)([^\n;&|`)]*)/g,
+	)) {
+		targets.push(m[2] ?? "");
+	}
+	return targets;
+}
 
 const DENY_SERVER =
 	"[session-guard] 拦截：禁止 `tmux kill-server`——它会把**用户自己的 tmux 会话一起端掉**" +
@@ -96,8 +117,12 @@ export default function (pi: ExtensionAPI) {
 				return { block: true, reason: DENY_SESSION(m?.[1] ?? "（未指定名字）") };
 			}
 			if (KILLISH.test(command)) {
-				if (PI_MENTION.test(command)) {
-					return { block: true, reason: DENY_KILL };
+				// 只看 kill 的目标参数：杀 mosh-server / node 等非 pi 进程放行，
+				// 只有目标确实是 pi 时才拦。目标为空（`... | xargs kill`）退回整条命令判断。
+				for (const target of killTargets(command)) {
+					if (PI_MENTION.test(target || command)) {
+						return { block: true, reason: DENY_KILL };
+					}
 				}
 				for (const pid of candidatePids(command)) {
 					if (isPiProcess(pid)) {
