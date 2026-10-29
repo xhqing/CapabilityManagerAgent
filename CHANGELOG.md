@@ -6,6 +6,19 @@
 
 ## [1.5.64] - 2026-10-29
 
+### 2026-10-29 修复：session-guard 的 kill 拦截只看「目标参数」（口径修正 + 误报修复）
+
+**为什么改**：用户澄清 2026-10-04 立的那条「不许用命令关闭前台 pi 会话」的口径——**只禁止杀 pi 会话进程，杀其它进程（mosh-server、node、普通服务等）是允许的**。原实现是「整条命令里同时出现 kill 类词与 pi 字样就拦」，于是 `pkill -f mosh-server` 因为同一条命令里还带着 `tmux kill-session -t pi-xxx` 的会话名而被连坐误报，把合法的清理动作一起挡住了。
+
+**改了什么**（1 个文件，全局 ↔ 镜像逐字节一致）：
+
+1. `extensions/session-guard.ts` 新增 `killTargets(command)`：提取每个 `kill` / `pkill` / `killall` 命令的**目标参数**部分（命令词后必须是空白或行尾，因此 `kill-session`、`pip3` 之类不会被误当成 kill 命令）。
+2. 主判断由「整条命令里找 pi 字样」改为「只在 kill 的目标参数里找 pi 字样」——杀 mosh-server / node 等非 pi 进程放行，目标确实是 pi 才拦。
+3. 目标为空时（如 `... | xargs kill`）退回整条命令判断，保持保守、避免漏拦。
+4. 头注释补 2026-10-29 的修正说明；`tmux kill-server` / `tmux kill-session` 两条规则未改动。
+
+**验证**：15 个用例全过——放行 `pkill -f mosh-server`、`pkill -f node`、`pkill -f api-server`、`kill -9 <非 pi pid>`；仍拦 `pkill -f "pi -n"`、`killall pi`、`kill -TERM $(pgrep -f 'pi -n')`、`| xargs kill`（目标为空的保守路径）。本仓同步后另跑一次 `bun build` 转译校验，确认语法可用。
+
 ### 2026-10-29 同步：agents-registry 新增子项目 macmini-tmux
 
 **为什么改**：Kit 按用户要求新建子项目 `macmini-tmux`（在 Mac mini 上方便使用 tmux 的 CLI 封装：`macmini tmux` 自动递增会话名 `session#N`、`-s` 断线重连、`-a` 接回最近会话、`-l` 列表，另可透传任意命令），全局 `agents-registry.md` 的「子项目映射」表新增一行。该项目刚在本地建立、尚无 GitHub 远程仓库，公开名册的描述语待用户确认，因此同批登记进 `patch/roster-sync/allowlist.json` 豁免，避免名册校验误报「缺子项目」。
