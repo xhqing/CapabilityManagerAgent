@@ -4,6 +4,17 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.5.64] - 2026-10-29
+
+### 2026-10-29 同步：agents-registry 新增子项目 macmini-tmux
+
+**为什么改**：Kit 按用户要求新建子项目 `macmini-tmux`（在 Mac mini 上方便使用 tmux 的 CLI 封装：`macmini tmux` 自动递增会话名 `session#N`、`-s` 断线重连、`-a` 接回最近会话、`-l` 列表，另可透传任意命令），全局 `agents-registry.md` 的「子项目映射」表新增一行。该项目刚在本地建立、尚无 GitHub 远程仓库，公开名册的描述语待用户确认，因此同批登记进 `patch/roster-sync/allowlist.json` 豁免，避免名册校验误报「缺子项目」。
+
+**改了什么**：
+
+1. `docs/agents-registry.md`：「子项目映射」表新增 ExecutiveAssistantAgent（Kit）→ `macmini-tmux` 一行（用途、项目路径、2026-10-29 建立）。
+2. `patch/roster-sync/allowlist.json`：`missing_in_readme` 增加 `macmini-tmux` 豁免条目（理由：尚无远程仓库、公开/私有与描述语待用户决定，定了远程再写进公开名册）。
+
 ## [1.5.63] - 2026-10-28
 
 ### 2026-10-28 镜像校验修正 + 每日全量校验（verify.py 按 .stignore 实际规则、重扫 600 秒）

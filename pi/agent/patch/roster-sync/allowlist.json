@@ -5,6 +5,11 @@
       "repo": "NewsScoreStudy",
       "reason": "私有研究仓库，公开名册的描述语待用户确认；确认前不写进公开 README（2026-10-26 用户指示）",
       "since": "2026-10-26"
+    },
+    {
+      "repo": "macmini-tmux",
+      "reason": "项目刚在本地建立（2026-10-29）、尚无 GitHub 远程仓库，公开/私有与描述语均待用户决定；定了远程再写进公开 README",
+      "since": "2026-10-29"
     }
   ],
   "extra_in_readme": [],
