@@ -15,6 +15,22 @@
 1. `docs/agents-registry.md`：「子项目映射」表新增 ExecutiveAssistantAgent（Kit）→ `macmini-tmux` 一行（用途、项目路径、2026-10-29 建立）。
 2. `patch/roster-sync/allowlist.json`：先登记 `macmini-tmux` 豁免条目（理由：尚无远程仓库、公开/私有与描述语待定）；同日项目即开源到 github.com/xhqing/macmini-tmux、`xhqing` 主页中英名册已同批补上，该豁免条目已随之删除（现文件里只保留 NewsScoreStudy 一条）。同日 `agents-registry.md` 该行补记「已开源 github.com/xhqing/macmini-tmux（2026-10-29，v0.1.0）」。
 
+### 2026-10-29 变更：子项目 `.pi` 由软链接改为「真实目录 + 资源引用」（组合式超集）
+
+**为什么改**：用户提问「子项目的 `.pi` / `AGENTS.md` 与负责它的智能体保持一致好，还是做超集好（上一版曾是超集）」，并指出最近又碰到「子项目需要独有的配置要放进 `.pi`」，想把超集改回来。核查后确认根因：`.pi` **整目录软链接**把「共享」和「独占」压在了同一个符号上——子项目往 `.pi` 写任何东西，等于直接写进 Agent 项目，瞬间影响该 Agent 全部兄弟子项目并进入 Agent 仓库的 git 历史；而 pi 的上下文文件（`AGENTS.md`）**没有 include / 导入机制**（只从全局 + 祖先目录 + 当前目录加载），超集只能靠复制、复制必然漂移。因此定为**分层**：身份层保持一致（软链接），能力层做超集但用「引用 + 追加」实现。
+
+**改了什么**（四类文件，全局 ↔ 镜像逐字节一致）：
+
+1. `CLAUDE.md`「团队结构参考」节「智能体专属文件」条重写为两层模型（2026-10-30 用户修订，取代 2026-10-17 的「`.pi` 也挂软链接」）：身份层 `AGENTS.md` 软链接必须一致（理由：无 include 机制、复制必漂移、会话仍是同一个 agent）；能力层 `.pi/` 是子项目自己的真实目录，`.pi/settings.json` 用路径引用 Agent 的 `extensions` / `skills` / `prompts` / `themes`，本地独有内容放 `./skills` 等，子项目专属规则用 `.pi/APPEND_SYSTEM.md` 追加（`SYSTEM.md` 是整体替换，禁用）；并写明纪律（只允许追加、不允许重述基座规则）。
+2. `CLAUDE.md`「工作规则 · `.pi/` 目录只放 pi 自己要读的东西」：白名单补 `APPEND_SYSTEM.md` / `SYSTEM.md`（`docs/usage.md`「System Prompt Files」明确其语义，此前漏列）；「为什么」第 1 条按现状改写——不再只说「`.pi` 常是软链接」，改为「`.pi` 形态会变（软链时代 → 2026-10-30 起真实目录），谁都不能保证它不会被替换 / 重建」。
+3. `docs/agents-registry.md`「智能体专属文件归属与子项目映射」节改为 2026-10-30 版：规则 2 拆为 2a 身份层（软链接）、2b 能力层（真实 `.pi` + settings 引用，含 JSON 模板、pi 文档依据与本机实测）；规则 3（随仓库提交）、规则 6（迁移口径）、映射表说明同步；新增「历史沿革」条——2026-08-10 超集 → 10-12 禁止 → 10-17 软链接 → 10-30 本版，并说明前两版超集的失败点在于「用拷贝实现超集」而非方向错误。
+4. `docs/new-agent-scaffold.md` 子项目脚手架条改写：新建子项目 = `AGENTS.md` 软链接 + 真实 `.pi/settings.json`（含可直接复制的 JSON 模板）。
+5. `extensions/pi-dir-guard.ts`：`ALLOWED` 补 `APPEND_SYSTEM.md` / `SYSTEM.md`，头注释（立规起因第 2 条）与拦截理由文案按新模型更新；`bun` 解析校验通过。
+
+**依据与实测**（守「查证外部系统行为先找官方文档」）：`docs/settings.md`「Resources」——项目 `.pi/settings.json` 的路径相对 `.pi` 解析、支持 `~` / 绝对路径 / glob / `!` 排除，路径可为目录（递归收集）；`docs/skills.md` / `docs/extensions.md`——`.pi/{skills,extensions,prompts,themes}` 的自动发现照常生效（本地新增不必写进 settings）；`docs/usage.md`「System Prompt Files」——`APPEND_SYSTEM.md` 追加、`SYSTEM.md` 替换。源码复核（`dist/core/package-manager.js`）：settings 的普通条目只做「显式加载」、不构成自动发现的白名单，重复路径按 canonical path 去重。实测：`xhqing` 子项目改造后跑 `pi --approve -p`，技能（termux-ssh / language-partner）与项目级扩展（input-llm-dump，落盘到子项目 `tmp/`）均从 Kit 的 Agent 项目加载成功。
+
+**落地范围**：Kit 名下 5 个子项目（xhqing / copybridge / diff-view / ark-key-pool / macmini-tmux）本批已改造并随各自仓库提交；其余 15 个子项目分属 Atlas / Mark / Anvil / Victor / Gatsby / NeuralCore，已由 Kit 逐个委派给负责 Agent 按本文档自行改造提交。
+
 ## [1.5.63] - 2026-10-28
 
 ### 2026-10-28 镜像校验修正 + 每日全量校验（verify.py 按 .stignore 实际规则、重扫 600 秒）

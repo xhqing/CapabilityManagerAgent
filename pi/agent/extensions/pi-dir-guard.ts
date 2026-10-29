@@ -8,9 +8,12 @@
  * 立规起因（真实事故）：某个 git worktree 把 git 的 `pre-push` 挂在 `.pi/hooks/` 下、
  * 用 `core.hooksPath` 指过去，结果：
  *   1) pi 每次启动都把 `.pi/hooks` 当成「已废弃的旧版钩子目录」，弹迁移警告并要求按任意键；
- *   2) 更危险的是 `.pi` 在团队里经常是**软链接**（子项目挂 `../<Agent 项目>/.pi`）。一旦恢复
- *      成软链接，`core.hooksPath` 指向的目录就不存在了，而 git 遇到不存在的 hooks 目录
- *      **不报错、不提示、直接跳过所有钩子**——「推 main 会被拦」的保护无声消失，直到出事。
+ *   2) 更危险的是 `.pi` 的形态不固定：立规时（2026-10-28）子项目普遍把 `.pi` 挂成软链接
+ *      （`../<Agent 项目>/.pi`），一旦形态变回软链接 / 按模板重建，`core.hooksPath` 指向的
+ *      目录就不存在了，而 git 遇到不存在的 hooks 目录**不报错、不提示、直接跳过所有钩子**
+ *      ——「推 main 会被拦」的保护无声消失，直到出事。
+ *      （2026-10-30 起子项目 `.pi` 改为真实目录 + 资源引用，但形态仍会随重建 / 换 worktree
+ *      变化，本守卫的判定不受影响。）
  *
  * 拦截范围：
  * A) 写 / 编辑类工具（write / edit）的目标路径落在 `.pi/` 下、且首段不是 pi 认识的条目。
@@ -44,7 +47,9 @@ export const AUTH_MARK = "AI_ALLOW_PI_DIR";
  * pi 自己会读的项目级 `.pi/` 条目（依据 pi 官方文档核实）：
  * settings.md → settings.json；extensions.md → extensions/；skills.md → skills/；
  * prompt-templates.md → prompts/；themes.md → themes/；packages.md → npm/、git/；
- * settings.md（sessionDir 示例）→ sessions/。
+ * settings.md（sessionDir 示例）→ sessions/；
+ * usage.md「System Prompt Files」→ APPEND_SYSTEM.md（追加系统提示）、SYSTEM.md（整体替换）
+ *   —— 这两项是 2026-10-30 补进来的，此前白名单漏列。
  */
 export const ALLOWED = new Set([
 	"settings.json",
@@ -55,6 +60,8 @@ export const ALLOWED = new Set([
 	"npm",
 	"git",
 	"sessions",
+	"APPEND_SYSTEM.md",
+	"SYSTEM.md",
 ]);
 
 const GLOBAL_AGENT_DIR = resolve(homedir(), ".pi", "agent");
@@ -68,12 +75,12 @@ const HOOKSPATH_TO_PI = /hooksPath[ \t=]+["']?[^\s"';&|]*\.pi\//;
 
 const REASON =
 	"[pi-dir-guard] 拦截：`.pi/` 是 **pi 的配置目录**，只放 pi 自己会读的东西" +
-	"（settings.json / extensions/ / skills/ / prompts/ / themes/ / npm/ / git/ / sessions/），" +
+	"（settings.json / extensions/ / skills/ / prompts/ / themes/ / npm/ / git/ / sessions/ / APPEND_SYSTEM.md / SYSTEM.md），" +
 	"与 pi 无关的内容一律不许往里放——git 钩子请放仓库或 worktree 的 gitdir" +
 	"（`.git/hooks/` 或 `core.hooksPath` 指向的独立目录），临时产物放项目 `tmp/`，" +
 	"项目自己的脚本 / 配置放正式目录。" +
-	"原因：`.pi` 在团队里常是软链接（子项目挂 `../<Agent 项目>/.pi`），一旦被替换成软链接，" +
-	"混在里面的东西会静默消失——尤其 `core.hooksPath` 指向不存在的目录时 git **不报错、直接跳过所有钩子**；" +
+	"原因：`.pi` 的形态会变（曾长期是子项目指向 Agent 项目的软链接，2026-10-30 起改为真实目录 + 资源引用），" +
+	"一旦被替换 / 重建，混在里面的东西会静默消失——尤其 `core.hooksPath` 指向不存在的目录时 git **不报错、直接跳过所有钩子**；" +
 	"另外 pi 启动会扫 `.pi` 下的固定名字做迁移检查，混放会每次弹警告。\n" +
 	"确需执行请在命令末尾加 `# AI_ALLOW_PI_DIR`（须用户当次授权）。";
 
