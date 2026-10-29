@@ -118,7 +118,12 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **新建 Agent 项目**：先读 `~/.pi/agent/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.pi/agent/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.pi/agent/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
 - **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.pi/agent/docs/capability-sync.md`。全局 `~/.pi/agent/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
-- **智能体专属文件：实体只属于 Agent 项目，子项目挂指回负责 Agent 的软链接（2026-10-17 用户修订，取代 2026-10-12 的「子项目一律不得存在」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。**子项目根目录改挂两条软链接**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`、`.pi → ../<负责Agent项目>/.pi`——在子项目目录直接开会话时，会话按工作目录加载规则与 `.pi` 资源、继承负责 Agent 的身份 / 规则 / 技能（「Agent 进驻子项目」）。两条链接**随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。**通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.pi/agent/docs/agents-registry.md`。
+- **智能体专属文件：实体只属于 Agent 项目；子项目 = 身份层软链接 + 能力层「组合式超集」（2026-10-30 用户修订，取代 2026-10-17 的「`.pi` 也挂软链接」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。子项目按**两层**处理：
+  - **身份层 —— `AGENTS.md` 挂软链接，必须与 Agent 项目保持一致**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`。**为什么必须一致、不做超集**：pi 的上下文文件只从「全局 + 祖先目录 + 当前目录」加载，**没有 include / 导入机制**，超集只能靠复制，复制必然随 Agent 侧演进而漂移；而且子项目里的会话仍然是同一个 agent，身份本来就不该分叉。
+  - **能力层 —— `.pi/` 是子项目自己的真实目录（不再是软链接），做超集，但用「引用 + 追加」实现**：`.pi/settings.json` 把负责 Agent 的 `.pi/extensions`、`.pi/skills`、`.pi/prompts`、`.pi/themes` 以**路径**引用进来（`~` 或相对路径均可，数组支持 glob 与 `!` 排除），本地独有内容放子项目自己的 `./extensions`、`./skills` 等目录（`.pi/` 下这四个目录本来就会被自动发现，不必再写进 settings）；子项目专属**规则**用 `.pi/APPEND_SYSTEM.md` 追加（**不要用 `.pi/SYSTEM.md`**——那是整体替换，会把 agent 身份冲掉）。**为什么这样分层**：引用的是**目录**而不是逐个文件，Agent 侧以后新增技能 / 扩展会**自动带过来**、零同步动作；同时子项目往 `.pi` 写东西只写自己的目录，**不会污染 Agent 项目、也不影响兄弟子项目**（这是 `.pi` 整目录软链接时代做不到的——那时子项目写 `.pi` 等于直接写进 Agent 项目）。**一条纪律**：子项目 `.pi` 只允许**追加**，不允许重述 / 覆盖基座规则，一旦重述就有两套说法、必然打架。
+  - **依据（2026-10-30 按 pi 官方文档核实 + 本机实测）**：`docs/settings.md`「Resources」——项目 `.pi/settings.json` 里的路径相对 `.pi` 解析、支持 `~` / 绝对路径 / glob / `!` 排除，路径可以是目录（递归收集）；`docs/skills.md`、`docs/extensions.md`——`.pi/{extensions,skills,prompts,themes}` 的自动发现照常生效；`docs/usage.md`「System Prompt Files」——`.pi/APPEND_SYSTEM.md` 追加、`.pi/SYSTEM.md` 替换。实测：在 `xhqing` 子项目跑 `pi --approve -p`，技能（termux-ssh / language-partner）与项目级扩展（input-llm-dump，落盘到子项目 `tmp/`）均从 Agent 项目加载成功。
+  - **链接与配置随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。
+  - **通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.pi/agent/docs/agents-registry.md`。
 
 ## Skill 编写纪律
 
@@ -151,14 +156,14 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 `.pi/`（项目级）是 **pi 的配置目录**，不是「项目里的一个隐藏文件夹」。判断标准只有一条：**pi 自己会不会去读它？** 不会——就禁止放进去，哪怕只是想躲开某个检查、或者图省事。
 
-- **项目级 `.pi/` 允许的内容（pi 明确会读，已按官方文档核实）**：`settings.json`、`extensions/`、`skills/`、`prompts/`、`themes/`、`npm/`、`git/`、`sessions/`。除此之外一律不许新建。
+- **项目级 `.pi/` 允许的内容（pi 明确会读，已按官方文档核实）**：`settings.json`、`extensions/`、`skills/`、`prompts/`、`themes/`、`npm/`、`git/`、`sessions/`，以及根目录下的 `APPEND_SYSTEM.md`（追加系统提示）与 `SYSTEM.md`（整体替换系统提示）——这两个 2026-10-30 按 `docs/usage.md`「System Prompt Files」补进白名单，此前漏列。除此之外一律不许新建。
 - **别的东西该放哪**：
   - **git 钩子** → 仓库 / worktree 的 gitdir（`.git/hooks/`；多 worktree 场景放该 worktree 自己的 `.git/worktrees/<名字>/hooks/` 并用 `core.hooksPath` 指过去），**绝不放 `.pi`**；
   - **临时产物** → 项目 `tmp/`（见上一节）；
   - **项目自己的脚本 / 配置** → 项目正式目录（`scripts/`、`tools/` 等，该提交就提交）；
   - **只对本机生效、又不想进仓库** → `.git` 内部（如该 worktree 的 gitdir）或项目外的本机配置目录。
 - **为什么**（三条，按严重程度排）：
-  1. **会静默失效**：`.pi` 在团队里经常是**软链接**（子项目按规矩挂 `../<Agent 项目>/.pi`）。把 git 钩子这类东西放进去，一旦 `.pi` 被恢复成软链接，`core.hooksPath` 指向的目录就不存在了——而 git 遇到不存在的 hooks 目录**不报错、不提示、直接跳过所有钩子**，保护无声消失，直到出事才发现。
+  1. **会静默失效**：`.pi` 的形态并不固定——子项目在 2026-10-17 ~ 2026-10-30 期间挂的是 `../<Agent 项目>/.pi` 软链接（存量仓库仍可能如此），2026-10-30 起改为「真实目录 + 资源路径引用」。把 git 钩子这类东西放进去，一旦该目录被替换成软链接、或按模板重建，`core.hooksPath` 指向的位置就不存在了——而 git 遇到不存在的 hooks 目录**不报错、不提示、直接跳过所有钩子**，保护无声消失，直到出事才发现。
   2. **会被 pi 自己的逻辑误判或清走**：pi 启动会扫 `.pi/` 下的固定名字做迁移检查（实测：`.pi/hooks/` 被当成「已废弃的旧版钩子目录」，每次启动弹警告并要求按任意键），将来的清理逻辑同样会动这些路径。
   3. **语义混淆、容易被整体重置**：重建项目配置、切换 `.pi` 的软链指向、换 worktree，都会顺手把混进去的东西带走。
 - **存量**：发现 `.pi/` 下有非 pi 内容，当场迁走并修好引用（如 `core.hooksPath`），不留在原地。
