@@ -17,6 +17,14 @@
 
 **守卫实现未改**：`extensions/session-guard.ts` 逻辑保持原样（保护非 `pi-` 会话），本次只是把「agent 必须用 `pi-` 前缀」这条源头规范补进规则，让判据自洽。
 
+### 2026-10-29 修复：redundant-ask-guard 的「镜像同步」关键词补变体（1.5.64 记录的已知缺口已闭合）
+
+**为什么改**：`## [1.5.64]` 的 redundant-ask-guard 条目里记录了一个实测缺口——`AUTHORIZED_HINTS` 只写了「镜像同步」，用户若说「要我直接同步到镜像吗」只命中询问句式、匹配不到类别，不触发回执。本次按最小改动把变体补上。
+
+**改了什么**（1 个文件，全局 ↔ 镜像逐字节一致）：`extensions/redundant-ask-guard.ts` 第一条 hint 的正则 `镜像同步|CapabilityManagerAgent|Prometheus` → `镜像同步|同步(到|回)?镜像|CapabilityManagerAgent|Prometheus`，覆盖「同步到镜像 / 同步回镜像」等说法；其余判定逻辑不动。
+
+**验证**：4 个用例通过——「要我直接同步到镜像吗」「需要我把这版同步回镜像吗？」「要我现在做镜像同步吗」均命中「镜像同步」类别，`/commit` 类询问仍命中对应类别。
+
 ## [1.5.64] - 2026-10-29
 
 ### 2026-10-29 新增：redundant-ask-guard（已授权事项不问第二遍，工具强制）

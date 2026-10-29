@@ -43,7 +43,7 @@ const ASK_RE =
 /** 已授权事项：关键词 → 命中后应该怎么做的提示（写进给 AI 的回执里）。 */
 const AUTHORIZED_HINTS: Array<{ re: RegExp; hint: string }> = [
 	{
-		re: /镜像同步|CapabilityManagerAgent|Prometheus/,
+		re: /镜像同步|同步(到|回)?镜像|CapabilityManagerAgent|Prometheus/,
 		hint: "直接 agent_call Prometheus（dir: /Users/xhq/Developer/CapabilityManagerAgent）同步镜像并记 CHANGELOG",
 	},
 	{
