@@ -13,7 +13,7 @@
 **改了什么**：
 
 1. `docs/agents-registry.md`：「子项目映射」表新增 ExecutiveAssistantAgent（Kit）→ `macmini-tmux` 一行（用途、项目路径、2026-10-29 建立）。
-2. `patch/roster-sync/allowlist.json`：先登记 `macmini-tmux` 豁免条目（理由：尚无远程仓库、公开/私有与描述语待定）；同日项目即开源到 github.com/xhqing/macmini-tmux、`xhqing` 主页中英名册已同批补上，该豁免条目已随之删除（现文件里只保留 NewsScoreStudy 一条）。
+2. `patch/roster-sync/allowlist.json`：先登记 `macmini-tmux` 豁免条目（理由：尚无远程仓库、公开/私有与描述语待定）；同日项目即开源到 github.com/xhqing/macmini-tmux、`xhqing` 主页中英名册已同批补上，该豁免条目已随之删除（现文件里只保留 NewsScoreStudy 一条）。同日 `agents-registry.md` 该行补记「已开源 github.com/xhqing/macmini-tmux（2026-10-29，v0.1.0）」。
 
 ## [1.5.63] - 2026-10-28
 
