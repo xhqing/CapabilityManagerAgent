@@ -6,6 +6,20 @@
 
 ## [1.5.64] - 2026-10-29
 
+### 2026-10-29 新增：redundant-ask-guard（已授权事项不问第二遍，工具强制）
+
+**为什么改**：用户 2026-10-29 立规「已经授权过的事不要再问用户，直接做。这个能不能工具强制掉，不要总是给多余的询问」。起因：全局 CLAUDE.md 早已写明「镜像同步由 Prometheus 负责、发现分叉自动同步对齐、无需询问」，AI 收尾时仍问了一句「要我现在做吗」。用户随后又补了第二条口径：「不要让我看警告，这种事情定了规矩我就不想插手了，警告应该让当前会话看见，比如这次是你改的全局文件警告就通知你提醒你要 call Prometheus 同步，不是通知我！」——所以最终实现**不向用户弹任何提示**，命中时只把回执注入 AI 自己的上下文。
+
+**改了什么**（2 个文件，全局 ↔ 镜像逐字节一致；同批的 `session-guard.ts` 已在上一提交同步、另有专门条目记录）：
+
+1. 新增 `extensions/redundant-ask-guard.ts`：
+   - `before_agent_start` 把「已授权事项清单」（`AUTHORIZED_BRIEF`，5 条：镜像同步 → agent_call Prometheus；工作区有待提交 → 直接 /add 或 /commit；其它 agent 项目仓库有待提交 → agent_call 对方；/add 预检干净自动衔接 commit、commit 自动 bump / 发版；新建项目 git init、向注册表追加新 agent 行）追加进 systemPrompt，每轮预防（内容固定、缓存友好、约 200 字，已追加过则跳过）。
+   - `message_end` 检查 assistant 回复：命中「询问句式 `ASK_RE`」+「已授权关键词 `AUTHORIZED_HINTS`」时，不通知用户，只把回执暂存到模块变量 `pendingReminder`；下一次 `before_agent_start` 以 `message: { customType: "ask-guard", content: pendingReminder, display: false }` 注入——`display: false` 表示只进 AI 上下文、TUI 不显示（依据 `docs/session-format.md`：`display: true` = show in TUI、`false` = hidden）。
+   - 回执含两部分：上一轮对已授权事项问了什么（原句片段）+ 这件事的正确做法（按命中类别给出）。句式补充了「要我直接…」「要我（现在|先）？（把|做|去|来|帮|直接|再）」，「注册表」关键词放宽（原只匹配「注册表追加」，实测「注册表补上」漏判）。仍应询问的边界保留：方案分叉大 / 返工成本高 / 规则未覆盖 / 不可逆破坏性操作。
+2. `CLAUDE.md`「输出风格」节新增「已授权事项不问第二遍（2026-10-29 用户立）」：写明 5 条清单、仍应询问的边界与配套工具的两段机制（预防 + 只给 AI 看的回执，不向用户弹提示），措辞与 `AUTHORIZED_BRIEF` 保持一致。
+
+**验证**：redundant-ask-guard 9 个用例全过（4 个应命中并给出正确做法、5 个应放过且不误伤合理询问）；本仓同步后另跑一次 `bun build` 转译校验。**本仓实测发现的已知缺口**：`AUTHORIZED_HINTS` 的关键词写的是「镜像同步」，用户若说「要我直接同步到镜像吗」这类变体，只命中询问句式、匹配不到类别 → 不触发回执；该清单设计上刻意偏窄（宁可漏、不误伤合理询问），是否放宽待用户决定。
+
 ### 2026-10-29 修复：session-guard 的 kill 拦截只看「目标参数」（口径修正 + 误报修复）
 
 **为什么改**：用户澄清 2026-10-04 立的那条「不许用命令关闭前台 pi 会话」的口径——**只禁止杀 pi 会话进程，杀其它进程（mosh-server、node、普通服务等）是允许的**。原实现是「整条命令里同时出现 kill 类词与 pi 字样就拦」，于是 `pkill -f mosh-server` 因为同一条命令里还带着 `tmux kill-session -t pi-xxx` 的会话名而被连坐误报，把合法的清理动作一起挡住了。
