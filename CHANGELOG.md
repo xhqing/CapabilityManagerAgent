@@ -15,6 +15,17 @@
 1. `docs/agents-registry.md`：「子项目映射」表新增 ExecutiveAssistantAgent（Kit）→ `macmini-tmux` 一行（用途、项目路径、2026-10-29 建立）。
 2. `patch/roster-sync/allowlist.json`：先登记 `macmini-tmux` 豁免条目（理由：尚无远程仓库、公开/私有与描述语待定）；同日项目即开源到 github.com/xhqing/macmini-tmux、`xhqing` 主页中英名册已同批补上，该豁免条目已随之删除（现文件里只保留 NewsScoreStudy 一条）。同日 `agents-registry.md` 该行补记「已开源 github.com/xhqing/macmini-tmux（2026-10-29，v0.1.0）」。
 
+### 2026-10-29 变更：子项目 copybridge 改名为 vscode-copy-anywhere（镜像同步）
+
+**为什么改**：用户 2026-10-29 指出 `copybridge` 这个名字「时间久了我从名字看不出这个项目是做什么的」——`bridge` 是隐喻，且未交代「VSCode」「文件」两个关键信息。Kit 将子项目改名为 `vscode-copy-anywhere`（场景 + 动作 + 效果全写进名字），本仓仅需同步两处引用。
+
+**改了什么**（2 个文件，全局 ↔ 镜像逐字节一致）：
+
+1. `docs/agents-registry.md`：子项目映射表 Kit 行——仓库名 `copybridge` → `vscode-copy-anywhere`，描述更新为「让 VSCode 资源管理器里复制的文件能粘到任意 App 的 macOS 后台小工具」，并注记 2026-10-30 改名及原因。
+2. `skills/commit/SKILL.md`：第 10 步发版门禁「语义层」的举例 `blog / copybridge` → `blog / vscode-copy-anywhere`（举例指向已改名仓库，不改就指向不存在的仓库）。
+
+**项目侧（不在本仓记）**：目录 / GitHub 仓库 / 源码与产物名 / LaunchAgent label / 脚本 / 中英 README / logo / 徽章路径的改动与各自 CHANGELOG，见该子仓库本身；名册同步见 `xhqing` 仓库（中英 README + `update_traffic.py` 采集列表 + 流量数据文件改名）。
+
 ### 2026-10-29 变更：子项目 `.pi` 由软链接改为「真实目录 + 资源引用」（组合式超集）
 
 **为什么改**：用户提问「子项目的 `.pi` / `AGENTS.md` 与负责它的智能体保持一致好，还是做超集好（上一版曾是超集）」，并指出最近又碰到「子项目需要独有的配置要放进 `.pi`」，想把超集改回来。核查后确认根因：`.pi` **整目录软链接**把「共享」和「独占」压在了同一个符号上——子项目往 `.pi` 写任何东西，等于直接写进 Agent 项目，瞬间影响该 Agent 全部兄弟子项目并进入 Agent 仓库的 git 历史；而 pi 的上下文文件（`AGENTS.md`）**没有 include / 导入机制**（只从全局 + 祖先目录 + 当前目录加载），超集只能靠复制、复制必然漂移。因此定为**分层**：身份层保持一致（软链接），能力层做超集但用「引用 + 追加」实现。
