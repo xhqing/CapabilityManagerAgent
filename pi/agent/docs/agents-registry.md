@@ -99,7 +99,7 @@
 | ExecutiveAssistantAgent（Kit） | diff-view | pi「改动可视化」完整套件（两个组件都装才完整：**diff-view-pie**＝pi 侧扩展（工具 / 命令 / 变更通知）、**diff-view-vsce**＝VSCode 侧扩展（静默关闭由 pi 打开的 diff 标签）；项目 `~/Developer/diff-view`（2026-10-18 建立，原 diff-bridge 同日并入）；已开源 github.com/xhqing/diff-view（2026-10-19，v0.2.0）） |
 | ExecutiveAssistantAgent（Kit） | ark-key-pool | pi 的火山方舟 Agent Plan 多 Key 自动切换扩展（不同账号的 Key 组成池，额度耗尽 / Key 失效自动切下一个，冷却跨进程共享；项目 `~/Developer/ark-key-pool`，2026-10-22 建立；已开源 github.com/xhqing/ark-key-pool（2026-10-22，v0.1.0）） |
 | ExecutiveAssistantAgent（Kit） | macmini-tmux | 在 Mac mini 上方便使用 tmux 的 CLI 封装（`macmini tmux` 不带参数时每次新开会话、名字自动递增 `session#N`；`-s` 按名字接上 / 新建、`-a` 接回最近会话、`-l` 列表；另可透传任意命令到 macmini；项目 `~/Developer/macmini-tmux`，2026-10-29 建立；已开源 github.com/xhqing/macmini-tmux（2026-10-29，v0.1.0）） |
-| ExecutiveAssistantAgent（Kit） | dotfiles | 按 App 分类的个人配置文件仓库（项目 `~/Developer/dotfiles`，2026-10-31 建立，本机私有、未建远程）：配置文件在仓库里只存一份，安装时软链到系统位置，新机器 clone + `./install.sh` 一键恢复；目前收录 ghostty / cmux 两个 App，**`ghostty/config` 被 Ghostty 与 cmux 共用**（cmux 基于 libghostty 读同一份配置），共用关系在仓库根 README 的「共用配置文件」表与各 App 目录 README 里注明 |
+| ExecutiveAssistantAgent（Kit） | dotfiles | 按 App 分类的个人配置文件仓库（项目 `~/Developer/dotfiles`，2026-10-31 建立，私有仓库，远程 `github.com/xhqing/dotfiles`）：配置文件在仓库里只存一份，安装时软链到系统位置，新机器 clone + `./install.sh` 一键恢复；目前收录 ghostty / cmux 两个 App，**`ghostty/config` 被 Ghostty 与 cmux 共用**（cmux 基于 libghostty 读同一份配置），共用关系在仓库根 README 的「共用配置文件」表与各 App 目录 README 里注明 |
 | FullStackEngineerAgent（Atlas） | XPilot | Xray-core 节点管理 CLI（Python）：代理节点真实流量测速与连通性检测 → 自动选路（纯延迟 / 纯带宽 / 混合）→ 故障转移 → 订阅刷新（2026-10-26 由 NetOpsAgent / Hermes 移交 Atlas，原负责 Agent 已注销） |
 | NeuralCoreAgent（Ada） | AgentCortex | 深度推理引擎规则集（三套推理引擎：Infinite / Rapid / Incisive） |
 | QuantStrategistAgent（Mark） | Intraday | Mark 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
@@ -116,11 +116,9 @@
 **名册同步（2026-10-26 用户立，硬性规定 + 工具强制）**：本文件任何改动——新增 / 删除 Agent 项目、子项目新增 / 删除 / 归属变更、Agent 迁机（宿主机归属变化）——必须**在同一批改动里**同步更新 `xhqing` 仓库（`~/Developer/xhqing`）README 的名册表格，也就是「Subprojects (🌐 public · 🔒 private)」那张表（**英文 `README.md` 与中文 `README_cn.md` 两份都要改**，双语文档同步）。不是「下次顺手改」，而是和 registry 改动一起做完。
 
 - **谁做**：名册归 Kit（ExecutiveAssistantAgent）负责，但**改动 registry 的那个会话有责任同批补齐**（或当场交给 Kit 处理），不得留到下一次。
-- **描述语要先问用户**：公开 README 上怎么写某仓库需要用户认可先用词——没拿到认可的不写，先进 `~/.pi/agent/patch/roster-sync/allowlist.json` 登记豁免（repo + 理由 + 日期），确认后再写进 README 并从豁免里删掉。
-- **私有仓库默认放空不写（2026-10-26 用户立）**：
-  - 凡**私有仓库**（GitHub `--private`）的 Agent 项目 / 子项目，在公开名册里**默认不写、直接登记进 allowlist 豁免**（理由固定写「私有仓库，默认不公开」），**不必询问用户**——不要为这种事阻塞；用户**显式要求**要写时再写（描述语同样遵上一条：拿用户给的原话写，不自行扩写）。
-  - 已在名册里的存量私有仓库（如 `xhs-mentor-scam`、按用户显式要求写入的 `NewsScoreStudy`）不受此默认影响，维持现状；要撤就等用户发话。
-  - 理由：公开主页列私有仓库等于把「不想公开的内容存在」这件事本身暴露出去；默认关掉比默认公开更安全，且不用为单个仓库反复征询。
+- **名册实时同步、不再逐次询问（2026-10-31 用户立，修订）**：名册就是本文件两张表的公开镜像——registry 改了什么，名册就同批改成什么，**不用问用户、不用等确认**。描述语由 Kit 按仓库实际情况直接撰写：一句话说清「它是什么 / 解决什么问题」，不夸大、不写与仓库无关的内容、不泄露个人信息与凭证。
+  - **例外**：用户对**某个具体仓库**有过专项指示的，从其指示（目前只有 `NewsScoreStudy`：用户 2026-10-26 明确说描述语待确认，暂缓写入，留在 `~/.pi/agent/patch/roster-sync/allowlist.json` 豁免里；用户发话后立即补齐并删豁免）。
+  - **修订说明**：本条取代 2026-10-26 的两条旧规矩——①「描述语要先问用户」；②「私有仓库默认放空不写」。用户原话（2026-10-31）：「xhqing公开名册必须实时同步全局注册表，这个不用问，下次自动同步。」所以**私有仓库现在也照常列名册**，不再默认豁免。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/roster-sync-guard.ts`——某次工具调用写到本文件后立即比对，发现名册没跟上就当场插话促其同批补齐；每轮收尾（`agent_settled`）再兜底比一次（Kit 会话注入提醒，其它会话只弹通知）。判定逻辑在 `~/.pi/agent/patch/roster-sync/roster-sync-check.py`（registry 两张表 ↔ 两份 README 名册的集合比对，缺 / 多都报；也可手工随时跑：`python3 ~/.pi/agent/patch/roster-sync/roster-sync-check.py`）。
 - **脚本查不到的部分靠人**：脚本只比「名字集合」，不查描述文字，也不查名册的 **Host machine 列**——迁机改宿主机归属时，README 里对应 Agent 的 Host 列要手工同步。
 
