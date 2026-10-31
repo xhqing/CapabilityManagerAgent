@@ -4,6 +4,55 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 add-mode 与 commit-mode 完全解耦：拆成两个独立模块
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：v1.7.0 把 commit-mode 拆成了两个开关，但仍是**同一份代码**（一个脚本 + 一个扩展管两件事）。用户要求进一步——**两个功能完全独立、不在同一份代码文件里**，各自演进时互不影响：各自有命令、状态文件、守卫扩展，互不引用对方代码。
+
+**改了什么**（13 个文件：新增 5 个 / 改写 3 个 / 联动 2 个 / 文档 3 个）：
+
+**add 一侧（全新独立模块）**
+
+1. **新增 `patch/add-mode/add-mode`**：独立命令 `manual|auto|toggle|status|list`，只管自动 add（看 `git diff`，工作区 vs 暂存区）。
+2. **新增 `patch/add-mode/install.sh`**：复制到 `~/.local/bin/add-mode`。
+3. **新增 `patch/add-mode/README.md`**：用途、用法、状态文件、已知边界。
+4. **新增 `extensions/add-mode-guard.ts`**：读 `state/add-mode.json`，注入「自动 add 已关闭」提示 + 用户无意图时硬拦 `git add`。
+
+**commit 一侧（收窄为只管 commit）**
+
+5. **改写 `patch/commit-mode/commit-mode`**：去掉 add 相关逻辑与对象参数，只管自动 commit；收到旧语法 `manual add` / `manual all` 时给**迁移提示**（指向 `add-mode`），不再执行。
+6. **`patch/commit-mode/install.sh`**：头部注释精简一行（去掉了「与 macmini-tmux 的做法一致」的括号说明）——原本以为没变，实际同步时发现这处改动，按全局版本对齐。
+7. **改写 `patch/commit-mode/README.md`**：只管 commit（看 `git diff --cached`，暂存区 vs HEAD）、与 add-mode 完全独立的说明、已知边界。
+8. **改写 `extensions/commit-mode-guard.ts`**：只拦 `git commit`，提示里写明「即使 add 流程预检干净也不自动衔接 commit」。
+
+**联动方（读两个独立状态文件）**
+
+9. **`extensions/redundant-ask-guard.ts`**：改为分别读 `add-mode.json` / `commit-mode.json`，授权清单按**四种组合**（都自动 / 只 add 手动 / 只 commit 手动 / 都手动）动态生成；文件头注释同步更新。
+10. **`extensions/settle-repo-check.ts`**：合并读两个状态文件，任一暂停即跳过收尾催提交。
+
+**文档**
+
+11. **`CLAUDE.md`**（三处）：①「Git 写操作必须先征得同意」节原来的一条**拆成三条**——`自动 add 开关：add-mode` / `自动 commit 开关：commit-mode` / 「两个开关完全独立，是两个功能」（不同命令、不同状态文件、不同扩展文件，互不引用）；②「输出风格」清单第 ② 条例外改为「被 add-mode / commit-mode 暂停的项目例外」；③「会话收尾检查」改为「被 add-mode 或 commit-mode 暂停的仓库（任一暂停即跳过）」。
+12. **`skills/add/SKILL.md`**：description 与「授权边界」第 1 条子项改为分别引用两个命令（add 被暂停则不发本 skill；commit 被暂停则 add 照常但不衔接 commit）。
+13. **`CHANGELOG.md`**：本条记录。
+
+**状态文件**：`state/add-mode.json` 与 `state/commit-mode.json`，结构都是 `{"manual": [...], "updated": ...}`；两者都在 macmini 镜像排除的 `state/` 里，不进仓库。
+
+**兼容性（三件，写清边界）**：
+
+- **旧命令**：`commit-mode manual add` / `manual all`（v1.7.0 语法）现在只打印迁移提示、**不执行也不改状态**（实测：退出码 0、两个状态文件均未被写入），提示内容指向 `add-mode manual` 与「两个都要暂停就各执行一次」。
+- **旧状态结构不再读取**：两个新脚本只读各自文件里的 `manual` 字段，**不会**从 v1.7.0 的 `manualAdd` / `manualCommit` 自动搬数据——这是有意的取舍（两个功能解耦、各管各的状态）。当前两个状态文件本来就是空的（v1.7.0 期间没有项目被登记），所以实际无损失；若日后有用户的旧登记要追，需用 `add-mode manual` / `commit-mode manual` 重新登记。
+- **v1.7.0 的公开版本历史不回改**：`CHANGELOG.md` 的 `## [1.7.0]` 节与已发的 Release 保持原样，本次变更只写在新条目 / 新版本里。
+
+**验证**：13 个文件与全局逐字节一致（`diff -rq` 逐目录 + `diff -q` 逐文件核过）；两个脚本过 `py_compile`、两个 `install.sh` 过 `bash -n`；`~/.local/bin/add-mode`（7323 字节）与 `commit-mode`（8052 字节）均为新版且与仓库脚本内容一致；旧语法迁移提示实测正确且不改状态；`add-mode status` / `commit-mode status` 在本仓库均显示开启（默认全自动）。
+
+**回归风险**：低。① **默认行为不变**——两个开关初始都是开启，未登记项目的会话行为与此前一致；② **两个扩展互不干扰**——各自读自己的状态文件、各自只拦自己那一步（全局实测中两扩展同时挂载、系统提示只注入各自那一段）；③ **安全阀不变**——用户明确要求提交时，走的仍是 skill 完整流程（gitleaks + 语义预检、敏感扫描、cache 检测、人工过目、发版异常暂停全在）；④ 唯一的真实代价是上面写的「旧状态结构不自动迁移」，已在条目里明写，避免后人误以为有迁移逻辑。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.7.0] - 2026-10-31
 
 ### 2026-10-31 commit-mode 拆成两个独立开关：自动 add 与自动 commit 分别暂停

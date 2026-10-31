@@ -23,13 +23,12 @@
  * 明确写过「无需询问 / 直接做」的事项；方案分叉大、规则没覆盖的问题仍然应该问用户。
  * 判定全程防御性 catch：本扩展失灵时不阻塞会话。
  *
- * 2026-10-31 增：与手动提交模式（commit-mode）联动——项目处于手动。
- *
- * 补充说明（2026-10-31，同日第二次修订）：用户想先看工作区相对暂存区的 diff 时，会把
- * 某个项目的「自动 add」和 / 或「自动 commit」关掉（commit-mode，状态文件
- * ~/.pi/agent/state/commit-mode.json）。此时清单里的「工作区 / 暂存区有待提交内容 → 直接
- * 按 /add 或 /commit 流程处理」必须按开关反向——否则本扩展会一边注入「直接提交」、
- * commit-mode-guard 一边硬拦截，AI 走进死路。所以 brief 按两个开关的组合动态生成。
+ * 2026-10-31 增（同日修订为两个独立开关）：用户想先看工作区相对暂存区的 diff 时，会把
+ * 某个项目的「自动 add」（add-mode）和 / 或「自动 commit」（commit-mode）关掉。此时
+ * 清单里的「工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理」必须按开关
+ * 反向——否则本扩展会一边注入「直接提交」、对应守卫一边硬拦截，AI 走进死路。
+ * 两个开关完全独立，各有自己的状态文件（add-mode.json / commit-mode.json），brief 按
+ * 两者的组合动态生成。
  */
 
 import { readFileSync, realpathSync, statSync } from "node:fs";
@@ -37,10 +36,11 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const STATE_FILE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
+const ADD_STATE = join(homedir(), ".pi", "agent", "state", "add-mode.json");
+const COMMIT_STATE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
 
-/** 状态缓存：按 mtime 失效。 */
-let stateCache: { mtime: number; entries: { add: string[]; commit: string[] } } | null = null;
+/** 状态缓存：两个文件各自按 mtime 失效（add-mode 与 commit-mode 完全独立）。 */
+let stateCache: { sig: string; entries: { add: string[]; commit: string[] } } | null = null;
 
 function norm(raw: string): string {
 	let p = raw.trim();
@@ -56,27 +56,29 @@ function norm(raw: string): string {
 	return real.replace(/\/+$/, "") || "/";
 }
 
-/** 读状态文件里的两组条目（兼容旧版单一 manual 字段）。 */
-function modeState(): { add: string[]; commit: string[] } {
+/** 读单个开关的状态文件：{ manual: [...] }，失败当空。 */
+function entriesOf(file: string): { entries: string[]; mtime: number } {
 	try {
-		const st = statSync(STATE_FILE);
-		if (stateCache && stateCache.mtime === st.mtimeMs) return stateCache.entries;
-		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as {
-			manual?: unknown;
-			manualAdd?: unknown;
-			manualCommit?: unknown;
-		};
-		const pick = (value: unknown, fallback: unknown): string[] =>
-			(Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [])
-				.filter((x): x is string => typeof x === "string" && x.trim() !== "")
-				.map(norm);
-		const entries = { add: pick(data?.manualAdd, data?.manual), commit: pick(data?.manualCommit, data?.manual) };
-		stateCache = { mtime: st.mtimeMs, entries };
-		return entries;
+		const st = statSync(file);
+		const data = JSON.parse(readFileSync(file, "utf8")) as { manual?: unknown };
+		const entries = Array.isArray(data?.manual)
+			? data.manual.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
+			: [];
+		return { entries, mtime: st.mtimeMs };
 	} catch {
-		stateCache = null;
-		return { add: [], commit: [] };
+		return { entries: [], mtime: -1 };
 	}
+}
+
+/** 读两个开关（两个独立状态文件）。 */
+function modeState(): { add: string[]; commit: string[] } {
+	const a = entriesOf(ADD_STATE);
+	const c = entriesOf(COMMIT_STATE);
+	const sig = `${a.mtime}|${c.mtime}`;
+	if (stateCache && stateCache.sig === sig) return stateCache.entries;
+	const entries = { add: a.entries, commit: c.entries };
+	stateCache = { sig, entries };
+	return entries;
 }
 
 /** 当前会话上下文下两个开关的状态。 */
@@ -92,9 +94,9 @@ function modesAt(cwd: string | undefined): { add: boolean; commit: boolean } {
 function buildBrief(modes: { add: boolean; commit: boolean }): string {
 	let commitLine = `- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。`;
 	if (modes.add && modes.commit) {
-		commitLine = `- **本项目的自动 add 与自动 commit 都已关闭（commit-mode）**：不要自行发起 /add、/commit（commit-mode-guard 会硬拦截）；只有用户当轮明确要求时才执行。`;
+		commitLine = `- **本项目的自动 add（add-mode）与自动 commit（commit-mode）都已关闭**：不要自行发起 /add、/commit（add-mode-guard / commit-mode-guard 会硬拦截）；只有用户当轮明确要求时才执行。`;
 	} else if (modes.add) {
-		commitLine = `- **本项目的自动 add 已关闭（commit-mode）**：不要自行发起 /add 或 git add；commit 仍自动，但不要为了跑通流程而自行 add。只有用户当轮明确要求时才执行。`;
+		commitLine = `- **本项目的自动 add 已关闭（add-mode）**：不要自行发起 /add 或 git add；commit 仍自动，但不要为了跑通流程而自行 add。只有用户当轮明确要求时才执行。`;
 	} else if (modes.commit) {
 		commitLine = `- **本项目的自动 commit 已关闭（commit-mode）**：add 仍可自动（预检干净后只 add、不自动衔接 commit）；不要自行 /commit、/bump、/release。只有用户当轮明确要求提交时才执行。`;
 	}
@@ -122,7 +124,7 @@ const AUTHORIZED_HINTS: Array<{ re: RegExp; hint: string }> = [
 		re: /\/add\b|\/commit\b|\/bump\b|\/release\b|预检|发版链/,
 		hint:
 			"自动模式：直接按 /add → /commit 流程执行（预检干净会自动衔接，commit 第 10 步按规则自动 bump / 发版）。" +
-			"手动提交模式（commit-mode）：只有用户当轮明确要求时才执行，否则保持安静、把改动留在工作区",
+			"被 add-mode / commit-mode 暂停时：只有用户当轮明确要求对应步骤时才执行，否则保持安静、把改动留在工作区",
 	},
 	{
 		re: /agent_call|会话间协作|委派对方|自动委派/,
