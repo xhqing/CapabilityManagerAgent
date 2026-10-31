@@ -105,7 +105,7 @@
 | QuantStrategistAgent（Mark） | Intraday | Mark 的日内尺度策略研究仓库（订单流 mbo 特征、分钟级 ML 信号、walk-forward 验证） |
 | QuantStrategistAgent（Mark） | Swing | 日 K 趋势跟随策略工具集（美股大盘股，Python，完整文档 + 回测验证 + 可信度标定） |
 | QuantStrategistAgent（Mark） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
-| QuantStrategistAgent（Mark） | NewsScoreStudy | 面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」：模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，交付 `PLAN.md` / `REPORT.md` / `NOTES.md`；私有远程 `github.com/xhqing/NewsScoreStudy`；2026-10-26 建立、同日由 Victor 移交 Mark 负责，仓库仍在 `~/Developer/NewsScoreStudy`） |
+| QuantStrategistAgent（Mark） | NewsScoreStudy | **不列入公开名册**（用户 2026-10-31 要求先从名册移除，豁免见 roster-sync allowlist）；面试实操题研究仓库（评估「大模型给新闻打的分（-1~1）值不值得交易」：模拟数据、股票代码已匿名化，Python 研究代码 + 可执行回测，交付 `PLAN.md` / `REPORT.md` / `NOTES.md`；私有远程 `github.com/xhqing/NewsScoreStudy`；2026-10-26 建立、同日由 Victor 移交 Mark 负责，仓库仍在 `~/Developer/NewsScoreStudy`） |
 | DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
 | DayTradingAgent（Victor） | NewsScoreStudy | ~~面试实操题研究仓库~~ **已于 2026-10-26 移交 Mark**（现行归属见上方 QuantStrategistAgent 行；本行仅留转移痕迹） |
 | SocialMediaManagerAgent（Gatsby） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 `~/Developer/xhs-mentor-scam`，绑定 GitHub 私有远程持续备份、launchd 自动提交推送；2026-10-13 由 Kit 设立、2026-10-15 移交 Gatsby 负责） |
@@ -117,7 +117,7 @@
 
 - **谁做**：名册归 Kit（ExecutiveAssistantAgent）负责，但**改动 registry 的那个会话有责任同批补齐**（或当场交给 Kit 处理），不得留到下一次。
 - **名册实时同步、不再逐次询问（2026-10-31 用户立，修订）**：名册就是本文件两张表的公开镜像——registry 改了什么，名册就同批改成什么，**不用问用户、不用等确认**。描述语由 Kit 按仓库实际情况直接撰写：一句话说清「它是什么 / 解决什么问题」，不夸大、不写与仓库无关的内容、不泄露个人信息与凭证。
-  - **例外**：用户对**某个具体仓库**有过专项指示的，从其指示（目前只有 `NewsScoreStudy`：用户 2026-10-26 明确说描述语待确认，暂缓写入，留在 `~/.pi/agent/patch/roster-sync/allowlist.json` 豁免里；用户发话后立即补齐并删豁免）。
+  - **例外**：用户对**某个具体仓库**有过专项指示的，从其指示（目前只有 `NewsScoreStudy`：用户 2026-10-31 明确要求先从名册移除——它属 Mark 的子项目，公开名册暂不列出，豁免留在 `~/.pi/agent/patch/roster-sync/allowlist.json`；用户发话后再加回并删豁免）。
   - **修订说明**：本条取代 2026-10-26 的两条旧规矩——①「描述语要先问用户」；②「私有仓库默认放空不写」。用户原话（2026-10-31）：「xhqing公开名册必须实时同步全局注册表，这个不用问，下次自动同步。」所以**私有仓库现在也照常列名册**，不再默认豁免。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/roster-sync-guard.ts`——某次工具调用写到本文件后立即比对，发现名册没跟上就当场插话促其同批补齐；每轮收尾（`agent_settled`）再兜底比一次（Kit 会话注入提醒，其它会话只弹通知）。判定逻辑在 `~/.pi/agent/patch/roster-sync/roster-sync-check.py`（registry 两张表 ↔ 两份 README 名册的集合比对，缺 / 多都报；也可手工随时跑：`python3 ~/.pi/agent/patch/roster-sync/roster-sync-check.py`）。
 - **脚本查不到的部分靠人**：脚本只比「名字集合」，不查描述文字，也不查名册的 **Host machine 列**——迁机改宿主机归属时，README 里对应 Agent 的 Host 列要手工同步。
