@@ -4,6 +4,27 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 注销 diff-view 子项目（改用 add-mode / commit-mode 暂停自动提交看 diff）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么**：用户 2026-10-31 决定注销 diff-view 功能——原话「需要 diff-view 的时候关闭 auto-add 或 auto-commit 就行了」。新做的两个开关（`add-mode` / `commit-mode`）已经把「不想让 AI 自动提交、我自己用 `git diff` / `git diff --cached` 过一遍」这个需求覆盖了，diff-view 那套「扩展自动打开 diff + 静默关闭标签」就不再需要，养着一个双组件的套件（pi 侧扩展 + VSCode 侧扩展）反而是维护负担。
+
+**改了什么**（本仓库 1 个文件；配套动作已由 Kit 那边完成，一并记录供溯源）：
+
+1. **`pi/agent/docs/agents-registry.md`（本仓库镜像）**：「子项目映射」表删除 `ExecutiveAssistantAgent（Kit） | diff-view` 整行——原行写明两个组件（diff-view-pie＝pi 侧扩展、diff-view-vsce＝VSCode 侧扩展）、项目位置 `~/Developer/diff-view`、2026-10-18 建立（原 diff-bridge 同日并入）、2026-10-19 开源（v0.2.0）。
+2. **配套（Kit 侧已完成，本次仅核对）**：卸载两个扩展（`~/.pi/agent/extensions/diff-view.ts` 与 VSCode 扩展 `xhqing.diff-view-vsce`）；清理 `~/.pi/agent/state/ai-edit-diff` 快照目录（约 925MB）；`diff-view` 项目 README 顶部加中英双语注销说明、CHANGELOG 记「注销（2026-10-31 用户决定，功能停用）」；`xhqing` 中英名册删除该条目。
+
+**保留**：本地项目 `~/Developer/diff-view` 与 GitHub 仓库 `xhqing/diff-view` **不删，作存档**（与 v1.8.0 那批「除名 agent 删本地副本」不同——这里是**子项目功能注销**，不是 agent 除名，且项目已有归档性质的说明提交，留着供日后再用时参考）。
+
+**实测核对**（不只信描述）：`~/.pi/agent/extensions/` 下已无 `diff-view*`；`~/Developer/diff-view` 目录仍在、工作区干净、最新提交为 `90ba694 chore: 注销说明（功能停用，仓库保留作存档）`；`roster-sync-check.py` 两份名册均报「名册与 registry 一致」，无豁免项（说明 xhqing 名册那行确实删了、没有靠豁免压着）。
+
+**回归风险**：无（纯登记变更）。需要说清的边界：两个新开关提供的是「**不自动提交**，你自己看 `git diff`」，**不是**「自动弹 diff 视图」——diff-view 原来那个「AI 改完自动把 diff 推到 VSCode 标签页」的能力是真的没有了，不是换个名字藏着；日后如果要那个体验，靠归档的仓库重新安装即可。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.9.0] - 2026-10-31
 
 ### 2026-10-31 add-mode / commit-mode 新增输入框斜杠命令（六个用户入口）
