@@ -4,6 +4,30 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 ToolCallingRules 登记到 Ada 名下；Hermes / NewsScoreStudy 补「本地目录已删」
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-31 把 `~/Developer/ToolCallingRules`（LLM 工具调用规则集）交给 **Ada / NeuralCoreAgent** 负责，并同期注销 / 删除了几个不再用的本地项目目录。
+
+**改了什么**（`pi/agent/docs/agents-registry.md` 三处）：
+
+1. **子项目映射表新增一行** `NeuralCoreAgent（Ada） | ToolCallingRules`：LLM 工具调用规则集（22 条规则 / 7 类，注入 system prompt 以减少 function calling 的参数格式错误与不安全重试、提升调用准确率；PolyForm-Noncommercial 许可；2026-10-31 用户决定由 Ada 接手，此前是未登记的历史独立项目）。
+2. **Hermes（NetOpsAgent）条**：结尾由「GitHub 仓库与本地目录保留为存档」改为「GitHub 仓库 `xhqing/NetOpsAgent` 保留为存档；**本地目录已于 2026-10-31 按用户要求删除**」。
+3. **NewsScoreStudy 条**：补入「本地目录已于 2026-10-31 按用户要求删除」，仓库本体与私有远程保留不动。
+
+无 Agent 行增减——注册表仍是 18 行，这次是子项目归属变更，不是 Agent 增减。
+
+**一个口径提醒（顺手标明，免得后人当规则已覆盖）**：v1.10.0 里立的「除名 agent 的本地副本一律删除」只管**除名 agent**；本次删的 NewsScoreStudy 是**子项目**，严格说不在那条通则的覆盖范围内，这次是按用户当次指示单独处理的（仓库本体与私有远程都保留，只删本地目录）。若以后也要把「报废子项目删本地」变成通则，需另行立规矩。
+
+**验证**（不只信描述）：`~/Developer/ToolCallingRules` 存在、是 git 仓库（remote `github.com:xhqing/ToolCallingRules`）；`~/Developer/NetOpsAgent` 与 `~/Developer/NewsScoreStudy` 两个目录确认均不存在；`roster-sync-check.py` 两份名册均报「名册与 registry 一致」。
+
+**回归风险**：无（纯登记变更）。新增行只描述 Ada 接手事实与项目用途，不影响其它子项目归属；两条退役备注只补「本地已删」这一事实，原有职责与仓库位置信息保留。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.10.0] - 2026-10-31
 
 ### 2026-10-31 新增订阅地址改写服务 subsync（解决机场换 IP 后手机订阅失效）
