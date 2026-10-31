@@ -6,6 +6,20 @@
 
 ## [Unreleased]
 
+### 2026-10-31 登记 Atlas 的新子项目 cmux（自建分叉）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 fork 了 cmux（`github.com/xhqing/cmux`，fork 自 manaflow-ai/cmux）并决定做**自建分叉**、交给 Atlas 负责，不再等上游合并关闭确认类的改动。
+
+**改了什么**（`pi/agent/docs/agents-registry.md` 一处）：子项目映射表在 `Atlas | ghostty` 行之后、`mp4-player` 之前新增一行 `FullStackEngineerAgent（Atlas） | cmux`——写明它是基于 Ghostty 内核的 macOS 终端（面向 AI coding agents）的自建分叉、2026-10-31 建立、由 Atlas 负责；改的内容是「关闭带运行进程的工作区 / 标签页不再强制确认」这类偏好改动；维护方式是「以**上游 release tag 为基线 + 最小补丁**」持续同步上游。
+
+**验证**：`~/Developer/cmux` 目录存在、remote 指向 `github.com/xhqing/cmux`；`roster-sync-check.py` 两份名册均报「名册与 registry 一致」（该会话已同批更新 `xhqing` 中英名册）。
+
+**回归风险**：无（纯登记新增）。只加一行、不改动任何既有 Agent 行的职责与分组；cmux 与 ghostty 是两个独立子项目（前者是终端应用、后者是 Ghostty 本身的分叉），表里并列而不互相替位。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-31 新增 macmini 严格 git 只读（用户立规 + 两层工具强制）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
