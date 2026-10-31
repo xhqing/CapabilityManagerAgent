@@ -6,6 +6,23 @@
 
 ## [Unreleased]
 
+### 2026-10-31 第二批除名：Tinker（PatchClaudeAgent）从注册表移除
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-31 要求「Tinker 这个 Agent 也除名，不需要了」——紧接在同一天除名电脑管家 Alfred 之后，团队侧身的第二个人。
+
+**改了什么**（2 个文件）：
+
+1. `pi/agent/docs/agents-registry.md`：智能体命名注册表删除 `Tinker / PatchClaudeAgent / 补丁维护匠` 整行（现 18 行）；「销售流水线与三小组」的基础设施小组描述删掉「Tinker 给 CC 打补丁；」一句；「已注销 / 已退役的 Agent」下新增「**已除名的 Agent（2026-10-31 用户决定，第二批）**」——写明原职责（VSCode Claude Code 扩展升级后重新应用自定义补丁 / 自愈引擎）、**本次未指定接替者**、项目本体退役（`~/Developer/PatchClaudeAgent` 与 GitHub 仓库保留为存档）。
+2. `pi/agent/CLAUDE.md`：「团队结构参考」开头的 agent 计数从 19 再改为 18，并把三次减员的日期与对象写全（2026-10-26 Hermes → 20、2026-10-31 Alfred → 19、2026-10-31 Tinker → 18）。
+
+**验证**：`roster-sync-check.py` 两份名册均报「名册与 registry 一致」（Tinker 与 Alfred 两行已由 Kit 同批从 `xhqing` 中英 README 中删除）；注册表行数 = 18，与 `CLAUDE.md` 新计数一致。
+
+**回归风险**：无。① PatchClaudeAgent 目前无子项目挂在映射表里（删行不影响子项目映射表）；② 退役备注保留了原有职责描述与仓库位置，日后要找回能力时有据可查；③ 本次未指定接替者，所以没有像 Alfred 那样往具体 Agent 行里写接管说明——这一点在退役条目里写明了，避免后人误以为漏写。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-31 除名电脑管家 Alfred（职责并入 Kit），名册宿主机口径改为 `macmini&macbook`
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
