@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+### 2026-10-31 除名 agent 不在本地留副本：改写两条退役备注 + 新增通则
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-31 指示「除名的智能体项目本身不需要存在于本地了，也不需要在本地备份，只要 gh 上面是最新版的就可以了」。上一批刚把 Alfred 与 Tinker 除名，那两条备注写的是「本地目录与 GitHub 仓库保留为存档」——与用户新口径相反，不改就会误导以后的会话去本地找已经不存在的东西。
+
+**改了什么**（1 个文件，`pi/agent/docs/agents-registry.md` 三处）：
+
+1. **Alfred 条**：结尾改为「本地目录已按用户 2026-10-31 要求删除（`~/Developer/DeviceStewardAgent` 不再存在），GitHub 仓库 `xhqing/DeviceStewardAgent` 保留最新版为唯一源；原有子项目 ResourceMonitor 早已退役」——即把「本地存档」换成「GitHub 为唯一源」。
+2. **Tinker 条**：同上口径（`~/Developer/PatchClaudeAgent` 已删除，`xhqing/PatchClaudeAgent` 为唯一源）。
+3. **新增通则**：「除名 agent 的本地副本处理口径（2026-10-31 用户立）」——除名 agent 的项目**本地目录一律删除、不在本地备份**，只要 GitHub 仓库是最新版即可；并写明删除的前置条件（先确认工作区干净、与 `origin/main` 同步，避免丢本地改动）与查阅方式（从 GitHub 取）。
+
+**实测核对**（不只信文字描述）：`~/Developer/DeviceStewardAgent` / `~/Developer/PatchClaudeAgent` 两个目录均确认已不存在；`xhqing/DeviceStewardAgent`（最后推送 2026-10-17）与 `xhqing/PatchClaudeAgent`（2026-10-17）两个仓库仍在 GitHub 上。
+
+**回归风险**：无。① 两条备注只是把「保留为存档」换成「已删除、GitHub 为唯一源」，职责、除名原因、子项目退役等历史信息一字未删；② 新通则只管「除名 agent」，不影响仍在用的 Agent 项目及其本地目录；③ 删除了「本地还有存档」的错误预期，反而避免了后续会话白跑一趟。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-31 第二批除名：Tinker（PatchClaudeAgent）从注册表移除
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
