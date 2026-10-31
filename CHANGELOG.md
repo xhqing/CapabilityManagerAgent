@@ -4,7 +4,7 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
-## [Unreleased]
+## [1.10.0] - 2026-10-31
 
 ### 2026-10-31 新增订阅地址改写服务 subsync（解决机场换 IP 后手机订阅失效）
 
@@ -28,8 +28,6 @@
 **验证**：改写后复扫 `jms|just my socks` 无命中；`subsync.py` 过 `py_compile`、`install.sh` 过 `bash -n`；三文件 gitleaks 均 `no leaks found`；镜像与全局逐字节一致。
 
 **回归风险**：无。本次只改文本（注释与文档措辞、示例地址），服务逻辑与脚本行为未动；敏感内容剥离后不影响任何使用方式。
-
-> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
 
 ### 2026-10-31 注销 diff-view 子项目（改用 add-mode / commit-mode 暂停自动提交看 diff）
 
