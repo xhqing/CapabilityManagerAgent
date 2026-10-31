@@ -4,7 +4,7 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
-## [Unreleased]
+## [1.7.0] - 2026-10-31
 
 ### 2026-10-31 commit-mode 拆成两个独立开关：自动 add 与自动 commit 分别暂停
 
@@ -27,8 +27,6 @@
 **验证**：8 个文件与全局逐字节一致（`diff -q` 逐文件核过）；`commit-mode` 过 `py_compile`；`~/.local/bin/commit-mode` 与本仓库脚本内容一致；当前状态 `manualAdd` / `manualCommit` 均为空，`commit-mode status` 显示「add：自动 / commit：自动」。
 
 **回归风险**：无。① **默认行为不变**——两个开关初始均为自动，不登记任何项目时行为与 v1.6.0 之前完全一致；② **不会出现「半自动」误提交**——只关 add 时没有暂存内容，commit 也就无从发生；只关 commit 时 add 可执行，但预检干净后不自动衔接 commit（规则与守卫都写了）；③ **安全阀不变**——无论哪种模式，用户明确要求提交时走的仍是 skill 完整流程（gitleaks + 语义预检、敏感扫描、cache 检测、人工过目、发版异常暂停全在）；④ 守卫仍按命令文本判断（下限防线），这一性质未变。
-
-> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
 
 ## [1.6.0] - 2026-10-31
 
