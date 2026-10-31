@@ -4,6 +4,25 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 登记 Kit 的新子项目 dotfiles，并给 roster-sync 加一条豁免
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：Kit（ExecutiveAssistantAgent）在 2026-10-31 建了一个按 App 分类的个人配置文件仓库 `~/Developer/dotfiles`（本机 git、未建远程），需要登记为它的子项目；同时因为该仓库是私有配置仓库、公开名册上的描述语还没经用户确认，按 2026-10-26 立的「公开描述语先问用户」规矩，先在 roster-sync 的豁免清单里挂一条，让名册一致性检查不至于天天报这一条。
+
+**改了什么**（2 个文件）：
+
+1. `pi/agent/docs/agents-registry.md` 的子项目映射表新增一行 `ExecutiveAssistantAgent（Kit） | dotfiles`——说明栏写明用途（配置文件在仓库里只存一份、安装时软链到系统位置、新机器 clone + `./install.sh` 一键恢复）、现状（2026-10-31 建立，本机私有、未建远程）、以及一处容易被踩的共用关系（目前收录 ghostty / cmux 两个 App，`ghostty/config` 被两者共用，因为 cmux 基于 libghostty 读同一份配置，共用关系在仓库根 README 与各 App 目录 README 里注明）。
+2. `pi/agent/patch/roster-sync/allowlist.json` 的 `missing_in_readme` 数组新增 `dotfiles` 条目——理由为「私有配置文件仓库（本机 git、暂未建远程），公开名册上的描述语待用户确认」，`since` 记 2026-10-31。
+
+**未登记到公开名册**：本仓库 README 的团队名册这次没有动，等用户确认 dotfiles 的公开描述语后再补；确认前靠上述豁免条目让检查通过。
+
+**回归风险**：无。① 注册表只是加一行，不改动任何既有 Agent 行的职责与分组；② 豁免清单是「登记在案、写清理由和日期」的有意豁免，不放松检查逻辑本身——一旦 README 补上 dotfiles，这一条会变成多余项、由检查报出来再删掉。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.5.65] - 2026-10-29
 
 ### 2026-10-29 澄清：`pi-` 前缀是实现判据、不是用户原话，并补上源头命名规范
