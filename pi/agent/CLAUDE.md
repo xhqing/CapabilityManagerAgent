@@ -114,7 +114,7 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## 团队结构参考（按需读取，指针节）
 
-团队共有 21 个 agent（三个小组 + 直属岗位）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.pi/agent/docs/`，CapabilityManagerAgent `pi/agent/`（docs / skills / patch / CLAUDE.md / extensions）为逐字节一致的开源镜像）：
+团队共有 19 个 agent（三个小组 + 直属岗位；2026-10-26 注销 Hermes、2026-10-31 除名 Alfred 后从 21 减到 19，口径与 `docs/agents-registry.md` 智能体命名注册表的行数一致）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.pi/agent/docs/`，CapabilityManagerAgent `pi/agent/`（docs / skills / patch / CLAUDE.md / extensions）为逐字节一致的开源镜像）：
 
 - **新建 Agent 项目**：先读 `~/.pi/agent/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.pi/agent/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.pi/agent/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。

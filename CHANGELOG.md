@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+### 2026-10-31 除名电脑管家 Alfred（职责并入 Kit），名册宿主机口径改为 `macmini&macbook`
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-31 两条指示——① 电脑管家（Alfred / DeviceStewardAgent）从名册除名，原话「可以从名册中除名了，以后他的工作由 Kit 处理」；② `xhqing` 名册的宿主机字段改为 `macmini&macbook`（2026-10-28 两机全量双向镜像后，字面「单宿主机」已不符合现实）。同批还按用户「先把 NewsScoreStudy 从名册移除」的指示，把它从子项目映射表里彻底去掉（上一批只加了「不列入公开名册」标注，这一批改为整行移除 + 移入「已移出名册的子项目」）。
+
+**改了什么**（2 个文件）：
+
+1. `pi/agent/docs/agents-registry.md`：
+   - **智能体命名注册表**：删除 `Alfred / DeviceStewardAgent / 电脑管家` 整行（19 行）；**Kit 行**末尾追加接管说明（2026-10-31 起接管本地电脑 / 远程服务器 / 云电脑的资源监控与管理建议（进程 / 内存 / 存储治理））。
+   - **销售流水线与三小组**：删掉基础设施小组里「Alfred 负责……低负载的流畅工作状态」一句。
+   - **退役备注**：新增「**已除名的 Agent（2026-10-31 用户决定）**」——Alfred 职责已并入 Kit，项目本体退役（项目目录与 GitHub 仓库保留为存档，原子项目 ResourceMonitor 早已退役）；同时把原有的 Hermes 条目改成「已注销 / 已退役的 Agent」+ 条目内注日期（两个日期不同的退役事件不再挤在一个标题下）。
+   - **新增「已移出名册的子项目（2026-10-31 用户决定）」**：NewsScoreStudy——仓库本体与私有远程保留，只是从名册与子项目映射表里同时移除（两表必须内容一致），并写明要恢复时两处同时加回。
+   - **子项目映射表**：删除 `QuantStrategistAgent（Mark） | NewsScoreStudy` 与 `DayTradingAgent（Victor） | NewsScoreStudy`（后者为移交痕迹行）两行。
+   - **宿主机归属段修订**：字面的「每个 Agent 只允许存在于一个宿主机」改为「**活跃写操作只在一台机器上做**」（避免同一 git 仓库两边同时写导致 `.git` 冲突），并注明 `xhqing` 名册 Host machine 列自 2026-10-31 起统一写 `macmini&macbook`；历史沿革（默认本机、Mark 迁机 / 迁回）保留不动。
+   - **「名册同步」节例外条款**：改为「**目前没有例外**」，写明 NewsScoreStudy 已从两张表同时移除、不再需要 allowlist 豁免。
+2. `pi/agent/patch/roster-sync/allowlist.json`：`missing_in_readme` 清空（NewsScoreStudy 已不在 registry 里，豁免自然失效）。
+
+**顺带修正一处口径滞后**（`pi/agent/CLAUDE.md`）：「团队结构参考」开头原写「团队共有 21 个 agent」，已跟不上实际——2026-10-26 注销 Hermes 减到 20，本次除名 Alfred 减到 19。改为「团队共有 19 个 agent」并注明两次减员的日期与依据（与注册表行数对齐），免得后人按旧数字判断。
+
+**验证**：`roster-sync-check.py` 两份名册（`README.md` / `README_cn.md`）均报「名册与 registry 一致」，无豁免项；注册表行数 = 19，与 `CLAUDE.md` 新计数一致。
+
+**回归风险**：无。① Alfred 只在注册表 / 小组描述里出现，职责文本完整移入 Kit 行与退役备注，不丢信息；② 退役备注与历史条目全部保留（Hermes、Alfred、NewsScoreStudy 三条各自成条，可追溯）；③ 「单宿主机」从硬性规定改为「活跃写操作唯一」是对现实的追认，不移除任何现有约束（macmini 断 GitHub、同一仓库只在一台机器上写等约束仍在）；④ allowlist 清空不影响检查逻辑，脚本本身未改。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-31 把 NewsScoreStudy 明确标为「不列入公开名册」，豁免理由改写
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
