@@ -1,0 +1,3 @@
+#!/bin/sh
+# macmini 只读镜像兜底：拒绝写操作（说明见 deny.sh 与同目录 README.md）
+exec "$(dirname "$0")/deny.sh"

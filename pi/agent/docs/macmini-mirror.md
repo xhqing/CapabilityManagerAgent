@@ -150,8 +150,11 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:
 1. **双机同时改同一文件** → 产生 `.sync-conflict-*` 副本，不会丢数据，但需要人工合并；
    `status.py` 会报出来。
 2. **双机同时对同一个 git 仓库做写操作**（commit / rebase / gc）→ 有风险：`.git` 是逐文件同步的，
-   两边同时写 ref 可能互相覆盖，导致一边的提交变成「游离对象」。建议**同一时间只在一台机器上
-   对同一个仓库做 git 写操作**，另一台只读。macmini 已不连 GitHub，正常情况下的提交都应在本地做。
+   两边同时写 ref 可能互相覆盖，导致一边的提交变成「游离对象」。**2026-10-31 起 macmini 侧已由
+   工具强制只读**（pi 扩展 `git-readonly-guard.ts` + 全局 git hook，见
+   `~/.pi/agent/patch/macmini-git-readonly/README.md`）：在 macmini 上任何 git 写操作都会被拦下，
+   改动只留在工作区、经镜像回流本机后再提交。所以正常流程里不会再出现双机同时写；
+   若发现 macmini 上的写操作没被拦住（例如新增的绕过方式），应修复守卫而不是继续操作。
 3. **`.git` 同步存在短暂不一致窗口**：本机正在 commit 时，macmini 可能短暂看到「ref 已更新、
    对象还没到」的中间态；等同步完成即恢复。不要在这个窗口里在 macmini 上跑修复类 git 命令。
 4. **架构差异**：macmini 是 Intel x64，本机是 arm64。依赖目录、原生二进制、Lean/Python 构建缓存
@@ -172,6 +175,7 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:
 | `patch/macmini-mirror/stignore-developer` | `~/Developer/.stignore` 模板 |
 | `patch/macmini-mirror/stignore-pi-agent` | `~/.pi/agent/.stignore` 模板 |
 | `patch/macmini-mirror/verify-daily.sh` | 每日全量校验脚本（launchd 调用） |
+| `patch/macmini-git-readonly/` | macmini 只读约束：全局 git hook（commit / push / merge / rebase 等写操作拒绝）+ `install.sh` / `uninstall.sh` + 说明；对应 pi 扩展 `extensions/git-readonly-guard.ts`（2026-10-31 立） |
 | `~/Library/LaunchAgents/com.xhq.mirror-check.plist` | 本机每 10 分钟健康检查 |
 | `~/Library/LaunchAgents/com.xhq.mirror-verify.plist` | 本机每日 03:00 全量逐字节校验 |
 | macmini `~/Library/LaunchAgents/com.local.syncthing.plist` | macmini Syncthing 守护 |
