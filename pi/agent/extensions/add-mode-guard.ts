@@ -29,6 +29,7 @@ import { join, resolve } from "node:path";
 import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATE_FILE = join(homedir(), ".pi", "agent", "state", "add-mode.json");
+const SCRIPT = join(homedir(), ".pi", "agent", "patch", "add-mode", "add-mode");
 
 /** 状态文件缓存：按 mtime 失效。 */
 let stateCache: { mtime: number; entries: string[] } | null = null;
@@ -149,7 +150,47 @@ function userWantsAdd(text: string): boolean {
 	);
 }
 
+/**
+ * 调本模块自己的脚本（与扩展同属 add-mode 模块，不涉及 commit-mode）。
+ * 用绝对路径 + python3 执行，不依赖 ~/.local/bin 是否在 PATH 里。
+ */
+function runModeScript(args: string[], cwd: string): string {
+	return execFileSync("python3", [SCRIPT, ...args], {
+		encoding: "utf8",
+		timeout: 20000,
+		cwd,
+		stdio: ["ignore", "pipe", "pipe"],
+	})
+		.trim();
+}
+
+/** 注册输入框斜杠命令：/manual-add、/auto-add、/add-mode（状态）——不是 prompt 模板，不经过模型。 */
+function registerCommands(pi: ExtensionAPI) {
+	const define = (name: string, description: string, action: "manual" | "auto" | "status") => {
+		pi.registerCommand(name, {
+			description,
+			handler: async (args, ctx) => {
+				const path = (args ?? "").trim();
+				const cwd = (ctx as { cwd?: string })?.cwd ?? process.cwd();
+				try {
+					const out = runModeScript([action, ...(path ? [path] : [])], cwd);
+					ctx.ui.notify(out || "（无输出）", "info");
+				} catch (err) {
+					const e = err as { stderr?: string; message?: string };
+					const detail = (e?.stderr || e?.message || String(err)).toString().trim();
+					ctx.ui.notify(`add-mode ${action} 执行失败：${detail}`, "error");
+				}
+			},
+		});
+	};
+	define("manual-add", "暂停本项目的自动 add（改动留在工作区，可看 git diff）；可带路径", "manual");
+	define("auto-add", "恢复本项目的自动 add；可带路径", "auto");
+	define("add-mode", "查看本项目的自动 add 状态；可带路径", "status");
+}
+
 export default function (pi: ExtensionAPI) {
+	registerCommands(pi);
+
 	// 记录用户输入
 	pi.on("input", async (event) => {
 		try {

@@ -30,6 +30,7 @@ import { join, resolve } from "node:path";
 import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATE_FILE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
+const SCRIPT = join(homedir(), ".pi", "agent", "patch", "commit-mode", "commit-mode");
 
 /** 状态文件缓存：按 mtime 失效。 */
 let stateCache: { mtime: number; entries: string[] } | null = null;
@@ -148,7 +149,47 @@ function userWantsCommit(text: string): boolean {
 	return /\/commit\b|提交|入库|\bcommit\b|发版|\/bump\b|\bbump\b|\/release\b/i.test(text);
 }
 
+/**
+ * 调本模块自己的脚本（与扩展同属 commit-mode 模块，不涉及 add-mode）。
+ * 用绝对路径 + python3 执行，不依赖 ~/.local/bin 是否在 PATH 里。
+ */
+function runModeScript(args: string[], cwd: string): string {
+	return execFileSync("python3", [SCRIPT, ...args], {
+		encoding: "utf8",
+		timeout: 20000,
+		cwd,
+		stdio: ["ignore", "pipe", "pipe"],
+	})
+		.trim();
+}
+
+/** 注册输入框斜杠命令：/manual-commit、/auto-commit、/commit-mode（状态）——不是 prompt 模板，不经过模型。 */
+function registerCommands(pi: ExtensionAPI) {
+	const define = (name: string, description: string, action: "manual" | "auto" | "status") => {
+		pi.registerCommand(name, {
+			description,
+			handler: async (args, ctx) => {
+				const path = (args ?? "").trim();
+				const cwd = (ctx as { cwd?: string })?.cwd ?? process.cwd();
+				try {
+					const out = runModeScript([action, ...(path ? [path] : [])], cwd);
+					ctx.ui.notify(out || "（无输出）", "info");
+				} catch (err) {
+					const e = err as { stderr?: string; message?: string };
+					const detail = (e?.stderr || e?.message || String(err)).toString().trim();
+					ctx.ui.notify(`commit-mode ${action} 执行失败：${detail}`, "error");
+				}
+			},
+		});
+	};
+	define("manual-commit", "暂停本项目的自动 commit（不自主提交）；可带路径", "manual");
+	define("auto-commit", "恢复本项目的自动 commit；可带路径", "auto");
+	define("commit-mode", "查看本项目的自动 commit 状态；可带路径", "status");
+}
+
 export default function (pi: ExtensionAPI) {
+	registerCommands(pi);
+
 	// 记录用户输入
 	pi.on("input", async (event) => {
 		try {
