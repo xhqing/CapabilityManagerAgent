@@ -4,6 +4,32 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 commit-mode 拆成两个独立开关：自动 add 与自动 commit 分别暂停
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：v1.6.0 的人工提交模式是**单一开关**（`add` 与 `commit` 一起暂停）。用户随即指出这是两种不同需求，必须分开控：① 只想看**工作区 vs 暂存区**的改动 → 关掉自动 add（`git diff`）；② 想先审核已经暂存的改动、看**暂存区 vs HEAD**（`git diff --cached`）→ 关掉自动 commit、add 继续自动。单一开关把两者绑在一起，第二种需求做不到「只停提交、不停 add」。
+
+**改了什么**（7 个文件）：
+
+1. **`patch/commit-mode/commit-mode`（重写）**：命令改为「动作 + 对象」——`manual add|commit|all [路径]`、`auto add|commit|all [路径]`、`toggle add|commit|all [路径]`、`status`、`list`；**省略对象默认 `all`**（所以 `commit-mode manual` 与 v1.6.0 语法等价、向后兼容）。状态文件结构改为 `{"manualAdd": [...], "manualCommit": [...], "updated": ...}`，**兼容旧版单一 `manual` 字段**（读时视为两个都手动，下次保存自动转新结构）。`status` 同时显示两个开关，`list` 按两个开关分组。
+2. **`patch/commit-mode/README.md`（重写）**：两种暂停分别对应哪种 diff 视图、命令表、状态文件位置与结构、谁在读它（三个扩展）、已知边界。
+3. **`extensions/commit-mode-guard.ts`（重写）**：两个开关**分别生效**——自动 add 关闭时拦 `git add`、自动 commit 关闭时拦 `git commit`；系统提示按**四种组合**（都手动 / 只 add 手动 / 只 commit 手动 / 都自动）分别生成，其中「只关 commit」时特别写清「add 仍自动，但预检干净后不要自动衔接 commit」；用户意图拆成 `userWantsCommit`（提交 / commit / 发版 / bump / release）与 `userWantsAdd`（含上述外加 `/add` / 预检 / 暂存），所以只关 commit 时用户敲 `/add` 能照常 add、但 commit 仍被拦。
+4. **`extensions/redundant-ask-guard.ts`（修改）**：授权清单 brief 按两个开关的**三种非默认组合**分别改写（都暂停 / 只 add 暂停 / 只 commit 暂停），避免与硬拦截自相矛盾。
+5. **`extensions/settle-repo-check.ts`（修改）**：同时读 `manualAdd` 与 `manualCommit`（兼容旧 `manual`），**任一手动即跳过**该仓库的收尾催提交；提示文案改为「被 commit-mode 暂停的仓库」。
+6. **`CLAUDE.md`（修改，三处）**：①「Git 写操作必须先征得同意」节那条规则改写为「自动 add / 自动 commit 两个独立开关」——两种用法对应的两种 diff、完整命令示例、被暂停那一侧的共同行为（不自行执行 / 只在用户明确要求时执行 / 收尾巡检跳过 / 不急着提交以免清掉 diff）、边界（AI 不得自行切模式）与工具强制清单；②「输出风格」已授权清单第 ② 条例外改为「自动 add / 自动 commit 被 commit-mode 暂停的项目例外」；③「会话收尾检查」改为「add 或 commit 任一暂停即不适用本条」。
+7. **`skills/add/SKILL.md`（修改）**：description 与「授权边界」第 1 条子项改为区分两个开关——自动 add 被关的项目不发起本 skill；**只关自动 commit 的项目 add 照常、但预检完全干净后不自动衔接 commit**（第 7 步衔接暂停）。
+
+**兼容性**：旧状态文件 `{"manual": [...]}` 照常可读（读时视为 add 与 commit 都手动），下次保存自动写成 `manualAdd` / `manualCommit` 新结构；`commit-mode manual`（不带对象）仍等价于 `manual all`——旧习惯不受影响。
+
+**验证**：8 个文件与全局逐字节一致（`diff -q` 逐文件核过）；`commit-mode` 过 `py_compile`；`~/.local/bin/commit-mode` 与本仓库脚本内容一致；当前状态 `manualAdd` / `manualCommit` 均为空，`commit-mode status` 显示「add：自动 / commit：自动」。
+
+**回归风险**：无。① **默认行为不变**——两个开关初始均为自动，不登记任何项目时行为与 v1.6.0 之前完全一致；② **不会出现「半自动」误提交**——只关 add 时没有暂存内容，commit 也就无从发生；只关 commit 时 add 可执行，但预检干净后不自动衔接 commit（规则与守卫都写了）；③ **安全阀不变**——无论哪种模式，用户明确要求提交时走的仍是 skill 完整流程（gitleaks + 语义预检、敏感扫描、cache 检测、人工过目、发版异常暂停全在）；④ 守卫仍按命令文本判断（下限防线），这一性质未变。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.6.0] - 2026-10-31
 
 ### 2026-10-31 新增「手动提交模式」开关（commit-mode）：按项目暂停自动 add / commit

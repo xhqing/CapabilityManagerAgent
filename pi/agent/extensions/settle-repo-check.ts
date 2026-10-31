@@ -50,15 +50,21 @@ function norm(raw: string): string {
 	return real.replace(/\/+$/, "") || "/";
 }
 
-/** 读手动模式条目（目录列表）。 */
-function manualEntries(): string[] {
+/** 读被暂停的条目（自动 add 或自动 commit 任一关闭即可目录）。兼容旧版单一 manual 字段。 */
+function pausedEntries(): string[] {
 	try {
 		const st = statSync(STATE_FILE);
 		if (stateCache && stateCache.mtime === st.mtimeMs) return stateCache.entries;
-		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as { manual?: unknown };
-		const entries = Array.isArray(data?.manual)
-			? data.manual.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
-			: [];
+		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as {
+			manual?: unknown;
+			manualAdd?: unknown;
+			manualCommit?: unknown;
+		};
+		const clean = (value: unknown): string[] =>
+			Array.isArray(value)
+				? value.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
+				: [];
+		const entries = [...clean(data?.manualAdd), ...clean(data?.manualCommit), ...clean(data?.manual)];
 		stateCache = { mtime: st.mtimeMs, entries };
 		return entries;
 	} catch {
@@ -67,9 +73,8 @@ function manualEntries(): string[] {
 	}
 }
 
-/** 仓库路径（它自己或它所在仓库）是否处于手动提交模式。 */
+/** 仓库路径（它自己或它所在仓库）是否被 commit-mode 暂停（add / commit 任一）。 */
 function isManualRepo(path: string): boolean {
-	const entries = manualEntries();
 	if (entries.length === 0) return false;
 	const p = norm(path);
 	if (entries.some((e) => p === e || p.startsWith(e + "/"))) return true;
@@ -98,7 +103,7 @@ export default function (pi: ExtensionAPI) {
 			});
 			const data = JSON.parse(out) as { agent: string; dirty: Dirty[] };
 			const all = data.dirty ?? [];
-			// 手动提交模式（commit-mode）下的仓库：用户暂时不想提交，不催
+			// 被 commit-mode 暂停的仓库：用户暂时不想提交，不催
 			const dirty = all.filter((d) => !isManualRepo(d.path));
 			const skipped = all.length - dirty.length;
 
@@ -115,7 +120,7 @@ export default function (pi: ExtensionAPI) {
 			nudged = sig;
 
 			const list = dirty.map((d) => `${d.repo}（${d.changes} 处改动）`).join("、");
-			const skipNote = skipped > 0 ? `（另有 ${skipped} 个手动提交模式仓库已跳过）` : "";
+			const skipNote = skipped > 0 ? `（另有 ${skipped} 个被 commit-mode 暂停的仓库已跳过）` : "";
 			ctx.ui.notify(
 				`[settle-repo-check] ${data.agent} 名下还有 ${dirty.length} 个子项目仓库不干净：${list} ` +
 					`（2026-10-09 用户规则：收尾前必须处理干净）${skipNote}`,
@@ -138,7 +143,7 @@ export default function (pi: ExtensionAPI) {
 						`按用户 2026-10-09 立的规则，收尾前要全部处理干净——各仓库走 /add → /commit` +
 						`（该 bump / 发版就照常走）；若是在途 WIP（如 dev-workflow 先行的测试产物），` +
 						`向用户说明即可，不要硬提交。` +
-						(skipped > 0 ? `另：${skipped} 个手动提交模式（commit-mode）仓库已跳过，不要去提交。` : ""),
+						(skipped > 0 ? `另：${skipped} 个被 commit-mode 暂停（add / commit 手动）的仓库已跳过，不要去提交。` : ""),
 					display: true,
 				},
 				{ triggerTurn: true },

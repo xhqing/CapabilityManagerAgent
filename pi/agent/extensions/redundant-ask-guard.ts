@@ -25,11 +25,11 @@
  *
  * 2026-10-31 增：与手动提交模式（commit-mode）联动——项目处于手动。
  *
- * 补充说明（2026-10-31）：用户想先看工作区相对暂存区的 diff 时，会把某个项目切成
- * 「手动提交模式」（commit-mode manual，状态文件 ~/.pi/agent/state/commit-mode.json）。
- * 此时清单里的「工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理」必须
- * 反向——否则本扩展会一边注入「直接提交」、commit-mode-guard 一边硬拦截，AI 走进死路。
- * 所以 brief 按模式动态生成（内容固定两种，缓存友好性基本不变）。
+ * 补充说明（2026-10-31，同日第二次修订）：用户想先看工作区相对暂存区的 diff 时，会把
+ * 某个项目的「自动 add」和 / 或「自动 commit」关掉（commit-mode，状态文件
+ * ~/.pi/agent/state/commit-mode.json）。此时清单里的「工作区 / 暂存区有待提交内容 → 直接
+ * 按 /add 或 /commit 流程处理」必须按开关反向——否则本扩展会一边注入「直接提交」、
+ * commit-mode-guard 一边硬拦截，AI 走进死路。所以 brief 按两个开关的组合动态生成。
  */
 
 import { readFileSync, realpathSync, statSync } from "node:fs";
@@ -40,7 +40,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const STATE_FILE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
 
 /** 状态缓存：按 mtime 失效。 */
-let stateCache: { mtime: number; entries: string[] } | null = null;
+let stateCache: { mtime: number; entries: { add: string[]; commit: string[] } } | null = null;
 
 function norm(raw: string): string {
 	let p = raw.trim();
@@ -56,37 +56,48 @@ function norm(raw: string): string {
 	return real.replace(/\/+$/, "") || "/";
 }
 
-/** 读手动模式条目（目录列表）。 */
-function manualEntries(): string[] {
+/** 读状态文件里的两组条目（兼容旧版单一 manual 字段）。 */
+function modeState(): { add: string[]; commit: string[] } {
 	try {
 		const st = statSync(STATE_FILE);
 		if (stateCache && stateCache.mtime === st.mtimeMs) return stateCache.entries;
-		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as { manual?: unknown };
-		const entries = Array.isArray(data?.manual)
-			? data.manual.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
-			: [];
+		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as {
+			manual?: unknown;
+			manualAdd?: unknown;
+			manualCommit?: unknown;
+		};
+		const pick = (value: unknown, fallback: unknown): string[] =>
+			(Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [])
+				.filter((x): x is string => typeof x === "string" && x.trim() !== "")
+				.map(norm);
+		const entries = { add: pick(data?.manualAdd, data?.manual), commit: pick(data?.manualCommit, data?.manual) };
 		stateCache = { mtime: st.mtimeMs, entries };
 		return entries;
 	} catch {
 		stateCache = null;
-		return [];
+		return { add: [], commit: [] };
 	}
 }
 
-/** 当前会话上下文是否手动提交模式。 */
-function isManualContext(cwd: string | undefined): boolean {
-	if (!cwd) return false;
-	const entries = manualEntries();
-	if (entries.length === 0) return false;
+/** 当前会话上下文下两个开关的状态。 */
+function modesAt(cwd: string | undefined): { add: boolean; commit: boolean } {
+	if (!cwd) return { add: false, commit: false };
+	const state = modeState();
 	const p = norm(cwd);
-	return entries.some((e) => p === e || p.startsWith(e + "/"));
+	const hit = (entries: string[]) => entries.some((e) => p === e || p.startsWith(e + "/"));
+	return { add: hit(state.add), commit: hit(state.commit) };
 }
 
 /** 已授权事项清单（每轮追加进系统提示；与全局 CLAUDE.md「输出风格」节那条保持一致）。 */
-function buildBrief(manual: boolean): string {
-	const commitLine = manual
-		? `- **本项目处于手动提交模式（commit-mode）**：不要自行发起 /add、/commit（工作区 / 暂存区有待提交内容时也不要动，commit-mode-guard 会硬拦截）；只有用户当轮明确要求提交时才执行。`
-		: `- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。`;
+function buildBrief(modes: { add: boolean; commit: boolean }): string {
+	let commitLine = `- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。`;
+	if (modes.add && modes.commit) {
+		commitLine = `- **本项目的自动 add 与自动 commit 都已关闭（commit-mode）**：不要自行发起 /add、/commit（commit-mode-guard 会硬拦截）；只有用户当轮明确要求时才执行。`;
+	} else if (modes.add) {
+		commitLine = `- **本项目的自动 add 已关闭（commit-mode）**：不要自行发起 /add 或 git add；commit 仍自动，但不要为了跑通流程而自行 add。只有用户当轮明确要求时才执行。`;
+	} else if (modes.commit) {
+		commitLine = `- **本项目的自动 commit 已关闭（commit-mode）**：add 仍可自动（预检干净后只 add、不自动衔接 commit）；不要自行 /commit、/bump、/release。只有用户当轮明确要求提交时才执行。`;
+	}
 	return `【已授权事项：直接做，不要征求确认（2026-10-29 用户立规）】
 下面这些事用户已经明确授权，**不要用「要不要我…」「需要我…吗」这类问句结尾**，直接执行：
 - 全局能力层（~/.pi/agent 下的 skills / CLAUDE.md / docs / patch / extensions）改动后，同步 CapabilityManagerAgent 开源镜像 → 直接 agent_call Prometheus（dir 用 /Users/xhq/Developer/CapabilityManagerAgent），不要问用户。
@@ -161,7 +172,7 @@ export default function (pi: ExtensionAPI) {
 
 			const prompt = (event as { systemPrompt?: string })?.systemPrompt ?? "";
 			if (!prompt.includes("【已授权事项：直接做，不要征求确认")) {
-				result.systemPrompt = `${prompt}\n\n${buildBrief(isManualContext(ctx?.cwd))}`;
+				result.systemPrompt = `${prompt}\n\n${buildBrief(modesAt(ctx?.cwd))}`;
 			}
 
 			return Object.keys(result).length > 0 ? result : undefined;
