@@ -22,19 +22,80 @@
  * 局限（诚实）：这是**输出风格类**规则，无法像命令拦截那样硬阻断。清单要窄——只收
  * 明确写过「无需询问 / 直接做」的事项；方案分叉大、规则没覆盖的问题仍然应该问用户。
  * 判定全程防御性 catch：本扩展失灵时不阻塞会话。
+ *
+ * 2026-10-31 增：与手动提交模式（commit-mode）联动——项目处于手动。
+ *
+ * 补充说明（2026-10-31）：用户想先看工作区相对暂存区的 diff 时，会把某个项目切成
+ * 「手动提交模式」（commit-mode manual，状态文件 ~/.pi/agent/state/commit-mode.json）。
+ * 此时清单里的「工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理」必须
+ * 反向——否则本扩展会一边注入「直接提交」、commit-mode-guard 一边硬拦截，AI 走进死路。
+ * 所以 brief 按模式动态生成（内容固定两种，缓存友好性基本不变）。
  */
 
+import { readFileSync, realpathSync, statSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+const STATE_FILE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
+
+/** 状态缓存：按 mtime 失效。 */
+let stateCache: { mtime: number; entries: string[] } | null = null;
+
+function norm(raw: string): string {
+	let p = raw.trim();
+	if (p === "~") p = homedir();
+	else if (p.startsWith("~/")) p = join(homedir(), p.slice(2));
+	const abs = resolve(p);
+	let real = abs;
+	try {
+		real = realpathSync.native(abs);
+	} catch {
+		// 路径不存在：保留绝对路径
+	}
+	return real.replace(/\/+$/, "") || "/";
+}
+
+/** 读手动模式条目（目录列表）。 */
+function manualEntries(): string[] {
+	try {
+		const st = statSync(STATE_FILE);
+		if (stateCache && stateCache.mtime === st.mtimeMs) return stateCache.entries;
+		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as { manual?: unknown };
+		const entries = Array.isArray(data?.manual)
+			? data.manual.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
+			: [];
+		stateCache = { mtime: st.mtimeMs, entries };
+		return entries;
+	} catch {
+		stateCache = null;
+		return [];
+	}
+}
+
+/** 当前会话上下文是否手动提交模式。 */
+function isManualContext(cwd: string | undefined): boolean {
+	if (!cwd) return false;
+	const entries = manualEntries();
+	if (entries.length === 0) return false;
+	const p = norm(cwd);
+	return entries.some((e) => p === e || p.startsWith(e + "/"));
+}
+
 /** 已授权事项清单（每轮追加进系统提示；与全局 CLAUDE.md「输出风格」节那条保持一致）。 */
-const AUTHORIZED_BRIEF = `【已授权事项：直接做，不要征求确认（2026-10-29 用户立规）】
+function buildBrief(manual: boolean): string {
+	const commitLine = manual
+		? `- **本项目处于手动提交模式（commit-mode）**：不要自行发起 /add、/commit（工作区 / 暂存区有待提交内容时也不要动，commit-mode-guard 会硬拦截）；只有用户当轮明确要求提交时才执行。`
+		: `- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。`;
+	return `【已授权事项：直接做，不要征求确认（2026-10-29 用户立规）】
 下面这些事用户已经明确授权，**不要用「要不要我…」「需要我…吗」这类问句结尾**，直接执行：
 - 全局能力层（~/.pi/agent 下的 skills / CLAUDE.md / docs / patch / extensions）改动后，同步 CapabilityManagerAgent 开源镜像 → 直接 agent_call Prometheus（dir 用 /Users/xhq/Developer/CapabilityManagerAgent），不要问用户。
-- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。
+${commitLine}
 - 其它 agent 项目的仓库有待提交内容 → 直接 agent_call 对方按其自己的 /add → /commit 处理。
 - /add 预检完全干净 → 自动衔接 /commit；/commit 第 10 步命中发版条件 → 自动 bump / 发版。
 - 新建项目 git init、向 agents-registry 追加新 agent 行 → 免确认。
 仍然该问的情况：方案分叉大 / 返工成本高 / 规则没覆盖 / 涉及不可逆破坏性操作。`;
+}
 
 /** 询问句式：命中说明在向用户征求确认。 */
 const ASK_RE =
@@ -48,7 +109,9 @@ const AUTHORIZED_HINTS: Array<{ re: RegExp; hint: string }> = [
 	},
 	{
 		re: /\/add\b|\/commit\b|\/bump\b|\/release\b|预检|发版链/,
-		hint: "直接按 /add → /commit 流程执行（预检干净会自动衔接，commit 第 10 步按规则自动 bump / 发版）",
+		hint:
+			"自动模式：直接按 /add → /commit 流程执行（预检干净会自动衔接，commit 第 10 步按规则自动 bump / 发版）。" +
+			"手动提交模式（commit-mode）：只有用户当轮明确要求时才执行，否则保持安静、把改动留在工作区",
 	},
 	{
 		re: /agent_call|会话间协作|委派对方|自动委派/,
@@ -83,7 +146,7 @@ let pendingReminder: string | null = null;
 
 export default function (pi: ExtensionAPI) {
 	// ③ + ① 回执注入 + 清单追加：每轮对话开始前
-	pi.on("before_agent_start", async (event) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		try {
 			const result: Record<string, unknown> = {};
 
@@ -98,7 +161,7 @@ export default function (pi: ExtensionAPI) {
 
 			const prompt = (event as { systemPrompt?: string })?.systemPrompt ?? "";
 			if (!prompt.includes("【已授权事项：直接做，不要征求确认")) {
-				result.systemPrompt = `${prompt}\n\n${AUTHORIZED_BRIEF}`;
+				result.systemPrompt = `${prompt}\n\n${buildBrief(isManualContext(ctx?.cwd))}`;
 			}
 
 			return Object.keys(result).length > 0 ? result : undefined;
