@@ -1,12 +1,6 @@
 {
   "_说明": "roster-sync-check.py 的豁免清单：登记有意暂不同步到公开 README 名册的条目，必须写理由 + 日期。没有理由的豁免等于没查。格式：missing_in_readme（registry 有、README 无）/ extra_in_readme（README 有、registry 无）/ agents（整行 Agent）。",
-  "missing_in_readme": [
-    {
-      "repo": "NewsScoreStudy",
-      "reason": "用户 2026-10-31 明确要求「先从名册中移除」：该仓库是 Mark（QuantStrategistAgent）的子项目，公开名册暂不列出；用户发话后再加回（原 2026-10-26 的「描述语待确认」口径已被本条取代）",
-      "since": "2026-10-26"
-    }
-  ],
+  "missing_in_readme": [],
   "extra_in_readme": [],
   "agents": []
 }
