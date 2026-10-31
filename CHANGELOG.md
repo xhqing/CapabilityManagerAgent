@@ -6,6 +6,30 @@
 
 ## [Unreleased]
 
+### 2026-10-31 新增 macmini 严格 git 只读（用户立规 + 两层工具强制）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-10-31 立规「禁止 macmini 这台设备进行 git 写操作，git add / git commit / git push 等等写操作全部禁止」。根因：两机 `~/Developer` 与 `~/.pi/agent` 是逐字节双向镜像（Syncthing），**`.git` 也一起同步**，两边同时写 ref / index 会互相覆盖、产生游离提交甚至损坏索引；而且 macmini 已断 GitHub，在那边写出来的东西仍要回本机重做。
+
+**改了什么**（4 项，均已在全局定稿，本次只同步镜像）：
+
+1. **新增 `extensions/git-readonly-guard.ts`**：macmini git 只读守卫——**按 hostname 判定** macmini（本机直接放行、零影响）；白名单放行只读子命令（`status` / `log` / `diff` / `show` / `branch -a` 类查询等），其余 **git 写子命令与 `gh` 写操作全拦**；覆盖 `bash` 与 `background_run` 两条执行路径；**无逃生门**（设计如此：要改只能改守卫本身）。
+2. **新增 `patch/macmini-git-readonly/`**：`README.md`（立规背景、两层强制、判定规则、安装 / 卸载、生效时机与验证、已知边界）、`install.sh`（仅在 macmini 上运行——把 `core.hooksPath` 指向本目录 hooks，在本机会拒绝执行）、`uninstall.sh`，以及 `hooks/` 下的 `deny.sh` + 六个钩子（`pre-commit` / `pre-push` / `pre-rebase` / `pre-merge-commit` / `pre-applypatch` / `pre-auto-gc`，每个都 `exec deny.sh`、打印拒绝理由并 `exit 1`）。
+3. **`CLAUDE.md`**：「跨机协作：macmini 值班会话」节新增一条「**macmini 严格 git 只读（2026-10-31 用户立，工具强制，无逃生门）**」（禁写清单、两层强制、边界），并在紧邻的「全量镜像」条末句补了指向该条的括注。
+4. **`docs/macmini-mirror.md`**：「七、已知边界与风险」第 2 条从「**建议**同一时间只在一台机器上写」改写为「macmini 侧已由**工具强制**只读 + 两层机制位置 + 若没拦住应修复守卫」；「八、文件清单」表新增 `patch/macmini-git-readonly/` 一行。
+
+**同批顺手对齐的两处镜像分叉**（本次核对时发现，不属上面交代的范围，但必须一并处理才能逐字节一致）：
+
+5. **`patch/subsync/subsync.py`**：全局在 20:54 后加了一个**上游不可用时的兑底**——新增 `_last_good` 缓存，拉取失败时改用「最近一次成功生成的订阅」并在日志与总结里标明「沿用 N 分钟前的结果」，避免客户端拿到 502 后白白断开。镜像已跟上。
+6. **删除 `extensions/diff-view.ts`**（1369 行）：diff-view 已于同日注销（全局卸载了该扩展、文件不存在），镜像里这份是残留，按「镜像与全局逐字节一致」清掉；注销事实已记在上一条 CHANGELOG 条目里，本次只是物理对齐。
+
+**验证**：`diff -rq` 逐目录核过，除运行时私有数据（`patch/session-link/*` 的 config / 日志、`patch/skill-custom/*` 的日志与锁、`__pycache__`）外全绿；`hooks/*` 与 `install.sh` / `uninstall.sh` 的 755 可执行位保留（`cp -R` 保留模式）；`install.sh` / `uninstall.sh` / `hooks/deny.sh` 过 `bash -n`，`subsync.py` 过 `py_compile`；新增 / 修改文件逐个跑 gitleaks 均 `no leaks found`。
+
+**回归风险**：无。① 本机零影响——守卫按 hostname 判定，非 macmini 直接放行；② macmini 无逃生门是**有意设计**（防止“临时绕一下”变成习惯），要变更只能改守卫代码并重新部署；③ 删 `diff-view.ts` 不影响现有功能（该扩展已在全局卸载、项目已注销）；④ `subsync.py` 的兑底只在**上游拉取失败时**生效，正常路径行为不变。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-10-31 ToolCallingRules 登记到 Ada 名下；Hermes / NewsScoreStudy 补「本地目录已删」
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。

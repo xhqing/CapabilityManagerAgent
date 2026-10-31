@@ -43,6 +43,11 @@ DOMAIN_RE = re.compile(
 _cache = {}
 _cache_lock = threading.Lock()
 
+# 每个源最后一次成功生成的订阅内容。上游暂时拉不到时用它顶上，
+# 避免客户端拿到 502 后什么都没更新。
+_last_good = {}
+_last_good_lock = threading.Lock()
+
 
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as handle:
@@ -306,7 +311,16 @@ def get_source_text(url, cache_ttl, timeout):
 
 def build_subscription(url, cache_ttl, dns_ttl, timeout):
     """拉上游订阅并返回改写后的 base64 订阅内容。"""
-    raw, from_cache = get_source_text(url, cache_ttl, timeout)
+    try:
+        raw, from_cache = get_source_text(url, cache_ttl, timeout)
+    except Exception as error:
+        with _last_good_lock:
+            fallback = _last_good.get(url)
+        if not fallback:
+            raise
+        age = int(time.time() - fallback[0])
+        log("上游拉取失败（%s），改用 %d 分钟前的成功结果" % (error, age // 60))
+        return fallback[1], "上游不可用，沿用 %d 分钟前的成功结果（%s）" % (age // 60, fallback[2]), True
     plain = decode_subscription(raw)
     stats = {
         "rewritten": 0,
@@ -333,6 +347,8 @@ def build_subscription(url, cache_ttl, dns_ttl, timeout):
         stats["skipped"],
         "（DNS 与上游 IP 不一致：%s）" % "; ".join(stats["mismatch"][:3]) if stats["mismatch"] else "",
     )
+    with _last_good_lock:
+        _last_good[url] = (time.time(), encoded, summary)
     return encoded, summary, from_cache
 
 
