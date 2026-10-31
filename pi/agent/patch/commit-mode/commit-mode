@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""commit-mode —— 按项目切换「自动提交 / 手动提交」模式。
+
+背景（2026-10-31 用户立）：全局规则里有一条常设授权「工作区 / 暂存区有待提交内容
+就直接按 add skill / commit skill 提交，不用问」。这条很方便，但有时用户想先看看
+工作区相对暂存区的改动（例如用 diff 视图逐行过一遍），此时需要暂停自动提交。
+本命令就是那个开关：把某个项目登记为「手动提交模式」，该目录（含子目录里的仓库）
+就不再由 AI 自动发起 add / commit。
+
+用法：
+  commit-mode status [路径]   查看当前（或指定路径）是自动还是手动模式
+  commit-mode manual [路径]   切换为手动模式（暂停自动 add / commit）
+  commit-mode auto   [路径]   切换回自动模式
+  commit-mode toggle [路径]   在两种模式之间切换
+  commit-mode list            列出手动模式的项目
+  commit-mode off  / on       别名（off = manual，on = auto）
+
+路径省略时默认取当前目录所在 git 仓库的根目录（不在仓库内则取当前目录）。登记的是
+目录路径：该目录本身以及它下面所有子目录（含子项目仓库）都算手动模式。
+
+状态文件：~/.pi/agent/state/commit-mode.json
+  { "manual": ["<目录路径>", ...], "updated": "<ISO 时间>" }
+  （state/ 目录在 macmini 镜像里被排除，所以两机各管各的，互不干扰。）
+
+谁在读这个状态：
+  - ~/.pi/agent/extensions/commit-mode-guard.ts：系统提示注入 + 硬拦截 git add / git commit
+  - ~/.pi/agent/extensions/redundant-ask-guard.ts：手动模式下把「有待提交内容就直接提交」
+    这条从授权清单里换成相反说法
+  - ~/.pi/agent/extensions/settle-repo-check.ts：收尾巡检跳过手动模式的仓库
+"""
+
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime
+
+STATE = os.path.expanduser("~/.pi/agent/state/commit-mode.json")
+
+
+def norm(path):
+    """规范化为绝对路径（解析软链，如 macOS 的 /tmp → /private/tmp）、去掉尾随斜杠。"""
+    return os.path.realpath(os.path.expanduser(path)).rstrip("/") or "/"
+
+
+def under(path, root):
+    """path 是否等于 root 或位于 root 之下。"""
+    return path == root or path.startswith(root + "/")
+
+
+def repo_root(path):
+    """取路径所在 git 仓库的根目录；不在仓库内（或 git 不可用）返回路径本身。"""
+    try:
+        out = subprocess.run(
+            ["git", "-C", path, "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return norm(out.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return norm(path)
+
+
+def load():
+    try:
+        with open(STATE, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        data = {}
+    entries = []
+    for item in data.get("manual") or []:
+        if isinstance(item, str) and item.strip():
+            entries.append(norm(item))
+    # 去重、去掉被父条目覆盖的多余子条目
+    result = []
+    for item in sorted(set(entries), key=len):
+        if not any(under(item, kept) for kept in result):
+            result.append(item)
+    return result
+
+
+def save(entries):
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    payload = {
+        "manual": sorted(set(entries)),
+        "updated": datetime.now().astimezone().isoformat(timespec="seconds"),
+    }
+    tmp = STATE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+    os.replace(tmp, STATE)
+
+
+def target_path(argv):
+    """命令行给的路径，或默认取当前仓库根。"""
+    if argv:
+        return norm(argv[0])
+    return repo_root(os.getcwd())
+
+
+def covering_entry(path, entries):
+    """返回覆盖 path 的手动条目（没有则 None）。"""
+    for entry in entries:
+        if under(path, entry):
+            return entry
+    return None
+
+
+def cmd_status(argv):
+    path = target_path(argv)
+    entries = load()
+    root = repo_root(path)
+    # 同时看传入路径与它所在仓库根，二者任一被覆盖就算手动
+    entry = covering_entry(path, entries) or covering_entry(root, entries)
+    print(f"当前目录：{norm(os.getcwd())}")
+    print(f"检查路径：{path}")
+    print(f"仓库根：{root}")
+    if entry:
+        print(f"状态：手动提交模式（由条目 {entry} 覆盖）")
+        print("含义：AI 不会自行发起 /add、/commit（git add / git commit 会被拦截）；")
+        print("      用户当轮明确要求提交时才执行；收尾巡检跳过这些仓库。")
+    else:
+        print("状态：自动提交模式")
+        print("含义：工作区 / 暂存区有待提交内容时，AI 会直接按 /add → /commit 流程处理。")
+    return 0
+
+
+def cmd_manual(argv):
+    target = target_path(argv)
+    entries = load()
+    entry = covering_entry(target, entries)
+    if entry:
+        print(f"已经是手动提交模式：{target}")
+        print(f"（已被条目 {entry} 覆盖）")
+        return 0
+    entries.append(target)
+    save(entries)
+    print(f"已切换为手动提交模式：{target}")
+    print("该目录及其子目录里的仓库都不再自动 add / commit；用户明确要求提交时才执行。")
+    print("切回自动：commit-mode auto")
+    return 0
+
+
+def cmd_auto(argv):
+    target = target_path(argv)
+    entries = load()
+    parent = None
+    for entry in entries:
+        if entry != target and under(target, entry):
+            parent = entry
+            break
+    kept = [e for e in entries if not under(e, target)]
+    changed = kept != entries
+    if changed:
+        save(kept)
+        print(f"已切换为自动提交模式：{target}")
+    else:
+        print(f"当前本来就是自动提交模式：{target}")
+    if parent:
+        print(f"注意：上层条目 {parent} 仍然覆盖这里，实际仍会是手动模式。")
+        print(f"      要让这里自动，先对上层条目执行：commit-mode auto {parent}")
+    return 0
+
+
+def cmd_toggle(argv):
+    target = target_path(argv)
+    entries = load()
+    if covering_entry(target, entries):
+        return cmd_auto([target])
+    return cmd_manual([target])
+
+
+def cmd_list(argv):
+    entries = load()
+    if not entries:
+        print("当前没有任何手动模式的项目（全部自动提交）。")
+        return 0
+    print(f"手动提交模式的项目（共 {len(entries)} 个）：")
+    for entry in entries:
+        mark = "" if os.path.isdir(entry) else "  [目录不存在]"
+        print(f"  - {entry}{mark}")
+    return 0
+
+
+COMMANDS = {
+    "status": cmd_status,
+    "manual": cmd_manual,
+    "off": cmd_manual,
+    "auto": cmd_auto,
+    "on": cmd_auto,
+    "toggle": cmd_toggle,
+    "list": cmd_list,
+}
+
+HELP = __doc__.split("用法：")[1] if "用法：" in __doc__ else ""
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print("commit-mode —— 按项目切换「自动提交 / 手动提交」模式\n")
+        print("用法：" + HELP.strip())
+        return 0
+    cmd = argv[0]
+    if cmd not in COMMANDS:
+        print(f"未知命令：{cmd}\n", file=sys.stderr)
+        print("用法：" + HELP.strip(), file=sys.stderr)
+        return 2
+    return COMMANDS[cmd](argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
