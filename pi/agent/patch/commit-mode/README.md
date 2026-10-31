@@ -24,6 +24,22 @@ commit-mode off / on         # 别名（off = manual，on = auto）
 - **在会话里也能用**：直接跟 AI 说「把这个项目的 commit 切成手动」「commit 恢复自动」，AI 会执行对应命令。
 - **安装 / 更新**：本目录的 `commit-mode` 是脚本本体，`./install.sh` 会复制到 `~/.local/bin/commit-mode`（改过脚本后要重跑一次 install.sh 才生效）。
 
+## 输入框斜杠命令（用户入口）
+
+不用切终端，直接在 pi 输入框敲（扩展注册的真命令，不经过模型、不消耗 token）：
+
+| 命令 | 作用 |
+|---|---|
+| `/manual-commit` | 暂停本项目的自动 commit（可带路径） |
+| `/auto-commit` | 恢复本项目的自动 commit |
+| `/commit-mode` | 查看本项目的自动 commit 状态 |
+
+「本项目」= 当前会话的工作目录（脚本会自动取它所在的 git 仓库根）；带路径参数时以参数为准。
+
+**这些命令只是给你的入口**：AI 无法调用斜杠命令（它的工具箱里没有这东西），所以不会出现「AI 自己敲 /manual-commit 把开关关掉」的情况；AI 侧的动作仍然走 shell 命令 `commit-mode ...`，且规则要求只有你明确要求时才能切。
+
+修改扩展后，需要 `/reload` 或新开一个会话，命令才会出现在自动补全里。
+
 ## 暂停时的行为
 
 1. **不主动走 `/commit`、`/bump`、`/release`、不执行 `git commit`**；即使 add skill 预检完全干净、准备自动衔接提交，本模式下也停下（只 add、不提交）。只有用户当轮明确要求提交时才执行，照常走 commit skill 全流程与安全阀。

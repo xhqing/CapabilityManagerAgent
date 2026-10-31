@@ -4,6 +4,37 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-10-31 add-mode / commit-mode 新增输入框斜杠命令（六个用户入口）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么加**：此前控制两个开关必须切到终端敲 `add-mode` / `commit-mode`，麻烦。用户要求直接在 pi 输入框里敲斜杠命令控制——`/manual-add`、`/auto-add`、`/manual-commit`、`/auto-commit`（外加两个查状态的 `/add-mode`、`/commit-mode`），不切终端、不经过模型。
+
+**改了什么**（5 个文件）：
+
+1. **`extensions/add-mode-guard.ts`**：新增 `registerCommands(pi)`，注册三个命令——`/manual-add`（暂停本项目自动 add，可带路径）、`/auto-add`（恢复）、`/add-mode`（查看状态）。
+2. **`extensions/commit-mode-guard.ts`**：同样注册 `/manual-commit`、`/auto-commit`、`/commit-mode`。
+3. **`patch/add-mode/README.md`**：新增「输入框斜杠命令（用户入口）」小节——三个命令表、「本项目」= 会话工作目录（脚本自动取其 git 仓库根，带路径参数时以参数为准）、改完扩展需 `/reload` 或新会话才出现在补全里。
+4. **`patch/commit-mode/README.md`**：同上（commit 侧三个命令）。
+5. **`CLAUDE.md`**：add-mode 与 commit-mode 两个条目各补一句「输入框斜杠命令是用户入口，AI 不调用（工具列表里没有），AI 侧改开关一律走 shell 命令且只有用户明确要求时才切」。
+
+**实现机制（两个关键选择）**：
+
+- **真扩展命令，不走模型**：用 `pi.registerCommand` 注册（不是 prompt 模板），敲下去直接执行、不消耗 token；结果用 `ctx.ui.notify` 显示。
+- **不依赖 PATH**：handler 用**绝对路径 + `python3`** 调用同模块的 `patch/*-mode` 脚本，不用 `~/.local/bin` 里那份——即使没跑 `install.sh`、或 PATH 里没有，斜杠命令也能工作；默认路径取会话 cwd。
+
+**用户入口边界（用户特别强调的一点）**：斜杠命令**只给用户用**——AI 的工具列表里根本没有斜杠命令这种东西，所以结构上就不可能「AI 自己敲 `/manual-add` 把开关关了」。AI 侧改开关仍走 shell 命令，且规则要求只有用户明确要求时才切。这一点在 CLAUDE.md 与两个 README 里都显式写明。
+
+**兼容性**：纯新增入口。`add-mode` / `commit-mode` 的 shell 命令、状态文件、守卫拦截逻辑全部未动；装了旧版的用户不敲斜杠命令就无任何变化；扩展更新后需 `/reload` 或新会话才会出现新命令。
+
+**验证**：5 个文件与全局逐字节一致；本机 `~/.local/bin` 两个命令仍为 v1.8.0 对应版本，`add-mode list` / `commit-mode list` 均报「全部自动」（状态未因本次同步被改动）；斜杠命令本身已由 Kit 在真实 TUI 会话（含 `pi -p` 四条命令）中实测可用，本次同步仅做逐字节搬运与静态核对。
+
+**回归风险**：低。① **AI 无法调用**——斜杠命令不在工具列表里，开关仍只能由用户（或用户在会话里明确要求后由 AI 走 shell）改；② **原有守卫逻辑未变**——只新增注册函数与两个命令定义，拦截与提示代码未改；③ **无命名冲突**——`manual-add` / `auto-add` / `add-mode` / `manual-commit` / `auto-commit` / `commit-mode` 六个名字与现有命令无重叠；④ 不碰状态文件格式，v1.8.0 已登记的项目继续生效。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.8.0] - 2026-10-31
 
 ### 2026-10-31 add-mode 与 commit-mode 完全解耦：拆成两个独立模块
