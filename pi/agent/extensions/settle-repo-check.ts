@@ -14,9 +14,9 @@
  *
  * 判定逻辑：底层调用同一个 Python 脚本（见全局 CLAUDE.md「会话收尾检查」节）。
  *
- * 2026-10-31 增：与手动提交模式（commit-mode）联动——手动模式项目下的仓库（用户
- * 想看工作区 diff、暂时不想提交）不催提交：从 dirty 列表里过滤掉，全部被过滤时保持
- * 静默。状态文件与 commit-mode-guard.ts 同源（~/.pi/agent/state/commit-mode.json）。
+ * 2026-10-31 增：与 add-mode / commit-mode 两个独立开关联动——被暂停的仓库（用户
+ * 想看 diff、暂时不想提交）不催提交：从 dirty 列表里过滤掉，全部被过滤时保持静默。
+ * 两个开关各有独立状态文件（add-mode.json / commit-mode.json），任一暂停即跳过。
  */
 
 import { execFileSync } from "node:child_process";
@@ -26,15 +26,16 @@ import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const CHECKER = join(homedir(), ".pi", "agent", "patch", "settle-repo-check", "settle-repo-check.py");
-const STATE_FILE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
+const ADD_STATE = join(homedir(), ".pi", "agent", "state", "add-mode.json");
+const COMMIT_STATE = join(homedir(), ".pi", "agent", "state", "commit-mode.json");
 
 type Dirty = { repo: string; changes: number; path: string };
 
 // 已提醒过的「不干净仓库集合」签名：同一批不重复注入 / 通知，防循环
 let nudged = "";
 
-/** 状态缓存：按 mtime 失效。 */
-let stateCache: { mtime: number; entries: string[] } | null = null;
+/** 状态缓存：两个开关文件各自按 mtime 失效。 */
+let stateCache: { sig: string; entries: string[] } | null = null;
 
 function norm(raw: string): string {
 	let p = raw.trim();
@@ -50,27 +51,29 @@ function norm(raw: string): string {
 	return real.replace(/\/+$/, "") || "/";
 }
 
-/** 读被暂停的条目（自动 add 或自动 commit 任一关闭即可目录）。兼容旧版单一 manual 字段。 */
-function pausedEntries(): string[] {
+/** 读单个开关的状态文件条目；失败当空。 */
+function entriesOf(file: string): { entries: string[]; mtime: number } {
 	try {
-		const st = statSync(STATE_FILE);
-		if (stateCache && stateCache.mtime === st.mtimeMs) return stateCache.entries;
-		const data = JSON.parse(readFileSync(STATE_FILE, "utf8")) as {
-			manual?: unknown;
-			manualAdd?: unknown;
-			manualCommit?: unknown;
-		};
-		const clean = (value: unknown): string[] =>
-			Array.isArray(value)
-				? value.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
-				: [];
-		const entries = [...clean(data?.manualAdd), ...clean(data?.manualCommit), ...clean(data?.manual)];
-		stateCache = { mtime: st.mtimeMs, entries };
-		return entries;
+		const st = statSync(file);
+		const data = JSON.parse(readFileSync(file, "utf8")) as { manual?: unknown };
+		const entries = Array.isArray(data?.manual)
+			? data.manual.filter((x): x is string => typeof x === "string" && x.trim() !== "").map(norm)
+			: [];
+		return { entries, mtime: st.mtimeMs };
 	} catch {
-		stateCache = null;
-		return [];
+		return { entries: [], mtime: -1 };
 	}
+}
+
+/** 读两个开关（add-mode / commit-mode 各自独立的状态文件）；任一暂停即算被暂停。 */
+function pausedEntries(): string[] {
+	const a = entriesOf(ADD_STATE);
+	const c = entriesOf(COMMIT_STATE);
+	const sig = `${a.mtime}|${c.mtime}`;
+	if (stateCache && stateCache.sig === sig) return stateCache.entries;
+	const entries = [...a.entries, ...c.entries];
+	stateCache = { sig, entries };
+	return entries;
 }
 
 /** 仓库路径（它自己或它所在仓库）是否被 commit-mode 暂停（add / commit 任一）。 */
