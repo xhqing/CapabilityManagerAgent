@@ -105,11 +105,11 @@
 | QuantStrategistAgent（Mark） | Swing | 日 K 趋势跟随策略工具集（美股大盘股，Python，完整文档 + 回测验证 + 可信度标定） |
 | QuantStrategistAgent（Mark） | gridtrader | 网格交易策略开发及回测工具（Python / backtrader） |
 | DayTradingAgent（Victor） | TradingProofs | 交易数学的 Lean 4 + Mathlib 机器可验证证明（从固定比例下注的累计收益率推导开始，覆盖强数定律指数增长率 / 凯利最优 f\* /「两倍凯利」边界；与实盘执行完全隔离，2026-10-11 立项） |
-| SocialMediaManagerAgent（Gatsby） | xhs-mentor-scam | 小红书「陪跑 / 带教」反诈视频项目材料（私人仓库；独立 git 仓库位于 `~/Developer/xhs-mentor-scam`，绑定 GitHub 私有远程持续备份、launchd 自动提交推送；2026-10-13 由 Kit 设立、2026-10-15 移交 Gatsby 负责） |
 
 - **已注销 / 已退役的 Agent**：**Hermes**（NetOpsAgent，2026-10-26 用户决定）——原网络运维管理员，唯一子项目 XPilot 已移交 Atlas（FullStackEngineerAgent），项目本体退役、不再作为活跃 Agent 维护（GitHub 仓库 `xhqing/NetOpsAgent` 保留为存档；本地目录已于 2026-10-31 按用户要求删除）。
 - **已除名的 Agent（2026-10-31 用户决定，第二批）**：**Tinker**（PatchClaudeAgent，补丁维护匠）——用户要求「Tinker 这个 Agent 也除名，不需要了」；原职责是把自定义补丁重新应用到升级后的 VSCode Claude Code 扩展（自愈引擎），本次未指定接替者；项目本体退役、不再作为活跃 Agent 维护；**本地目录已按用户 2026-10-31 要求删除**（`~/Developer/PatchClaudeAgent` 不再存在），GitHub 仓库 `xhqing/PatchClaudeAgent` 保留最新版为唯一源。
 - **已除名的 Agent（2026-10-31 用户决定）**：**Alfred**（DeviceStewardAgent，电脑管家）——用户要求「可以从名册中除名了，以后他的工作由 Kit 处理」；职责已并入 **Kit**（ExecutiveAssistantAgent），项目本体退役、不再作为活跃 Agent 维护；**本地目录已按用户 2026-10-31 要求删除**（`~/Developer/DeviceStewardAgent` 不再存在），GitHub 仓库 `xhqing/DeviceStewardAgent` 保留最新版为唯一源；原有子项目 ResourceMonitor 早已退役。
+- **已移出名册的子项目（2026-11-02 用户决定）**：**xhs-mentor-scam**（原属 Gatsby / SocialMediaManagerAgent）——仓库含第三方个人信息（合同、私信截图、真实姓名、举报材料），按 2026-11-02 立的「团队项目必须 public、私有仓库不得入队」规则不能留在团队；保持 private 作为用户个人项目，`autosave.sh` 自动备份照常。GitHub 仓库 `xhqing/xhs-mentor-scam` 与本地目录 `~/Developer/xhs-mentor-scam` 均保留。要恢复为团队项目，须先拆分 / 脱敏敏感材料并转为 public。
 - **已移出名册的子项目（2026-10-31 用户决定）**：**NewsScoreStudy**（Mark 负责的面试实操题研究仓库，私有远程 `github.com/xhqing/NewsScoreStudy` 保留；本地目录已于 2026-10-31 按用户要求删除）——用户要求「先从名册中移除」；因名册与子项目映射表必须内容一致，本表同步删除其登记（原属 Mark，2026-10-26 由 Victor 移交）。要恢复时在这两处同时加回并同步名册。
 - **除名 agent 的本地副本处理口径（2026-10-31 用户立）**：除名的 agent 项目**本地目录一律删除、不在本地保留备份**——只要 GitHub 仓库是最新版即可（删除前先确认工作区干净、与 `origin/main` 同步，避免丢本地改动）。需要查阅时从 GitHub 取。
 - **已取消 / 已退役的子项目（不再维护）**：GitComic、agent-team-playbook-src（Wright）；zcode-cli、zcode-vsce、cmux-launcher（Atlas）；channels-watch（Atlas，2026-10-17 退役）；ResourceMonitor（Alfred）；CyberRipple、blog（Kit）——本地项目资料删除，GitHub 远端仓库保留为存档（CyberRipple 原未建远端仓库，其组织总览内容已并入 `xhqing` 主页 README）。
