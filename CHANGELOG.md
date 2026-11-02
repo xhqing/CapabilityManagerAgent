@@ -6,6 +6,18 @@
 
 ## [Unreleased]
 
+### 2026-11-02 commit skill description 超出 1024 上限（1069 → 967）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：pi 启动时报 `[Skill conflicts] auto (user) ~/.pi/agent/skills/commit/SKILL.md description exceeds 1024 characters (1069)`。起因是 2026-11-02「worktree + PR / 团队项目锁死 remote main」那批改动把 commit skill 的 description 从约 967 字撑到 1069（按 UTF-16 code units 计数），超出 1024 上限——规则一条没少，只是 description 塞得太满。
+
+**改了什么**（只动 frontmatter 的 `description` 一行，正文一行未改）：压缩措辞（去掉重复解释与可省的限定语）、补 `NOT for` 指引（git add 预检归 add skill、打 tag 发 Release 归 release skill、改版本号归 bump skill）；触发来源、远端 main 对齐检测、分支感知走 PR + auto-merge、敏感扫描 + cache 检测、push 后补标配、第 10 步自动发版链这些语义全部保留。
+
+**验证**：`skill-creator/scripts/check_description.py pi/agent/skills/commit/SKILL.md` → `PASS 967/1024 (57 headroom)`，exit 0。
+
+**回归风险**：有，已评估——description 是常驻上下文、直接驱动触发判断：压缩后若漏掉某个触发场景，commit skill 会欠触发（用户说「提交一下」却不走流程）。本次把触发词补得更明确（`/commit`、「提交一下」「commit 吧」「推到远程」），并保留「`/add` 预检完全干净后自动衔接」这条自动触发路径；正文与其它文件零改动，流程逻辑不变。
+
 ### 2026-11-02 xhs-mentor-scam 移出团队名册（用户选方案 A：移出团队、保持私有）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
