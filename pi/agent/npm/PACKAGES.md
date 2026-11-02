@@ -6,6 +6,6 @@
 
 | 包 | 精确版本 | 来源 | License | 用途 |
 |---|---|---|---|---|
-| `pi-intercom` | 0.17.1 | https://www.npmjs.com/package/pi-intercom | MIT | 会话间通信：多 pi 会话消息互通（agent_call / intercom 工具；作者 nicobailon） |
-| `pi-mcp-adapter` | 5.3.1 | https://github.com/nicobailon/pi-mcp-adapter | MIT | MCP 服务器接入：把 MCP 工具接入 pi（MCP 网关） |
+| `pi-intercom` | 0.18.1 | https://www.npmjs.com/package/pi-intercom | MIT | 会话间通信：多 pi 会话消息互通（agent_call / intercom 工具；作者 nicobailon） |
+| `pi-mcp-adapter` | 7.0.0 | https://github.com/nicobailon/pi-mcp-adapter | MIT | MCP 服务器接入：把 MCP 工具接入 pi（MCP 网关） |
 | `pi-provider-volcengine-agent-plan` | 0.4.1 | https://github.com/zhcsyncer/pi-extensions | MIT | 火山引擎（Volcengine）模型 provider：Agent Plan 套餐接入 |

@@ -6,6 +6,33 @@
 
 ## [Unreleased]
 
+### 2026-11-02 全团队锁死 remote main（用户立规 + 新增 git-main-guard）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-02 立规——所有智能体团队项目（各 Agent 项目 + 各 Agent 名下的子项目仓库）的 remote main 一律锁死，不允许从本地 main 直接 push 到 remote main；任何任务都先在独立 worktree 的功能分支上做，只能走「分支 → PR → CI → auto-merge → remote main → 本地 main 用 `--ff-only` 同步」。起因是同一个工作区被多个会话同时写、互相污染。
+
+**改了什么**（4 项，均已在全局定稿，本次只同步镜像）：
+
+1. **`CLAUDE.md`**：在「Git 写操作必须先征得同意」之后、「Git 暂存区禁止 AI 自主增删改」之前新增「## 开发流程：worktree + PR（团队项目锁死 remote main，2026-11-02 用户立）」一节——适用范围、四条铁律（先建 worktree、一切走 PR、main 保护参数、分支命名）、边界与例外（用户当轮授权才可直推 / 非团队仓库不受限 / 新建项目 `git init` 不受限）、配套工具强制与详细开发循环的指针。
+2. **新增 `extensions/git-main-guard.ts`**：拦截两类操作——① `git push` 的 refspec 指向 `main` / `master`（裸 push、`git push origin`、`HEAD:main`、`refs/heads/main`、`--delete main`、`--all` / `--mirror` 等可能覆盖 main 的形态）；② 当前分支为 `main` / `master` 时的 `git commit`（含 `git -C <path>` 形态）。**仅对带 GitHub remote 的仓库生效**（临时 / 本地实验仓库不误伤），判定失败 fail-open；逃生标记 `AI_AUTHORIZED_PUSH_MAIN` / `AI_AUTHORIZED_COMMIT_MAIN`，仅限用户当轮授权。
+3. **`skills/commit/SKILL.md`**：0b 与第 8 步改为「main 上一律先 `git switch -c chore/<事项>`，把暂存内容与工作区改动一并带到分支再走 PR」，删掉「远端无保护可直推 main」的通道；description 同步改写。
+4. **`docs/repo-branch-protection.md`**：新增「2026-11-02：全团队锁死 remote main」节——已铺开范围（public 18 个 Agent 项目 + 19 个子项目逐仓 `PUT …/branches/<default>/protection`，参数统一；cmux 的 required check 暂空；private 仓库免费版开不了保护、只能靠本地守卫；`xhs-mentor-scam` 的 autosave 例外待定）、`gridtrader` 默认分支是 `master`、新装扩展要重启会话才加载；「与技能的关系」一节同步改为新口径。
+
+**验证**：`diff` 五部分与全局逐字节一致（`CLAUDE.md` / `docs` / `skills` / `patch` / `extensions`；仅 `.env`、`endpoints.json`、`session-link` 本机配置按规矩隔离）；`node --experimental-strip-types --check extensions/git-main-guard.ts` 通过；`git ls-files pi/agent/extensions` 现为 25 个文件、新文件无 `.gitignore` 命中。
+
+**回归风险**：有，已评估——commit skill 原「远端 main 无保护则直推」的通道被删除，对**未开保护**的仓库（private 的 `dotfiles` / `ToolCallingRules` / `xhs-mentor-scam`）意味着从此也一律走分支 + PR。这是本次立规的预期效果（与「一律锁死」一致），不是误伤；代价是这些小仓库首次建 PR 时多一步，属可接受成本。另：已在运行的会话不会立刻加载新扩展，需重启才生效（重启前两条守卫不拦，文本流程约束照常）。
+
+### 2026-11-02 pi 第三方包清单刷新（pi-intercom 0.18.1 / pi-mcp-adapter 7.0.0）
+
+**为什么改**：本机 pi 的第三方包在 2026-10-26 升级过（`pi-intercom` 0.17.1 → 0.18.1、`pi-mcp-adapter` 5.3.1 → 7.0.0，后者连带 `@modelcontextprotocol/ext-tasks` 升到 0.2.2、移除 `@typesafe-ai/sdk` 依赖），但仓库里的生成式清单（第六类：`package.json` / `package-lock.json` / `PACKAGES.md`）还停在 10-17 的快照，`refresh.py --check` 报三件套全部不一致。
+
+**改了什么**：跑 `patch/npm-manifest/refresh.py --dst pi/agent/npm` 刷新三件套——`package.json` / `package-lock.json` 与 `~/.pi/agent/npm/` 逐字节一致，`PACKAGES.md` 按新版本重新生成。
+
+**验证**：`refresh.py --check --dst pi/agent/npm` 通过（镜像与当前本机一致）。
+
+**回归风险**：无（生成式内容，按本机实际安装状态重算；不含第三方包本体，只放声明、精确锁与人读清单）。
+
 ### 2026-10-31 登记 Atlas 的新子项目 cmux（自建分叉）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
