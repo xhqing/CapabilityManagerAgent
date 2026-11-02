@@ -55,6 +55,27 @@
 - **两个开关完全独立，是两个功能**：不同命令（`add-mode` / `commit-mode`）、不同状态文件（`state/add-mode.json` / `state/commit-mode.json`）、不同扩展文件（`add-mode-guard.ts` / `commit-mode-guard.ts`），互不引用对方的代码与状态——改一个不影响另一个，两者可以按任意组合开关。两个都关时最彻底（AI 完全不动暂存区与提交）。两个状态文件都在 macmini 镜像排除的 `state/` 里，两机各管各的。
 - **新建项目 `git init` 免确认**：新建项目默认直接 `git init` 本地初始化（不建远程仓库、不 push）；其后的 add / commit / push / 建远程 / 打 tag 仍需先确认或由 `/commit`、`/release` 触发。
 
+## 开发流程：worktree + PR（团队项目锁死 remote main，2026-11-02 用户立）
+
+**适用范围**：所有**智能体团队项目**——每个 Agent 项目本身 + 其名下全部子项目仓库（清单以 `~/.pi/agent/docs/agents-registry.md` 的「子项目映射」表为权威）。这些仓库的 remote main 一律锁死，**不允许从本地 main 直接 push 到 remote main**。
+
+**铁律（按顺序执行）**：
+
+1. **开工先建 worktree**：任何任务（含文档、杂事）动代码前，先在主仓库同级建独立 worktree + 功能分支（`git worktree add ../<仓库名>-<事项> -b <分支名>`），**改动只在 worktree 的分支上做**；不在主工作区里改、不在 main 上改。目的：避免同一工作区被多个会话同时写而互相污染（2026-11-02 用户立规的直接起因）。
+2. **一切改动走 PR**：worktree 分支 → push → 开 PR（目标 main）→ CI 门禁 → auto-merge（squash）→ remote main → 本地 main 用 `--ff-only` 同步。**本地 main 只用于同步，不产生提交、不直接推送**。
+3. **main 保护是仓库层的硬约束**：PR 必过、required check（有 CI 的仓库）、分支最新（strict）、线性历史、只允许 squash、禁 force push、禁删除、管理员同样受限。没有 CI 的仓库至少保留「必须 PR + 禁直推」。
+4. **分支命名**：`feat/<功能>`、`fix/<缺陷>`、`chore/<事项>`，一个分支只做一件事。
+
+**边界与例外**：
+
+- 用户当轮明确要求直推 main（极少见，如仓库保护尚未就绪的一次性初始化）时，命令末尾加 `# AI_AUTHORIZED_PUSH_MAIN`，并在汇报里写明原因；**授权不跨次复用**，不得自行添加标记。
+- 非团队仓库（临时脚本目录、一次性试验仓库、无远程仓库）不受本条限制，但仍受「Git 写操作必须先征得同意」约束。
+- 新建项目的 `git init` 与首次建远程不受本条限制（那时还没有 remote main 可锁）。
+
+**配套工具强制**：`~/.pi/agent/extensions/git-main-guard.ts`——拦截两类操作：① `git push` 的 refspec 指向 `main` / `master`（含裸 `git push`、`git push origin`、`HEAD:main` 等形态）；② 在 `main` / `master` 分支上的 `git commit`（含 `git -C <path>` 形态）。仅对带 GitHub remote 的仓库生效，逃生标记分别为 `# AI_AUTHORIZED_PUSH_MAIN` / `# AI_AUTHORIZED_COMMIT_MAIN`，仅限用户当轮授权。
+
+**详细开发循环**（Issue 先行、测试先行、CI 门禁、发版链）见 `~/.pi/agent/skills/dev-workflow/SKILL.md`；团队仓库保护现状与批量配置方法见 `~/.pi/agent/docs/repo-branch-protection.md`。
+
 ## Git 暂存区禁止 AI 自主增删改（硬性规定）
 
 AI 对 git 暂存区（staging area / index）**自主能做的只有只读查询**（`git status`、`git diff --cached`、`git log`、`git ls-files`、`git stash list` 等）。此外两层铁律：
