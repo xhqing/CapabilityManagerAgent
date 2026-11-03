@@ -6,6 +6,23 @@
 
 ## [1.11.0] - 2026-11-03
 
+### 2026-11-03 新建仓库一律必须 strict 模式的 PR CI（新增 patch/branch-protection/）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-03 立规，原话「规定以后新建立的项目仓库全部必须使用 strict 模式的 pr-ci」。起因是当天排查全团队仓库的保护状态时发现：分支保护里「挂了 required check」和「开了 strict」是两件独立的事，很多仓库只做了前者（或都没做），于是 PR 可以拿「旧 main」上通过的 CI 直接合并——别人刚合并进来的新测试从没在它身上跑过，回归防护网存在系统性漏洞。因此把要求固化成「三件套缺一不可」，并配套一个可审计、可误操作防护的脚本。
+
+**改了什么**（4 处，与全局逐字节一致）：
+
+1. **新增** `pi/agent/patch/branch-protection/`：`branch-protection.sh`（755）+ `README.md`。脚本三个子命令——`audit`（批量审计，输出四类：strict 合格 / 有 required 但非 strict / 有 CI 没挂门禁 / 完全没门禁，退出码可直接用于巡检）、`show`（单仓库详情 + 列出真实 check 名）、`apply`（配 strict 三件套，默认 dry-run、须显式 `--apply`）。判定口径同时查 classic branch protection 与 rulesets（两者叠加生效，只看 classic 会漏判）。README 讲清 strict 与「串行跑 CI」的区别（含串行 ≠ 因果顺序的反例）、三件套含义、配置时序与边界。
+2. `pi/agent/CLAUDE.md`：「开发流程：worktree + PR」第 3 条「main 保护是仓库层的硬约束」下新增三条子条目——新建仓库必须 strict 模式 PR CI（三件套：PR 上真实跑的 CI 检查 + 挂成 required status check + `required_status_checks.strict=true`，无「没 CI 就豁免」例外）、为什么 strict 是必须的、存量按现状保留不追溯变更。
+3. `pi/agent/docs/repo-branch-protection.md`：开头新增两节——「2026-11-03：新建仓库一律必须 strict 模式的 PR CI」（规矩、为什么、check 名时序陷阱、脚本位置）与「2026-11-03 实测：全团队 37 个仓库的 strict 现状」（9 个合格 / 28 个未挂 required check，含细分名单与口径）；「常用命令」表新增查 rulesets、全量审计、单仓库上 strict 三件套三行。同时修正旧描述里「`cmux` required check 暂为空」的说法——实测 `cmux` 已挂 `checks` 且 strict=true。
+4. `pi/agent/docs/new-agent-scaffold.md`：「开源到 GitHub」条之后新增「配置 main 保护：必须 strict 模式的 PR CI（新建仓库无例外）」，含三件套、正确配置顺序（先让 CI 真跑一次拿到真实 check 名再挂保护，否则 PR 永久卡死）、定时任务检查名不能挂 required、一键命令。
+
+**验证**：三条镜像校验均干净——`diff ~/.pi/agent/CLAUDE.md pi/agent/CLAUDE.md`、`diff -r ~/.pi/agent/docs pi/agent/docs`、`diff -r ~/.pi/agent/patch pi/agent/patch`（排除 `*.log` / `.lock` / `conflicts` / `__pycache__` 与 session-link 的 gitignored 本机状态文件）全部无差异；`branch-protection.sh` 权限 755 保留。
+
+**回归风险**：有，已评估——CLAUDE.md 第 3 条原表述为「required check（有 CI 的仓库）……没有 CI 的仓库至少保留『必须 PR + 禁直推』」，等于给无 CI 仓库开了豁免口子；新条目明确「不存在『没 CI 就豁免』的例外」。为避免追溯冲击，同一处已写明**只约束新建仓库、存量按现状保留**，因此现有 37 个仓库的保护状态不受影响（其中 28 个不因本条自动变更）。脚本 `apply` 默认 dry-run，并对「填了从未出现过的 check 名」打印警告，降低误配导致 PR 永久卡死的风险。
+
 ### 2026-11-03 skill description 硬上限 1024 改为工具强制（新增 skill-desc-guard）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。

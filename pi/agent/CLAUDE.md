@@ -66,7 +66,10 @@
    - **local main 只剩两个职责（2026-11-03 用户立）**：① **生成 worktree**；② **被 remote main 快进同步**（`git merge --ff-only origin/main`）。除此之外 main 上**不做任何写操作**——不改文件、不 `git add`、不 `git commit`。工具强制：`git-main-guard.ts` 对 main 分支上的 `git add` / `git commit` 一律拦截；add / commit skill 的**自动触发在 main 上被禁用**（只在非 main 分支自动触发）。
    - **⚠️ worktree 内跑 git 一律用 `git -C <worktree 绝对路径> <子命令>`，不要写 `cd <worktree> && git ...`（2026-11-03 立）**：`git-main-guard.ts` 判断「在哪个仓库 / 哪个分支」时只认两种来源——命令里显式的 `-C` 参数、进程的当前工作目录（pi 会话 cwd）；**它不跟踪命令里的 `cd`**。而会话 cwd 通常停在主仓库（main 分支），所以 `cd ../xxx-worktree && git commit` 会被误判成「在 main 上提交」而拦截。写成 `git -C /abs/path/to/worktree commit ...` 即可正确识别分支。**被误拦时不要加 `# AI_AUTHORIZED_COMMIT_MAIN` 绕过**——那个标记只用于用户当轮明确授权、不能用来自行为误判开逃生门；正确动作是改用 `-C` 指定 worktree 路径。
 2. **一切改动走 PR**：worktree 分支 → push → 开 PR（目标 main）→ CI 门禁 → auto-merge（squash）→ remote main → 本地 main 用 `--ff-only` 同步。**本地 main 只用于同步，不产生提交、不直接推送**。
-3. **main 保护是仓库层的硬约束**：PR 必过、required check（有 CI 的仓库）、分支最新（strict）、线性历史、只允许 squash、禁 force push、禁删除、管理员同样受限。没有 CI 的仓库至少保留「必须 PR + 禁直推」。
+3. **main 保护是仓库层的硬约束**：PR 必过、required check、分支最新（strict）、线性历史、只允许 squash、禁 force push、禁删除、管理员同样受限。
+   - **新建仓库一律必须 strict 模式的 PR CI（2026-11-03 用户立，适用范围为新建立的项目仓库）**：新仓库（新建 Agent 项目、新建子项目、任何新入队的团队仓库）上线时必须同时具备三件套——① 至少一个**在 PR 上会真实跑的** CI 检查（确实没有测试可跑的项目也要补一个最轻量的检查，如 lint / 语法检查 / 构建；**不存在「没 CI 就豁免」的例外**）；② 该检查**挂成 required status check**（CI 跑了但不拦合并等于没门禁）；③ `required_status_checks.strict = true`（要求分支最新）。一键配置与全量审计脚本见 `~/.pi/agent/patch/branch-protection/`。
+   - **为什么 strict 是必须的**：非 strict 时，PR B 可以拿「旧 main」上通过的 CI 直接合并——PR A 刚合进 main 的新测试从未在 B 上跑过，回归防护网就漏了。strict 保证每个 PR 的 CI 都跑在「最新 main + 该 PR」的合并结果上，此前所有已合并 PR 的测试自动成为后来者的防护网。
+   - **存量按现状保留、不追溯变更**：用户 2026-11-03 的口径是「以后新建的」，存量仓库的保护状态见 `docs/repo-branch-protection.md` 的实测记录，不因本条自动改动。
 4. **分支命名**：`feat/<功能>`、`fix/<缺陷>`、`chore/<事项>`，一个分支只做一件事。
 5. **团队仓库必须是 public（2026-11-02 用户立）**：团队项目（Agent 项目 + 子项目）一律用公开仓库；**私有仓库不得作为团队项目**。发现私有仓库时：先做敏感信息检查（gitleaks 全历史 + AI 语义扫描——密钥 / 凭证 / 个人隐私 / 第三方个人信息 / 财务状况），**干净就直接改为 public 并补 main 保护**；含敏感信息的不入队（移出团队名册，或个人留存，不上服务端锁——GitHub 免费版对私有仓库也不提供分支保护，服务端只能靠本地 `git-main-guard.ts` 兑现）。
 
