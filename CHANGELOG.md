@@ -6,6 +6,16 @@
 
 ## [Unreleased]
 
+### 2026-11-03 worktree 内跑 git 必须用 `git -C`（防 git-main-guard 误拦）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：2026-11-03 在 DayTradingAgent 里用 worktree 提交时，`git-main-guard.ts` 连续两次误拦——因为它判断「在哪个仓库 / 哪个分支」只认命令里显式的 `-C` 参数与进程当前工作目录（pi 会话 cwd），**不跟踪命令里的 `cd`**；会话 cwd 通常停在主仓库（main 分支），于是 `cd ../xxx-worktree && git commit` 被当成「在 main 上提交」而拦下。改用 `git -C <worktree 绝对路径> commit` 立即通过。这条规则把踩坑结论固化下来，让后续会话不再重复试错。
+
+**改了什么**（`pi/agent/CLAUDE.md` 一处，插在「开发流程：worktree + PR」节铁律第 1 条下作为子条目）：要求 worktree 内跑 git 一律写成 `git -C <worktree 绝对路径> <子命令>`；并明确**被误拦时不得加 `# AI_AUTHORIZED_COMMIT_MAIN` 绕过**——该标记只用于用户当轮明确授权，不能用来自行为误判开逃生门，正确动作是改用 `-C`。
+
+**回归风险**：无（纯新增文字，未改动既有条目；与「Git 写操作必须先征得同意」节里关于逃生标记的口径一致，两处不冲突）。
+
 ### 2026-11-02 commit skill description 超出 1024 上限（1069 → 967）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
