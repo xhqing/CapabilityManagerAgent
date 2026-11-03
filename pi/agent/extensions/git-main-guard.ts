@@ -10,11 +10,15 @@
  * 1. `git push` 的 refspec 指向 main / master（含裸 `git push` 且当前在 main、
  *    `git push origin`、`HEAD:main`、`refs/heads/main`、`--delete main`、
  *    `--all` / `--mirror` 等可能覆盖 main 的形态）；
- * 2. 当前分支为 main / master 时的 `git commit`（含 `git -C <path>` 形态）。
+ * 2. 当前分支为 main / master 时的 `git commit`（含 `git -C <path>` 形态）；
+ * 3. 当前分支为 main / master 时的 `git add`（2026-11-03 用户立规：本地 main 只剩
+ *    「生成 worktree」与「被 remote main 快进同步」两个职责，任何写操作第一步都是建 worktree，
+ *    不允许在 main 上把改动加入暂存区——否则 add / commit skill 的自动触发会在 main 上落地）。
  *
  * 逃生门（仅限用户当轮明确授权，AI 不得自行添加）：
  * - push：命令末尾 `# AI_AUTHORIZED_PUSH_MAIN`
  * - commit：命令末尾 `# AI_AUTHORIZED_COMMIT_MAIN`
+ * - add：命令末尾 `# AI_AUTHORIZED_ADD_MAIN`
  *
  * 判定失败时 fail-open（与其它守卫一致）：守卫失灵不阻塞会话。
  */
@@ -24,6 +28,7 @@ import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-codin
 
 const PUSH_MARK = "AI_AUTHORIZED_PUSH_MAIN";
 const COMMIT_MARK = "AI_AUTHORIZED_COMMIT_MAIN";
+const ADD_MARK = "AI_AUTHORIZED_ADD_MAIN";
 
 const SEGMENT_SPLIT = /&&|\|\||;|\n|\|/;
 const GIT_SEGMENT = /^git(?=\s|$)/;
@@ -38,6 +43,13 @@ const COMMIT_DENY =
 	"[git-main-guard] 拦截：团队项目不允许在 main 上直接提交（2026-11-02 用户立规）。" +
 	"正确流程：先建 worktree + 功能分支（`git worktree add ../<仓库>-<事项> -b <分支>`），在分支上提交并走 PR。" +
 	"确需在 main 上提交时须用户当轮明确授权，并在命令末尾加 `# AI_AUTHORIZED_COMMIT_MAIN`。";
+
+const ADD_DENY =
+	"[git-main-guard] 拦截：local main 只剩两个职责——生成 worktree、被 remote main 快进同步，" +
+	"不允许在 main 上 `git add`（2026-11-03 用户立规）。" +
+	"正确流程：先生成 worktree（`git worktree add ../<仓库>-<事项> -b <分支>`），" +
+	"任何写操作（含 add / commit）全部在 worktree 的功能分支上做。" +
+	"确需在 main 上 add 时须用户当轮明确授权，并在命令末尾加 `# AI_AUTHORIZED_ADD_MAIN`。";
 
 type RepoContext = { dir: string; branch: string; isGitHub: boolean };
 
@@ -107,7 +119,7 @@ export default function (pi: ExtensionAPI) {
 		try {
 			if (!isToolCallEventType("bash", event)) return;
 			const command = event.input.command ?? "";
-			if (command.includes(PUSH_MARK) || command.includes(COMMIT_MARK)) return;
+			if (command.includes(PUSH_MARK) || command.includes(COMMIT_MARK) || command.includes(ADD_MARK)) return;
 
 			const cwd = process.cwd();
 			for (const raw of command.split(SEGMENT_SPLIT)) {
@@ -115,12 +127,19 @@ export default function (pi: ExtensionAPI) {
 				if (!GIT_SEGMENT.test(segment)) continue;
 
 				const subcommand = /^git(?:\s+-C\s+(?:"[^"]+"|'[^']+'|\S+)|\s+--\S+)*\s+([a-z-]+)/.exec(segment)?.[1];
-				if (subcommand !== "push" && subcommand !== "commit") continue;
+				if (subcommand !== "push" && subcommand !== "commit" && subcommand !== "add") continue;
 
-				// `git commit` 在 main 上直接拒绝；`git push` 只有在推到 main 时才拒绝。
-				// 两种情况都要先确认「是带 GitHub remote 的仓库」，避免误伤本地实验仓库。
+				// `git commit` / `git add` 在 main 上直接拒绝；`git push` 只有在推到 main 时才拒绝。
+				// 三种情况都要先确认「是带 GitHub remote 的仓库」，避免误伤本地实验仓库。
 				const context = repoContext(segment, cwd);
 				if (!context || !context.isGitHub) continue;
+
+				if (subcommand === "add") {
+					if (!command.includes(ADD_MARK) && MAIN_BRANCHES.has(context.branch)) {
+						return { block: true, reason: ADD_DENY };
+					}
+					continue;
+				}
 
 				if (subcommand === "commit") {
 					if (!command.includes(COMMIT_MARK) && MAIN_BRANCHES.has(context.branch)) {
