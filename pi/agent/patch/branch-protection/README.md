@@ -109,7 +109,39 @@ branch-protection.sh audit --owner xhqing --json
 所以脚本两个都查、只要任一来源要求 strict 就算 strict 生效。只看 `branches/<br>/protection`
 会漏掉规则写在 rulesets 里的仓库。
 
-## 五、边界
+## 五、给仓库装检查：`validate-template/`
+
+三件套的第一件（「在 PR 上会真实跑的 CI 检查」）有现成模板，直接装：
+
+```bash
+cd <目标仓库根目录>
+~/.pi/agent/patch/branch-protection/validate-template/install.sh [默认分支名]
+```
+
+省略分支名时自动取当前分支（空仓库回落 `main`）。装完只写了文件、不提交，随后自己走
+PR 流程；PR 合并后再用 `branch-protection.sh apply` 把 `validate` 挂成 required 并设 strict。
+
+模板内容：
+
+| 文件 | 作用 |
+|---|---|
+| `validate.yml` | workflow：`pull_request` + 默认分支 push + 手动触发，单 job，检查名 `validate` |
+| `validate.py` | 零依赖 Python 校验脚本（详见下） |
+
+`validate.py` 查五类，全部是确定性、低误报的项目：
+
+1. **必备文件**：`README.md`、`CHANGELOG.md`
+2. **敏感文件未被跟踪**：`.env`、`*.pem` / `*.key` / `*.p12` / `*.kdbx`、`id_rsa*`、`.npmrc`、
+   `.netrc`、`credentials.json`（`.example` / `.sample` / `.template` / `.dist` / `.defaults` 豁免）
+3. **被跟踪文件不超过 10 MB**
+4. **README 相对链接有效**（跳过外链、锚点、绝对路径、模板占位符）
+5. **语法检查**：Python `compileall`、Shell `bash -n`（含带 sh shebang 的无后缀脚本）
+
+**为什么只查这些**：这个检查是 required status check，**一旦误报就会卡住所有正常 PR**。
+所以宁可少查、不可瞎查。2026-11-03 给 26 个仓库铺开前，先在全部仓库本地跑过一遍、
+全部通过才推到线上——否则上线即红，所有 PR 都合不进去。
+
+## 六、边界
 
 - 本脚本只管**配置与审计**，不改代码、不动 git 历史。
 - `apply` 默认 dry-run，必须显式 `--apply` 才改 GitHub 上的仓库设置。

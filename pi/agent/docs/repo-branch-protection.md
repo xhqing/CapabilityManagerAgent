@@ -22,43 +22,48 @@
 
 ---
 
-## 2026-11-03 实测：全团队 37 个仓库的 strict 现状
+## 2026-11-03 实测与补齐：全团队 37 个仓库 100% 合规
 
-方法：对 `agents-registry.md` 的 18 个 Agent 项目 + 19 个子项目，逐个查 `repos/xhqing/<repo>/branches/<default>/protection`（classic）与 `repos/xhqing/<repo>/rules/branches/<default>`（rulesets），取 `required_status_checks.strict`；并查仓库是否实存 `.github/workflows`。
+**方法**：对 `agents-registry.md` 的 18 个 Agent 项目 + 19 个子项目，逐个查 `repos/xhqing/<repo>/branches/<default>/protection`（classic）与 `repos/xhqing/<repo>/rules/branches/<default>`（rulesets），取 `required_status_checks.strict`；并查仓库是否实存 `.github/workflows`。审计命令：`branch-protection.sh audit --owner xhqing <仓库列表>`。
 
-### 已开 strict（9 个）
+### 补齐前（2026-11-03 上午实测）
 
-| 仓库 | 默认分支 | required check |
+37 个仓库里只有 **9 个** strict 合格（CapabilityManagerAgent、ExecutiveAssistantAgent、cmux、codef、ghostty-launcher、ghostty、mp4-player、pi-harness、XPilot），其余 **28 个** 的保护里 `required_status_checks` 为 `null`——**根本没挂 required check**，所以 strict 参数不存在（不是 strict=false，是无从谈起）。
+
+28 个的细分：
+
+- **有 CI 却没挂成门禁（2 个）**：`TradingProofs`（`ci.yml` → check 名 `build`）、`vscode-copy-anywhere`（`ci.yml` → check 名 `validate`）。
+- **`xhqing`（1 个）**：只有 `traffic.yml`，那是定时采集任务、不是 PR CI（定时任务的检查名绝不能挂 required，会永久卡住合并）。
+- **既无 CI 也无门禁（25 个）**：16 个 Agent 项目（ProductStrategistAgent、ProductProducerAgent、SiteBuilderAgent、GrowthMarketerAgent、DigiVendAgent、DataAnalystAgent、DayTradingAgent、QuantStrategistAgent、BackendEngineerAgent、FullStackEngineerAgent、NeuralCoreAgent、ApplyOptimizerAgent、LegalAgent、SocialMediaManagerAgent、TestEngineerAgent、cuAgent）+ 9 个子项目（CC-Bridge、ark-key-pool、macmini-tmux、dotfiles、AgentCortex、ToolCallingRules、Intraday、Swing、gridtrader）。
+
+### 补齐后（2026-11-03 当晚，用户追加要求全部执行最新标准）
+
+用户追加口径：「28 个不合规的仓库也统一执行最新标准」。当日已全部补齐，**审计结果 37/37 合规**。
+
+| 处理方式 | 仓库数 | 做法 |
 |---|---|---|
-| CapabilityManagerAgent | main | `validate` |
-| ExecutiveAssistantAgent | main | `validate` |
-| cmux | main | `checks` |
-| codef | main | `test` |
-| ghostty-launcher | main | `Test & Check` |
-| ghostty | main | `build-macos` |
-| mp4-player | main | `build` |
-| pi-harness | main | `build-check-test` |
-| XPilot | main | `test` |
+| 原本已合规，未动 | 9 | — |
+| 已有 CI，直接挂门禁 | 2 | `TradingProofs` 挂 `build`、`vscode-copy-anywhere` 挂 `validate`，均设 strict=true |
+| 补 `validate` 检查 | 26 | 25 个无 CI 的仓库 + `xhqing`（只有定时任务），各自加一份 `validate` workflow + 校验脚本 |
 
-（本表修正一处旧描述：`cmux` 早期「required check 暂为空、等 fork 的 Actions 启用后再补」的状态已经改变，现在已挂 `checks` 且 strict=true。）
+### 统一 `validate` 检查的内容
 
-### 未开 strict（28 个）
+每个补齐的仓库新增两个文件（内容一致，随仓库自包含、单独 clone 也能跑）：
 
-这 28 个仓库的保护里 `required_status_checks` 为 `null`——**根本没挂 required check**，所以 strict 参数不存在（不是 strict=false，是无从谈起）：
+- `.github/workflows/validate.yml`：`pull_request` + 默认分支 `push` + `workflow_dispatch` 触发，单 job（检查名 `validate`），`runs-on: ubuntu-latest`。
+- `.github/scripts/validate.py`：零依赖 Python 脚本，查五类——
+  1. **必备文件**：`README.md`、`CHANGELOG.md`（团队统一标配）
+  2. **敏感文件未被跟踪**：`.env`、`*.pem` / `*.key` / `*.p12` / `*.kdbx`、`id_rsa*`、`.npmrc`、`.netrc`、`credentials.json`（`.example` / `.sample` / `.template` / `.dist` / `.defaults` 后缀豁免）
+  3. **被跟踪文件不超过 10 MB**
+  4. **README 相对链接有效**：`README.md` / `README_cn.md` 里指向本地文件的链接，目标必须存在（跳过外链、锚点、绝对路径、模板占位符）
+  5. **语法检查**：Python `compileall`、Shell `bash -n`（含无 `.sh` 后缀但带 sh shebang 的脚本）
 
-- **Agent 项目 16 个**：ProductStrategistAgent、ProductProducerAgent、SiteBuilderAgent、GrowthMarketerAgent、DigiVendAgent、DataAnalystAgent、DayTradingAgent、QuantStrategistAgent、BackendEngineerAgent、FullStackEngineerAgent、NeuralCoreAgent、ApplyOptimizerAgent、LegalAgent、SocialMediaManagerAgent、TestEngineerAgent、cuAgent
-- **子项目 12 个**：CC-Bridge、xhqing、vscode-copy-anywhere、ark-key-pool、macmini-tmux、dotfiles、AgentCortex、ToolCallingRules、Intraday、Swing、gridtrader、TradingProofs
-
-细分：其中只有 3 个仓库实存 workflow——`TradingProofs`（`ci.yml`）、`vscode-copy-anywhere`（`ci.yml`）有 CI 但没挂成门禁；`xhqing` 的 `traffic.yml` 是定时采集任务、不是 PR CI（也不能挂成 required）。其余 25 个仓库**既无 CI 也无门禁**，改动合进 main 全靠人工把关。
+**设计原则**：这个检查是 required status check，**一旦误报就会卡住所有正常 PR**，所以只查确定性、低误报的项目——宁可少查，不可瞎查。补齐前先在全部 28 个仓库本地跑过一遍、全部通过，才推到线上，避免上线即红。
 
 ### 口径
 
-用户 2026-11-03 的原话是「**以后新建立的项目仓库**全部必须使用 strict 模式的 pr-ci」，因此：
-
-- **新建仓库**：一律按上方三件套执行，无例外。
-- **存量仓库**：**不因这条规则自动变更**。要补齐需用户明确指示（改 28 个仓库的分支保护属批量写操作，且其中 25 个得先建 CI 才有意义，不是一次脚本能解决的事）。
-
----
+- **新建仓库**：一律按三件套执行，无例外。
+- **存量仓库**：已于 2026-11-03 全部补齐，当前 37/37 合规；后续新增仓库或新增检查类型时，用审计脚本随时核对。
 
 ## 现状（2026-10-04 实测）
 
