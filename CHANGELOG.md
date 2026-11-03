@@ -6,6 +6,25 @@
 
 ## [Unreleased]
 
+### 2026-11-03 local main 只剩两个职责：自动 add / commit 在 main 上禁用
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-03 定调（原话要点）：「add-skill 和 commit-skill 的自动触发功能必须在 main 分支上面禁止掉，只能在非 main 分支上面自动触发。并且本地 main 分支只剩下两个任务：一个是生成 worktree，另一个是被 remote-main 同步。以后任何项目里面的任何写操作第一步是生成 worktree，任务后续一切写操作在 worktree 里面执行。」
+
+原因是实践里所有误踏主工作区的情形都跟「在 main 上直接把改动 add / commit 掉」有关：一旦自动触发在 main 上生效，AI 就绕过了 worktree，回到「多人多会话轮流写同一个工作区」的老毛病（2026-11-02 立 worktree 规则的直接起因）。把 main 降为纯基础设施（只生成 worktree、只接远端快进）后，「先建 worktree」从口号变成唯一可行路径。
+
+**改了什么**（4 个文件，与全局逐字节一致）：
+
+1. `pi/agent/extensions/git-main-guard.ts`：拦截范围新增第 3 项——当前分支为 main / master 时的 `git add`（新增 `ADD_MARK = "AI_AUTHORIZED_ADD_MAIN"` 与 `ADD_DENY` 文案；子命令识别从 `push|commit` 扩到 `push|commit|add`；新增 add 分支拦截逻辑，仍只对带 GitHub remote 的仓库生效；文件头注释的拦截范围与逃生门两段同步更新）。
+2. `pi/agent/CLAUDE.md` 两处：① 「Git 写操作必须先征得同意」节的「常设授权：工作区 / 暂存区有待提交内容 → 直接提交」条下新增子条目——**仅限非 main 分支**；② 「开发流程：worktree + PR」节铁律第 1 条标题改为「开工先建 worktree（2026-11-03 强化：任何项目里的任何写操作，第一步就是生成 worktree）」，并新增子条目「local main 只剩两个职责」。
+3. `pi/agent/skills/add/SKILL.md`：description 与正文授权边界第 1 条都补「仅限非 main 分支」限制（含工具强制与逃生门指向）。
+4. `pi/agent/skills/commit/SKILL.md`：description 与正文「触发判定（来源两种）」第 ② 项都补「仅限非 main 分支」限制。
+
+**验证**：全局侧 `bun build extensions/git-main-guard.ts --target node --external '@earendil-works/pi-coding-agent'` 编译通过；镜像侧 4 个文件 `diff -q` 均无差异（IDENTICAL）。
+
+**回归风险**：有，已评估——guard 新增的 `git add` 拦截会让 main 上的 `git add` 从「可执行」变成「被拦」，若有流程（含人工习惯）靠在 main 上 add 后建分支，需改成先建 worktree 再 add；这正是本次规则要达成的效果，不属意外破坏。两个自动触发的限制与既有 add-mode / commit-mode 开关互不冲突（那两个是「按项目暂停」，本项是「按分支禁用」，可叠加生效）。
+
 ### 2026-11-03 worktree 内跑 git 必须用 `git -C`（防 git-main-guard 误拦）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
