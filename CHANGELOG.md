@@ -4,7 +4,7 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
-## [Unreleased]
+## [1.11.0] - 2026-11-03
 
 ### 2026-11-03 skill description 硬上限 1024 改为工具强制（新增 skill-desc-guard）
 
