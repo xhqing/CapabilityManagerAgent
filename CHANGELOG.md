@@ -6,6 +6,24 @@
 
 ## [Unreleased]
 
+### 2026-11-03 skill description 硬上限 1024 改为工具强制（新增 skill-desc-guard）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：skill 的 `description` 是 Agent Skills spec 的硬上限——1024 字符封顶（按 JS `string.length` 计，一个汉字算 1），超了 pi 每次启动都会打 `[Skill conflicts] description exceeds 1024 characters` 警告、触发描述被截断。这条规则早就写在 `skill-creator` 的「hard gate——量它，别凭感觉」里，却反复犯规：2026-11-03 实测 `add` 1069、`commit` 1111 双双超限，当天早些时候刚因同样问题修过 `commit`（1069 → 967）又反弹。用户因此定调：「记不住就工具强制」。
+
+**改了什么**（5 处，与全局逐字节一致）：
+
+1. **新增** `pi/agent/extensions/skill-desc-guard.ts`：`write` / `edit` 目标为 `SKILL.md` 时，先按编辑内容模拟出写入后的 description、算出长度，超 1024 直接 block。放行两种有意例外：本次编辑没动 description（历史欠账不归这次编辑管）、本次编辑让 description 变短（修短的过程不能被自己拦）。shell 写入（`sed -i` / heredoc）走不到 `write` / `edit` 钩子，由 `tool_result` 后置实测提醒兜底。**无逃生门**（超了就是错的）。核心纯函数（descLength / extractDescription / simulateEdits / measure / measureFile / isSkillFile / judge / skillPathsFromCommand）已导出可单独测路。
+2. `pi/agent/CLAUDE.md`：「Skill 编写纪律」节新增一条「description 硬上限 1024 字符（工具强制，2026-11-03 用户立）」——写清计数口径、违规后果、正确压法（流程机制细节搬进正文，不删触发词，留余量）与守卫位置；上一条末尾补一句交叉引用。
+3. `pi/agent/skills/add/SKILL.md`：frontmatter description 从 1069 压到 592——把分步机制留在正文，description 只留「干什么 + 什么场景必须触发 + NOT for 边界」。
+4. `pi/agent/skills/commit/SKILL.md`：description 从 1111 压到 889（同上，并去掉冗余括号解释）。
+5. `pi/agent/skills/skill-creator/SKILL.md`：description hard gate 段补一条 "Tool enforcement (since 2026-11-03)"，说明拦截规则、两种有意例外、shell 写入的后置兜底与「留 ≥ 50 字符余量」建议。
+
+**验证**：`python3 ~/.pi/agent/skills/skill-creator/scripts/check_description.py pi/agent/skills/*/SKILL.md` → 13 个 skill 全部 PASS（最小余量 118，add 592/1024、commit 889/1024）；三条镜像校验均干净（extensions 无差异、skills 只剩 `.env` / `endpoints.json` 两个 gitignored 本机文件、CLAUDE.md 无差异）。
+
+**回归风险**：有，已评估——description 是常驻上下文、直接驱动触发判断：① 压缩后若漏掉某个触发场面，add / commit skill 会欠触发，因此两者都保留了全部触发词与原「MUST USE / NOT for」结构，只删解释性铺陈；② 新守卫会拦下「顺手把 description 写长」的编辑，合法但需知悉：要加长只能先腾出等量空间或另走工具外手段（工具外手段仍有后置提醒兜底）。
+
 ### 2026-11-03 local main 只剩两个职责：自动 add / commit 在 main 上禁用
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
