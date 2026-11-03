@@ -305,6 +305,9 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 ### 跨机协作：macmini 值班会话（2026-10-17 用户立）
 
+- **重活默认分流到 macmini（2026-11-03 用户立，工具强制）**：本机是用户**此刻正在用**的 MacBook Air（8 核 / 8GB），macmini 是 12 核 x64 / 32GB 的常驻算力机、与本机 `~/Developer` / `~/.pi/agent` 双向镜像。**每条指令先判断一次「里面的重活要不要放 macmini」**：预计占本机 CPU / 内存十几秒以上的编译、构建、测试套件、音视频转码、批量渲染、数据回测、大文件扫描 / 大下载，一律用 `macmini_run` 工具在远端跑（长任务传 `background:true`、之后 tail 日志取结果），不要在本机硬扛；几秒内结束的短命令、需要 GUI / VSCode / osascript / 焦点 / 剪贴板、需要 arm64 产物或本机 `node_modules`、git 写与 gh 发版、操作未镜像路径（`~/Downloads`、`/Volumes`、`~/Library` 等）的留本机。判断标准是**用户的本机要流畅**，不是「尽量多用远端」。判定细则、远端工具链实况与常见重活跑法见 skill `macmini-use`；配套工具强制见 `~/.pi/agent/extensions/macmini-use/`（每轮注入分流判断 + 拦重型本机命令，逃生门 `# AI_LOCAL_OK: <理由>`；macmini 上不生效）。
+- **镜像删除与远端 git 的红线**：macmini 的 `~/Developer`、`~/.pi/agent` 与本机双向镜像——远端递归删除会删到本机（`macmini_run` 默认拒绝非 `/tmp` 的 `rm -r`，确需删除带 `# AI_REMOTE_RM_OK`），远端 git 写操作一律拒绝（提交 / 发版回本机做）。
+
 macmini 上配有一个**常驻值班会话**（intercom 名：`macmini`，由 launchd 守护、掉线自动重拉）。本机各 agent 需要借用 macmini 的资源/环境时，用以下标准命令呼叫（**本机 → macmini**）：
 
 ```bash
