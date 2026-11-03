@@ -6,6 +6,24 @@
 
 ## [1.12.0] - 2026-11-03
 
+### 2026-11-03 存量 37 个仓库全部补齐 strict PR CI（新增 validate-template/）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-03 上午立规「新建项目仓库一律必须 strict 模式的 PR CI」时，团队现状是 37 个仓库（18 个 Agent 项目 + 19 个子项目）只有 9 个合格、28 个没有 required check。当晚用户追加口径：「28 个不合规的仓库也统一执行最新标准」。于是把 28 个全部补齐（现 37/37 合规），并把「存量按现状保留」的子条改成「存量已全部补齐」——否则规则文档与仓库实况对不上，下一个人看到旧文字会以为剩下 28 个仍可放着不管。同时把「在 PR 上真实跑的 CI 检查」这一件（三件套的第一件）做成零依赖模板，后续新建仓库不用再从零写。
+
+**改了什么**（5 处，与全局逐字节一致）：
+
+1. `pi/agent/CLAUDE.md`：「开发流程」第 3 条下原子条「存量按现状保留、不追溯变更」**整条替换**为「存量已全部补齐（2026-11-03 同日）」——37 个仓库 100% 合规，其中 26 个补了统一的 `validate` 检查（`.github/workflows/validate.yml` + `.github/scripts/validate.py`），2 个已有 CI 的直接挂上现有检查，9 个原本合格未动；随时可用 `branch-protection.sh audit` 核对。
+2. `pi/agent/docs/repo-branch-protection.md`：「2026-11-03 实测」整节重写为「实测与补齐：全团队 37 个仓库 100% 合规」——补齐前 9/37 的实测细分（有 CI 没挂门禁 2 个、只有定时任务 1 个、既无 CI 也无门禁 25 个）、补齐后的处理方式表（9 未动 + 2 直接挂 + 26 补 validate）、统一 `validate` 检查的五类内容与「为什么只查这些」的设计取舍、口径（新建按三件套、存量已全部补齐）。
+3. `pi/agent/docs/new-agent-scaffold.md`：「配置 main 保护」条尾部的「一键命令」改为两段式——先 `validate-template/install.sh` 装检查、走 PR 合并，再用 `branch-protection.sh apply` 挂门禁（顺序反了会把 PR 永久卡死）。
+4. **新增** `pi/agent/patch/branch-protection/validate-template/`：`validate.py`（零依赖仓库卫生校验：必备文件 / 敏感文件未被跟踪 / 被跟踪文件 ≤ 10MB / README 相对链接有效 / Python·Shell 语法）、`validate.yml`（workflow 模板，含 `%BRANCH%` 占位符，check 名 `validate`）、`install.sh`（在目标仓库根目录装好这两个文件并本地跑一遍，空仓库自动回落 `main`）。
+5. `pi/agent/patch/branch-protection/README.md`：新增「五、给仓库装检查：`validate-template/`」（用法、模板内容表、五类检查说明、为什么只查确定性低误报项），原「五、边界」顺延为「六」。
+
+**验证**：三条镜像校验干净——`diff ~/.pi/agent/CLAUDE.md`、`diff -r ~/.pi/agent/docs`、`diff -r ~/.pi/agent/patch`（排除 `*.log` / `.lock` / `conflicts` / `__pycache__` 与 session-link 的 gitignored 本机状态文件）均无差异；`bash -n install.sh`、`python3 -m py_compile validate.py` 通过；在镜像仓库根目录跑 `validate.py` 本体，必备文件 / 敏感文件 / 大文件 / README 相对链接（6 个）四类全绿。
+
+**回归风险**：无（纯新增模板 + 文档改写，未改动任何既有脚本的判定逻辑）。**已知局限**（已在 README 写明）：模板只做确定性低误报的检查，不做格式 lint / 单元测试——那些要么噪声大、要么依赖项目自身工具链，不宜统一。**发现一处待确认的局限**：`validate.py` 判断「无 `.sh` 后缀但带 shebang 的脚本」时按子串匹配 `sh`，`#!/usr/bin/env pwsh` 也会被当成 shell 脚本、送进 `bash -n` 报语法错（PowerShell 语法）；本次镜像仓库自身因 `pi/agent/skills/anysearch/scripts/anysearch_cli.ps1` 命中该误报。当前 24 个已装该脚本的仓库里只有本仓库与 pi-harness 含 `.ps1`（pi-harness 用的是自己的 `ci.yml`），所以暂未造成实际红牌；已向用户报告，是否修正并重新铺到 24 个仓库待定（本次按「全局为准」原样镜像，未擅自改权威源）。
+
 ### 2026-11-03 新增 macmini-use：重活默认分流到 macmini
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。

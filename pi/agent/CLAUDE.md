@@ -69,7 +69,7 @@
 3. **main 保护是仓库层的硬约束**：PR 必过、required check、分支最新（strict）、线性历史、只允许 squash、禁 force push、禁删除、管理员同样受限。
    - **新建仓库一律必须 strict 模式的 PR CI（2026-11-03 用户立，适用范围为新建立的项目仓库）**：新仓库（新建 Agent 项目、新建子项目、任何新入队的团队仓库）上线时必须同时具备三件套——① 至少一个**在 PR 上会真实跑的** CI 检查（确实没有测试可跑的项目也要补一个最轻量的检查，如 lint / 语法检查 / 构建；**不存在「没 CI 就豁免」的例外**）；② 该检查**挂成 required status check**（CI 跑了但不拦合并等于没门禁）；③ `required_status_checks.strict = true`（要求分支最新）。一键配置与全量审计脚本见 `~/.pi/agent/patch/branch-protection/`。
    - **为什么 strict 是必须的**：非 strict 时，PR B 可以拿「旧 main」上通过的 CI 直接合并——PR A 刚合进 main 的新测试从未在 B 上跑过，回归防护网就漏了。strict 保证每个 PR 的 CI 都跑在「最新 main + 该 PR」的合并结果上，此前所有已合并 PR 的测试自动成为后来者的防护网。
-   - **存量按现状保留、不追溯变更**：用户 2026-11-03 的口径是「以后新建的」，存量仓库的保护状态见 `docs/repo-branch-protection.md` 的实测记录，不因本条自动改动。
+   - **存量已全部补齐（2026-11-03 同日，用户追加要求「28 个不合规的仓库也统一执行最新标准」）**：全团队 37 个仓库（18 个 Agent 项目 + 19 个子项目）已 100% 合规——其中 26 个仓库补了统一的 `validate` 检查（仓库卫生 + 语法检查，加一份 `.github/workflows/validate.yml` + `.github/scripts/validate.py`），2 个已有 CI 的直接挂上现有检查。新建仓库照本条执行；随时可用 `~/.pi/agent/patch/branch-protection/branch-protection.sh audit` 核对。
 4. **分支命名**：`feat/<功能>`、`fix/<缺陷>`、`chore/<事项>`，一个分支只做一件事。
 5. **团队仓库必须是 public（2026-11-02 用户立）**：团队项目（Agent 项目 + 子项目）一律用公开仓库；**私有仓库不得作为团队项目**。发现私有仓库时：先做敏感信息检查（gitleaks 全历史 + AI 语义扫描——密钥 / 凭证 / 个人隐私 / 第三方个人信息 / 财务状况），**干净就直接改为 public 并补 main 保护**；含敏感信息的不入队（移出团队名册，或个人留存，不上服务端锁——GitHub 免费版对私有仓库也不提供分支保护，服务端只能靠本地 `git-main-guard.ts` 兑现）。
 
