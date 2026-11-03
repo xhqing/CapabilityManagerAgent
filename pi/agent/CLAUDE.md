@@ -62,6 +62,7 @@
 **铁律（按顺序执行）**：
 
 1. **开工先建 worktree**：任何任务（含文档、杂事）动代码前，先在主仓库同级建独立 worktree + 功能分支（`git worktree add ../<仓库名>-<事项> -b <分支名>`），**改动只在 worktree 的分支上做**；不在主工作区里改、不在 main 上改。目的：避免同一工作区被多个会话同时写而互相污染（2026-11-02 用户立规的直接起因）。
+   - **⚠️ worktree 内跑 git 一律用 `git -C <worktree 绝对路径> <子命令>`，不要写 `cd <worktree> && git ...`（2026-11-03 立）**：`git-main-guard.ts` 判断「在哪个仓库 / 哪个分支」时只认两种来源——命令里显式的 `-C` 参数、进程的当前工作目录（pi 会话 cwd）；**它不跟踪命令里的 `cd`**。而会话 cwd 通常停在主仓库（main 分支），所以 `cd ../xxx-worktree && git commit` 会被误判成「在 main 上提交」而拦截。写成 `git -C /abs/path/to/worktree commit ...` 即可正确识别分支。**被误拦时不要加 `# AI_AUTHORIZED_COMMIT_MAIN` 绕过**——那个标记只用于用户当轮明确授权、不能用来自行为误判开逃生门；正确动作是改用 `-C` 指定 worktree 路径。
 2. **一切改动走 PR**：worktree 分支 → push → 开 PR（目标 main）→ CI 门禁 → auto-merge（squash）→ remote main → 本地 main 用 `--ff-only` 同步。**本地 main 只用于同步，不产生提交、不直接推送**。
 3. **main 保护是仓库层的硬约束**：PR 必过、required check（有 CI 的仓库）、分支最新（strict）、线性历史、只允许 squash、禁 force push、禁删除、管理员同样受限。没有 CI 的仓库至少保留「必须 PR + 禁直推」。
 4. **分支命名**：`feat/<功能>`、`fix/<缺陷>`、`chore/<事项>`，一个分支只做一件事。
