@@ -124,6 +124,10 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:
 - **误删恢复**：去 `~/.syncthing-versions/<folder>/` 找对应日期的版本，拷回原位。
 - **macmini 上没有 node_modules**：需要在 macmini 跑某个 JS 项目时，进项目目录 `npm ci` 或
   `npm install` 一次即可（依赖目录不参与同步，两边各自安装）。
+- **重活分流（2026-11-03 起）**：哪些活该放 macmini、常见重活（构建 / 转码 / 回测 / 大下载）
+  的跑法与远端工具链实况，见 skill `macmini-use`；执行通道是扩展提供的 `macmini_run` /
+  `macmini_status` 工具（`~/.pi/agent/extensions/macmini-use/`），不要手写 ssh 引号。
+  远端递归删除会经镜像删到本机、git 写操作会改坏同步的 `.git`——这两条工具会直接拦。
 - **健康检查**：本机 launchd `com.xhq.mirror-check` 每 10 分钟跑一次 `status.py --check`，
   异常（断链 / 同步未完成 / 出现冲突）时发系统通知；日志在 `~/Library/Logs/macmini-mirror.log`。
 - **每日深度校验**：本机 launchd `com.xhq.mirror-verify` 每天 03:00 跑一次 `verify.py all`

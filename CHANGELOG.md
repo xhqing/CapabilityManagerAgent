@@ -4,6 +4,26 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [1.12.0] - 2026-11-03
+
+### 2026-11-03 新增 macmini-use：重活默认分流到 macmini
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-03 立规，给全团队加一个「macmini-use」能力——用户给 pi 下指令时，先判断这条指令里的重活要不要放到 macmini 上跑。起因是本机是用户**此刻正在用**的 MacBook Air（8 核 / 8GB），而 macmini 是 12 核 x64 / 32GB 的常驻算力机、与本机 `~/Developer` / `~/.pi/agent` 双向镜像；用户的痛点不是「算力不够」，而是「AI 在本机跑长任务时，用户自己也卡」。分流准则因此定成「**用户的本机要流畅**」，不是「尽量多用远端」：几秒内结束的命令留本机更快，真正该挪的是会让风扇转起来、让打字卡顿的活。
+
+**改了什么**（5 处，与全局逐字节一致）：
+
+1. **新增** `pi/agent/extensions/macmini-use/`（目录 + `index.ts` 形态，三个文件）：`index.ts` 每轮 `before_agent_start` 往系统提示追加「分流判断」；指令命中重型特征时再注入一条 `display:false` 的定向提醒；注册 `macmini_run` / `macmini_status` 两个工具与 `/macmini` 命令；`tool_call` 拦重型本机命令（逃生门 `# AI_LOCAL_OK: <理由>`）；macmini 主机上按 hostname 整个不启用。`classify.ts` 纯判定（重型命令清单、镜像目录递归删除、指令重型特征）。`remote.ts` 路径映射（`/Users/xhq` → `/Users/mac`）、`ssh mac-mini bash -s` 执行、后台任务（`/tmp/macmini-jobs`）、负载脚本。
+2. **新增** `pi/agent/skills/macmini-use/SKILL.md`：判断表、远端工具链实况（2026-11-03 实测）、常见重活跑法（Node / Python / Rust / Go / Swift / ffmpeg / Chrome headless）、硬约束（镜像删除会删到本机、git 只读、x64 差异、缓存别回流）、故障排查。
+3. **新增** `pi/agent/patch/macmini-use/`：`README.md`（设计 / 行为 / 局限）、`test-classify.ts`（判定逻辑回归测试，49 个用例）、`test-remote.ts`（远端冒烟测试）。
+4. `pi/agent/CLAUDE.md`：「跨机协作：macmini 值班会话」节开头新增两条 bullet——「重活默认分流到 macmini（工具强制）」与「镜像删除与远端 git 的红线」。
+5. `pi/agent/docs/macmini-mirror.md`：第五节「日常操作」新增一条「重活分流（2026-11-03 起）」，指向 skill 与两个工具。
+
+**验证**：`bun pi/agent/patch/macmini-use/test-classify.ts` → 49 个用例全过（含 `xcodebuild` / `docker build` 明确不拦、`echo` / `git commit -m` 不误伤）；`bun build pi/agent/extensions/macmini-use/index.ts --target node --external '@earendil-works/pi-coding-agent' --external 'typebox'` 编译通过（与全局侧构建产物仅差路径注释）；`check_description.py pi/agent/skills/macmini-use/SKILL.md` → PASS 442/1024；三条镜像校验干净——`diff ~/.pi/agent/CLAUDE.md`、`diff -r ~/.pi/agent/docs`、`diff -r ~/.pi/agent/extensions`、`diff -r ~/.pi/agent/skills`、`diff -r ~/.pi/agent/patch`（排除 `*.log` / `.lock` / `conflicts` / `__pycache__` 与 session-link 的 gitignored 本机状态文件）均无差异。
+
+**回归风险**：有，已评估——新增的 `tool_call` 闸门会让部分重型本机命令（`swift build`、`cargo build`、`ffmpeg` 等）从「直接跑」变成「被拦下、须改走 `macmini_run` 或加 `# AI_LOCAL_OK: <理由>`」，这正是本次规则要达成的效果；为避免误伤，闸门只锚定命令段开头（`echo xcodebuild`、`git commit -m` 里的同名文字不会被拦），`npm run build` / 单文件 `pytest` / 普通 `make` / `xcodebuild` / `docker build` 明确不拦，判定回归测试 49 例固化在 `patch/macmini-use/test-classify.ts`。扩展在 macmini 上按 hostname 判定不启用，不会把活分流给自己；`macmini_run` 复用 `git-readonly-guard.ts` 的判定拒绝远端 git 写，非 `/tmp` 递归删除默认拒绝（须 `# AI_REMOTE_RM_OK`），避免经镜像删到本机。本次为纯新增能力，未改动任何既有 skill / 扩展的行为。
+
 ## [1.11.0] - 2026-11-03
 
 ### 2026-11-03 新建仓库一律必须 strict 模式的 PR CI（新增 patch/branch-protection/）
