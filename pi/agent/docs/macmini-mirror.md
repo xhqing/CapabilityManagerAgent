@@ -108,11 +108,14 @@
 `gh issue develop`——它会建本地分支 + checkout，是真 git 写，继续拦。
 
 - **已安装**：`brew install gh` → `/usr/local/bin/gh`（2.14.4，x64；2026-11-04 装）。
-- **尚未认证**：gh 要求先认证才能调 API（连 `gh api rate_limit` 都会提示 `gh auth login`）。
-  要启用 Issue 功能，需在 macmini 上放一份凭据——推荐**细粒度 PAT、只给目标仓库 Issues 读写**，
-  写到 macmini 本机的 `~/.config/gh/hosts.yml` 或 `~/.zshrc` 的 `GH_TOKEN`（`~/.config` 不在
-  Syncthing 镜像范围内，不会回流本机、也不会进任何 git 仓库）。不要用本机 OAuth token 的
-  全量权限副本（scope 含 repo / workflow / admin:public_key，比 Issue 需要的多得多）。
+- **已认证**（2026-11-04，方案 A）：本机 keyring 里的 OAuth token 复制到 macmini 的
+  `~/.config/gh/hosts.yml`（`user: xhqing`，`oauth_token`，mode 600）；该目录**不在** Syncthing
+  镜像范围内，不会回流本机、也不会进任何 git 仓库。实测：`gh auth status` 显示已登录，
+  `gh api rate_limit` 正常返回（4990/5000），`gh issue list -R xhqing/...` 调用成功。
+  - **scope 跟本机一致**：`repo` / `workflow` / `gist` / `read:org` / `admin:public_key`。
+    对 Issue 来说权限偏大，但好处是零维护；若日后想收紧，改成只含 Issues 的细粒度 PAT
+    即可（写入方式同此）。
+  - **token 轮换时会失效**：本机 `gh auth login` 重新授权后，macmini 上的副本要重新写一遍（同上方式）。
 - **仍然禁的**：`gh issue develop`、所有 `gh pr` / `gh release` / `gh repo` / `gh workflow` 写操作、
   `gh api` 的 POST / PATCH / DELETE（防止绕过 issue 这条口子改仓库状态）。
 - **敏感文本照样要过检查**：`public-text-guard` 扩展在 macmini 上同样生效，执行 `gh issue create`
