@@ -17,7 +17,11 @@
  *      rebase / cherry-pick / revert / rm / mv / checkout / switch / clean / stash 写 /
  *      tag 写 / branch 写 / config 写 / remote 写 / worktree / submodule / init / clone /
  *      gc / filter-* / update-ref ... 全在内），**不在白名单的新子命令默认拦**；
- *   ③ gh 的写操作（PR / Release / Issue / repo 变更、api 非 GET）一并拦——macmini 不连 GitHub。
+ *   ③ gh 的写操作（PR / Release / repo 变更、api 非 GET）一并拦——macmini 不连 GitHub。
+ *      **例外（2026-11-04 用户核定）**：`gh issue …` 放行——Issue 是 GitHub 侧对象，走 REST
+ *      API、不碰本地 `.git`，不属于 git 写操作；实测 macmini 断的只是 ssh / git 层
+ *      （`ssh github.com` → 127.0.0.1:9，git url.insteadOf 改写），HTTPS API 本来就通。
+ *      仅保留 `gh issue develop` 拦截（它会建本地分支 + checkout，是真 git 写）。
  *
  * 只在 macmini 上生效（hostname 判定，与 session-link 同口径）；本机（MacBook）零影响。
  * **无逃生门**：这是设备级只读约束，不设授权标记——需要提交时在本机做，不要在 macmini 想
@@ -132,6 +136,7 @@ const GH_WRITE_VERBS = new Set([
 	"unlock",
 	"cancel",
 	"rerun",
+	"run", // `gh workflow run`（触发工作流）；`gh run view` 这类只读的 action 是 view，不受影响
 	"dispatch",
 	"enable",
 	"disable",
@@ -143,6 +148,9 @@ const GH_WRITE_VERBS = new Set([
 	"remove",
 	"delete-runs",
 ]);
+
+/** `gh issue` 里仍要拦的子命令：会建 / 切本地分支的 `develop`（那不是「改 Issue」而是真 git 写）。 */
+const GH_ISSUE_BLOCKED = new Set(["develop"]);
 
 /** gh 里「后面跟一个值」的常见选项（解析子命令链时要一起跳过）。 */
 const GH_OPTS_WITH_VALUE = new Set([
@@ -480,6 +488,9 @@ export function isGhReadonly(args: Token[]): boolean {
 		return !hasField;
 	}
 	if (area === undefined) return true;
+	// `gh issue …`（2026-11-04 用户核定）：Issue 操作走 REST API、不碰本地 `.git`，放行；
+	// 只留 `develop`（会建本地分支 + checkout）继续拦。
+	if (area === "issue") return !(action !== undefined && GH_ISSUE_BLOCKED.has(action));
 	if (action !== undefined && GH_WRITE_VERBS.has(action)) return false;
 	// `gh repo clone` / `gh pr checkout` 这类「area 后面直接跟写动词」已覆盖；
 	// 再兜一层：动作缺省时只要 area 本身是写动词（gh create 不存在，纯防御）
@@ -538,7 +549,9 @@ export const DENY_REASON =
 	"禁止范围：add / commit / push / pull / fetch / tag（写）/ branch（写）/ reset / restore / " +
 	"merge / rebase / cherry-pick / revert / rm / mv / checkout / switch / clean / stash（写）/ " +
 	"config（写）/ remote（写）/ worktree / submodule / init / clone / gc / filter-* / update-ref 等" +
-	"一切会改动 `.git` 或工作区的操作，以及 gh 的写操作（PR / Release / Issue / repo 变更）。" +
+	"一切会改动 `.git` 或工作区的操作，以及 gh 的写操作（PR / Release / repo / workflow 等）。" +
+	"**例外：`gh issue …` 已放行（2026-11-04 用户核定）**——Issue 走 GitHub REST API、不碰本地 `.git`；" +
+	"仅 `gh issue develop`（会建本地分支）仍拦。" +
 	"只读查询（status / diff / log / show / branch / tag -l / config --get / stash list 等）照常可用。\n" +
 	"正确做法：在 macmini 上只做计算、只产出文件；提交 / 发版 / 建 PR 回 MacBook 做（改动会经镜像自动回流）。" +
 	"没有逃生门——不要尝试加标记或换写法绕过。";
