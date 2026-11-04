@@ -26,7 +26,7 @@ macmini 上跑，再把结果带回来。**
 | 单条命令、读文件、grep、git status、跑一个测试文件 | **本机** | 十几秒内结束的分流是净亏 |
 | 需要 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain / 安装扩展 | **本机** | 远端没有用户眼前的那个界面 |
 | 需要 arm64 产物、本机原生模块、本机 node_modules | **本机** | 远端是 x64，编出来在本机跑不了 |
-| git add / commit / push / PR / Release / CI | **本机** | macmini 只读 + 断网 |
+| git add / commit / push / PR / Release / CI | **本机** | macmini 只读 + 断网（例外：Issue 可在 macmini 用 `gh issue`，见第二节末） |
 | 操作 `~/Downloads`、`/Volumes`、`~/Library`、`~/Key`、`~/.ssh` 等未镜像路径 | **本机** | macmini 上没有这些数据 |
 
 **判断要落到行动**：决定分流就一句话说明（「这个放 macmini 跑」），然后直接执行，不要问用户。
@@ -63,6 +63,14 @@ macmini_status()          # 看两机实时负载，判断该不该分流时用
 ```bash
 ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to macmini --text "任务与背景"'
 ```
+
+**gh 在 macmini 上只有 Issue 能用（2026-11-04 用户核定）**：`gh issue create / list / view / comment /
+edit / close` 都不属于 git 写操作（走 REST API、不碰本地 `.git`），已在 git-readonly-guard 里放行，
+远端会话可以直接开 Issue 记待办（记得带 `-R owner/repo`）。但：① `gh issue develop` 仍禁（会建本地
+分支）；② `gh pr` / `gh release` / `gh repo` / `gh workflow run` / `gh api` 写操作照旧回本机；
+③ `gh issue create` 属于公开动作，public-text-guard 要求在命令末尾带 `# AI_SENSITIVE_CHECKED`（先做公开文本敏感自检）；
+④ macmini 上的 gh 需要认证才能用（凭据写在 macmini 本机 `~/.config/gh/hosts.yml` 或 `GH_TOKEN`，
+不在镜像范围内），没认证时它会报 `gh auth login`。
 
 ## 三、硬约束（不知道就会出事）
 

@@ -95,6 +95,29 @@
 **验证过**（2026-10-28）：`git ls-remote https://github.com/...`、`git ls-remote git@github.com:...`、
 `ssh -T git@github.com` 全部失败；同步本身不依赖 GitHub，不受影响。
 
+**断的只是 ssh / git 层，HTTPS API 没断（2026-11-04 实测）**：`curl https://api.github.com/` 在 macmini
+上返回 `HTTP 200`。所以不是「macmini 上不了 GitHub」，而是「macmini 上 git / ssh 走不通 GitHub」——
+这是刻意的：两端同时写 `.git` 会互相覆盖。
+
+### macmini 上的 `gh`（2026-11-04 起可用，仅 Issue）
+
+**`gh issue …` 不是 git 写操作**：它走 GitHub REST API，不碰本地 `.git`（和 `git add / commit` 完全是
+两回事）。2026-11-04 用户核定：macmini 上**放开 `gh issue` 这一族**（建 / 查看 / 评论 / 改 / 关 Issue），
+方便远端常驻会话（值班会话、Mark 系会话）自己记录待办；**其余 gh 写操作照旧拦**
+（`gh pr` / `gh release` / `gh repo` / `gh workflow run` / `gh api` 非 GET），唯一例外里的例外是
+`gh issue develop`——它会建本地分支 + checkout，是真 git 写，继续拦。
+
+- **已安装**：`brew install gh` → `/usr/local/bin/gh`（2.14.4，x64；2026-11-04 装）。
+- **尚未认证**：gh 要求先认证才能调 API（连 `gh api rate_limit` 都会提示 `gh auth login`）。
+  要启用 Issue 功能，需在 macmini 上放一份凭据——推荐**细粒度 PAT、只给目标仓库 Issues 读写**，
+  写到 macmini 本机的 `~/.config/gh/hosts.yml` 或 `~/.zshrc` 的 `GH_TOKEN`（`~/.config` 不在
+  Syncthing 镜像范围内，不会回流本机、也不会进任何 git 仓库）。不要用本机 OAuth token 的
+  全量权限副本（scope 含 repo / workflow / admin:public_key，比 Issue 需要的多得多）。
+- **仍然禁的**：`gh issue develop`、所有 `gh pr` / `gh release` / `gh repo` / `gh workflow` 写操作、
+  `gh api` 的 POST / PATCH / DELETE（防止绕过 issue 这条口子改仓库状态）。
+- **敏感文本照样要过检查**：`public-text-guard` 扩展在 macmini 上同样生效，执行 `gh issue create`
+  前需做公开文本敏感自检并在命令末尾加 `# AI_SENSITIVE_CHECKED`。
+
 **要恢复 macmini 的 GitHub 访问**（一般不需要）：删除 `~/.ssh/config` 里的
 `BEGIN/END macmini-github-cut` 段；`git config --global --unset-all
 'url.https://github.invalid/.insteadOf'`；把 `~/.ssh/disabled-github-20261028/` 里的密钥移回 `~/.ssh/`。

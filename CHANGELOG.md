@@ -6,6 +6,25 @@
 
 ## [Unreleased]
 
+### 2026-11-04 macmini 放开 `gh issue`（Issue 不碰本地 `.git`）+ 补拦 `gh workflow run`
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：macmini 自 2026-10-31 起严格 git 只读（`.git` 双向镜像，两边同时写会互相覆盖），扩展里的 `isGhReadonly()` 把「所有 gh 写操作」一并拦了，连 `gh issue` 也在内。但用户 2026-11-04 核定：**Issue 是 GitHub 侧对象、走 REST API，根本不碰本地 `.git`**，不该被归进 git 写操作——远端常驻会话（值班会话、Mark 系会话）需要自己开 Issue 记待办。实测也证实「macmini 上不了 GitHub」其实指**只断 ssh / git 层**（git url 被改成 `github.invalid`、ssh 走 127.0.0.1:9），HTTPS API 本来就通（`api.github.com` 返回 200）。同时顺手补了一个**既有缺口**：`GH_WRITE_VERBS` 里没有 `run`，`gh workflow run`（触发工作流）之前根本没被拦。
+
+**改了什么**（4 个文件，与全局逐字节一致）：
+
+1. `pi/agent/extensions/git-readonly-guard.ts`：① `isGhReadonly()` 新增 `issue` 分支——`area === "issue"` 直接放行，**只保留 `develop` 拦截**（新增常量 `GH_ISSUE_BLOCKED`：`gh issue develop` 会建本地分支 + checkout，是真 git 写）；② `GH_WRITE_VERBS` 加 `run`（`gh workflow run` 补拦；`gh run view` 这类只读 action 是 `view`，不受影响）；③ 文件头注释与 `DENY_REASON` 同步改写——禁写范围从「PR / Release / Issue / repo 变更」改为「PR / Release / repo / workflow 变更、`api` 非 GET」，并写明 `gh issue` 例外与 `develop` 的例外里的例外。
+2. `pi/agent/docs/macmini-mirror.md` 第四节：新增「断的只是 ssh / git 层，HTTPS API 没断（2026-11-04 实测）」段与「macmini 上的 `gh`（2026-11-04 起可用，仅 Issue）」小节——为什么 `gh issue` 不算 git 写、已安装情况（`brew install gh`，2.14.4，`/usr/local/bin/gh`）、**尚未认证**与推荐认证方式（细粒度 PAT、只给目标仓库 Issues 读写，写 `~/.config/gh/hosts.yml` 或 `GH_TOKEN`，这两个位置不在镜像范围内、不会回流本机也不进仓库）、仍禁什么、以及敏感文本仍需 `# AI_SENSITIVE_CHECKED`。
+3. `pi/agent/CLAUDE.md`：「macmini 严格 git 只读」条——禁写清单末项改为「PR / Release / repo / workflow 变更、`api` 非 GET」，新增 `gh issue` 例外说明（可在 macmini 建 / 查看 / 评论 / 改 / 关 Issue，`gh issue develop` 仍拦）与 gh 已装待认证的提示。
+4. `pi/agent/skills/macmini-use/SKILL.md`：分流表「git add / commit / push / PR / Release / CI」行补 Issue 例外括注；第二节末新增「gh 在 macmini 上只有 Issue 能用」段与四项边界（`develop` 仍禁、其余 gh 写仍回本机、`gh issue create` 需带 `# AI_SENSITIVE_CHECKED`、未认证会提示 `gh auth login`）。
+
+**验证**：4 个文件与全局 `diff` 逐一无差异；`esbuild --loader:.ts=ts` 对 `git-readonly-guard.ts` 通过；`check_description.py skills/macmini-use/SKILL.md` → PASS 442/1024。全局侧已由改动方验证：`checkCommand` 单测 17 条全过（issue 六种操作放行；`gh issue develop` / git 写 / `gh pr` / `gh release` / `gh repo` / `gh api` 写 / `gh workflow run` 全部仍拦；`git status` / `gh pr list` / `gh api` GET 放行）；macmini 上 `gh` 已装 2.14.4（匿名调用提示 `gh auth login`，确认已装未认证）、`api.github.com` HTTP 200 可达。
+
+**回归风险**：低，但有一处**行为放宽**需备案——macmini 上 `gh issue …` 从「一律拒绝」变成「放行」，意味着远端会话现在能改动 GitHub 侧的 Issue 状态；防线靠三点：① `gh issue develop` 仍拦（唯一会碰本地 `.git` 的 issue 子命令）；② `gh api` 非 GET 仍拦，绕不过去改仓库其它状态；③ `public-text-guard` 仍要求 `gh issue create` 带 `# AI_SENSITIVE_CHECKED`。另一处是**收紧**：`gh workflow run` 现在会被拦（之前是漏网），若 macmini 上有脚本依赖它触发工作流，需改回本机执行。扩展按 hostname 判定，本机零影响。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-11-04 macmini 使用状态指示器（新增 extensions/macmini-use/status.ts）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
