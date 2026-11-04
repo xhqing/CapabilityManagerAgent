@@ -65,6 +65,22 @@ def repo_root(path):
     return norm(path)
 
 
+def current_branch(root):
+    """取仓库当前分支名；不在仓库内 / 失败返回 None。"""
+    try:
+        out = subprocess.run(
+            ["git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
 def load():
     """读手动 add 的条目；规范化 + 去重 + 去掉被父条目覆盖的多余子条目。"""
     try:
@@ -115,13 +131,23 @@ def cmd_status(argv):
     path = target_path(argv)
     root = repo_root(path)
     entry = covering_entry(path, load()) or covering_entry(root, load())
+    branch = current_branch(root)
+    on_main = branch in ("main", "master")
     print(f"当前目录：{norm(os.getcwd())}")
     print(f"检查路径：{path}")
     print(f"仓库根：{root}")
+    if branch:
+        print(f"当前分支：{branch}")
     if entry:
         print(f"自动 add：已关闭（手动，由条目 {entry} 覆盖）")
         print("含义：AI 不主动走 /add、不执行 git add，改动留在工作区（可看 git diff）；")
         print("      用户当轮明确要求 add / 提交时才执行。")
+        if on_main:
+            print("      另：当前在 main 分支——main 上恒为关闭，auto 只在 worktree 的功能分支上生效。")
+    elif on_main:
+        print("自动 add：已关闭（main 分支强制关闭）")
+        print("含义：main 上只能是关闭状态——不自动 add（git-main-guard 硬拦 git add），")
+        print("      也不能用 add-mode auto 开启；建 worktree 后在 feat / fix / chore 分支上才可开启。")
     else:
         print("自动 add：开启")
         print("含义：工作区有干净改动时，AI 会按 add skill 预检后直接加入暂存区。")
@@ -138,7 +164,10 @@ def cmd_manual(argv):
         return 0
     entries.append(target)
     save(entries)
+    branch = current_branch(repo_root(target))
     print(f"已暂停自动 add：{target}")
+    if branch:
+        print(f"当前分支：{branch}" + ("（main 恒为关闭；此登记对 worktree 同级目录无效，只覆盖登记目录及其子目录）" if branch in ("main", "master") else ""))
     print("该目录及其子目录里的仓库都生效；用户明确要求 add / 提交时才执行。")
     print("恢复：add-mode auto")
     return 0
@@ -158,6 +187,12 @@ def cmd_auto(argv):
         print(f"已恢复自动 add：{target}")
     else:
         print(f"当前本来就是自动 add：{target}")
+    branch = current_branch(repo_root(target))
+    if branch:
+        print(f"当前分支：{branch}")
+        if branch in ("main", "master"):
+            print("说明：main 分支恒为关闭状态，auto 在这里不生效（条目已移除，main 仍不自动）；")
+            print("      建 worktree 后在 feat / fix / chore 分支上才自动。")
     if parent:
         print(f"注意：上层条目 {parent} 仍然覆盖这里，实际仍是手动 add。")
         print(f"      要让这里自动，先对上层条目执行：add-mode auto {parent}")
@@ -174,12 +209,14 @@ def cmd_toggle(argv):
 def cmd_list(argv):
     entries = load()
     if not entries:
-        print("当前没有任何项目暂停自动 add（全部自动）。")
+        print("当前没有任何项目暂停自动 add（非 main 分支上全部自动）。")
+        print("注：main 分支恒为关闭（只能关闭），auto 只在 worktree / 非 main 分支上可开启。")
         return 0
     print(f"自动 add 已关闭（手动）的项目（共 {len(entries)} 个）：")
     for entry in entries:
         mark = "" if os.path.isdir(entry) else "  [目录不存在]"
         print(f"  - {entry}{mark}")
+    print("注：main 分支恒为关闭（只能关闭），auto 只在 worktree / 非 main 分支上可开启。")
     return 0
 
 

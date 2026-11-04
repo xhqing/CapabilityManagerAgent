@@ -6,6 +6,32 @@
 
 ## [Unreleased]
 
+### 2026-11-04 add-mode / commit-mode：main 分支恒为「已关闭且只能关闭」
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-04 指出一个语义矛盾——新规已经确定「main 主工作区上不自动 add / commit（`git-main-guard` 硬拦）」，但两个开关查状态时仍把 main 主工作区报成「开启（auto）」，等于声称一件不会发生的事；他的口径是：**main 上默认状态就应该是关闭，而且只能是关闭，只有在非 main 分支 / worktree 上才能开启**。
+
+**改了什么**（2 个脚本 + 2 份 README + 2 个守卫 + 全局规则）：
+
+1. `pi/agent/patch/add-mode/add-mode`、`pi/agent/patch/commit-mode/commit-mode`：
+   - 新增 `current_branch()`；`status` 输出带上「当前分支」，并分三态：**main / master → 「已关闭（main 分支强制关闭）」**（说明不能用 auto 开启、建 worktree 后才可开启）；非 main 且无 manual 条目 → 「开启」；有 manual 条目 → 「已关闭（手动）」并在 main 上加一句「main 上恒为关闭」。
+   - `auto` 在 main 上把实际状态说清楚：「main 分支恒为关闭，auto 在这里不生效（条目已移除，main 仍不自动）；建 worktree 后在功能分支上才自动」——条目照常移除（否则无法清理登记），但不再谎称「已恢复开启」。
+   - `manual` 在 main 上提示「main 恒为关闭；此登记对同级 worktree 无效，只覆盖登记目录及其子目录」。
+   - `list` 补注「main 恒为关闭（只能关闭），auto 只在 worktree / 非 main 分支上可开启」。
+2. `pi/agent/patch/add-mode/README.md`、`pi/agent/patch/commit-mode/README.md`：在「粒度」之后新增「main 分支恒为关闭」条，写法与全局规则一致。
+3. `pi/agent/extensions/add-mode-guard.ts`、`commit-mode-guard.ts`：**撤销同日早些时候加的 `commonRoot()` 覆盖**——它让「主仓库登记的 manual」连带覆盖名下 worktree，与用户新口径（worktree 才可开启）直接冲突。改回纯目录判定：worktree 是独立目录，登记主仓库路径不影响同级 worktree；要关就单独对 worktree 目录执行 `manual`。
+4. `pi/agent/CLAUDE.md`：「自动 add 开关：add-mode」与「自动 commit 开关：commit-mode」两段各补一条「**main 分支恒为关闭、只能关闭（2026-11-04 用户立）**」：目标目录停在 main / master 时 status 恒显示「已关闭（main 分支强制关闭）」，`auto` 在 main 上不生效（条目可被移除但状态仍关闭）——与 `git-main-guard` 在 main 上硬拦 add / commit 同一套口径；只有非 main 分支 / worktree 上才可能处于开启状态（新建 worktree 默认开启）。
+5. `~/.local/bin/add-mode`、`~/.local/bin/commit-mode`：已重跑两个 `install.sh` 更新副本（脚本是复制安装、不是软链）。
+
+**验证**（`/tmp` 临时仓库实测，用完清理；状态文件里的测试条目已移除）：
+- main 上 `add-mode status` → 「已关闭（main 分支强制关闭）」；`commit-mode status` 同理。
+- main 上 `add-mode auto` → 「当前本来就是自动 add」+「main 分支恒为关闭，auto 在这里不生效」；条目移除、状态仍为关闭。
+- main 上 `manual` → 登记成功但明确告知「main 恒为关闭；对同级 worktree 无效」。
+- 同级 worktree（`feat/x`）在 main 登记 manual 后仍为「开启」（验证 `commonRoot` 撤销后 worktree 不被连带关闭）。
+- worktree 上 `manual` → 「已关闭（手动）」；`auto` → 「开启」。
+- 两个守卫扩展 `esbuild --loader:.ts=ts` 语法检查通过；两份 README 与全局口径逐字对齐。
+
 ### 2026-11-04 worktree 场景修复：add / commit 在 AI 建的 worktree 上正常自动触发
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
