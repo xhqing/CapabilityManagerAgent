@@ -17,10 +17,12 @@ description: 发版前的版本号 bump 专用流程：对齐 main → 建 bump 
 
 ## 执行流程
 
-1. **对齐 main**：`git switch main && git fetch origin && git pull --ff-only`（以 origin/main 为准）。
+1. **对齐 main**（在主工作区执行；**不要在 worktree 里 `git switch main`——会 fatal**）：`git -C <主工作区> fetch origin && git -C <主工作区> merge --ff-only origin/main`（以 origin/main 为准；主工作区就在 main 且干净时等价于 `pull --ff-only`）。
    - 本地 main 与远端分叉（本地领先 / 历史不一致）→ **暂停报告**，等用户确认对齐方式（对齐操作由用户执行或明确授权，本 skill 不自行 reset / force）；
    - 用户在功能分支上触发 `/bump` → 提示：先让该功能分支的 PR 合并进 main（版本号不写在功能分支上），再来 bump。
-2. **建 bump 分支**：`git switch -c chore/bump-v<目标版本>`（从最新 main 开出）。
+2. **建 bump 分支**（从最新 main 开出）：
+   - **worktree 场景**（会话 cwd 在主工作区、主工作区就是 main，也是本链条的实际常态）→ 新建专用 worktree：`git -C <主工作区> worktree add ../<仓库名>-bump-v<目标版本> -b chore/bump-v<目标版本>`；后面第 4 步的文件改动全部落到该 worktree，**不动主工作区**（local main 只负责生成 worktree 与被快进同步）。
+   - 主工作区场景（用户就在非 main 的会话里手动触发）→ `git switch -c chore/bump-v<目标版本>`。
 3. **判定新版本号**（发布状态必须实测，不凭 VERSION / CHANGELOG / commit 历史推断）：
    - 实测最新已发布版本：`gh release list --limit 1`（或 `gh release view v<版本>` 查重）；
    - **CHANGELOG 顶部条目的版本号高于已发布版本** → 新版本号 = 该条目版本号（CHANGELOG 已定稿，bump 只做各文件对齐）；
@@ -32,7 +34,7 @@ description: 发版前的版本号 bump 专用流程：对齐 main → 建 bump 
    - 主 manifest：`manifest.json` / `pyproject.toml` / `Cargo.toml` / `*.csproj`；
    - README（`README.md` / `README_cn.md`）**显式声明当前版本**的文字与版本徽章里的版本号（不抓 changelog 历史版本、不抓依赖版本）；安装命令用固定 tag URL（`releases/download/<tag>/<asset>`）的，其版本号（tag 段与资产名）一并同步到新版本——遇到 `releases/latest/download/` 形式的存量链接顺手改为固定 tag 形式（latest 指针随发布移动、资产名带版本号，历史链接必 404，2026-09-08 用户裁定弃用，规范详见 release skill「安装链接」一节）。
    - 项目无 `VERSION` 文件而以 package.json 为版本源时，跳过 VERSION（不强制创建——创建属 commit skill 第 9m 的职责范围）。
-5. **自动衔接 /add（2026-10-02 用户立）**：本 skill 改完版本号文件后，**直接进入 add skill 完整流程**——以第 4 步的「改动文件清单」为候选集（只处理 bump 改动的版本号载体文件、不扫工作区其它改动）：
+5. **自动衔接 /add（2026-10-02 用户立）**：本 skill 改完版本号文件后，**直接进入 add skill 完整流程**——以第 4 步的「改动文件清单」为候选集（只处理 bump 改动的版本号载体文件、不扫工作区其它改动），**并把 bump 工作区路径一并传给 add skill**（worktree 场景下其所有 git 命令用 `git -C <bump 工作区>` 执行，见 add skill「worktree 场景」节）：
    - add 预检（gitleaks + AI 语义扫描）**完全干净** → add skill 按其第 7 步继续自动衔接 commit skill（push bump 分支 + 建 PR + enable auto-merge → 9z 等待 CI 合并、对齐本地 main → 第 10 步自动衔接 `/release` 完成发版）——整条链自动跑完；
    - **有任何「需人工过目」/「不建议入库」内容** → 链条停在 add 报告阶段（干净文件已入暂存区），等用户处理后再推进（重新 `/add` 或 `/commit`）；
    - 本 skill 自身仍不执行 `git add` / `git commit`（由 add / commit skill 按各自授权执行）；

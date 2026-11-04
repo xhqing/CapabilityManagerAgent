@@ -6,6 +6,36 @@
 
 ## [Unreleased]
 
+### 2026-11-04 worktree 场景修复：add / commit 在 AI 建的 worktree 上正常自动触发
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户澄清了他的真实工作流——**他本人在 main 分支的主工作区开 pi 会话，会话里让 AI 建 worktree，任务全程由 AI 在 worktree 里完成**；他本人不会进 worktree 操作。此前的条文只写了「非 main 分支才自动触发」，没说清「主工作区的 main」与「worktree 的功能分支」是两回事，导致两层歧义：
+1. 看起来「在 main 开会话」就永远不触发 add / commit，两个 skill 等于作废；
+2. 更要紧的是**实际执行层面根本跑不通**：add / commit skill 的全部检测与 git 命令都依赖会话 cwd（裸 `git status` / `git diff --cached` / `git commit`），而会话 cwd 停在 main 主工作区——实测 worktree 的工作区与 index 与主仓库**完全独立、互不可见**，裸命令会得出「工作区无改动 / 暂存区无内容」的结论并静默结束流程；反之若漏写 `-C` 撞上 main 上的写操作，会被 `git-main-guard` 拦下。
+
+另外实测发现 worktree 里**不能操作本地 main**（三条命令全部 fatal）：`git switch main` → `already used by worktree at <主工作区>`；`git fetch origin main:main` → `refusing to fetch into branch`；`git branch -f main origin/main` → `cannot force update the branch used by worktree`。而 commit skill 的 0a（快进本地 main 引用）、9z（对齐本地 main + 删本地分支）、第 10 步（前置条件「当前分支为 main」）恰好全都依赖这些动作——worktree 里提交完、PR 合并后这三步必然断，发版链永远不触发。
+
+**改了什么**（1 份全局规则 + 5 份 skill + 3 个扩展）：
+
+1. `pi/agent/CLAUDE.md`：①「开发流程：worktree + PR」节在 `-C` 纪律之后新增「worktree 是任务的正常战场，不是被限制对象」——自动触发限制**只针对主工作区的 main**，worktree 的 feat / fix / chore 分支照常自动触发与自动衔接；检测入口用 `git -C <worktree> status --porcelain`；本地 main 的对齐与发版在主工作区执行；`gh` 不受 `-C` 限制。②「会话收尾检查」节的检查范围加入「本会话创建的 worktree」（`worktree list` + 逐个 `git -C <worktree> status --porcelain`），并新增「worktree 怎么提交」条（全命令带 `-C`、分支属非 main 照常自动触发）。
+2. `pi/agent/skills/add/SKILL.md`：description 补 worktree 场景一句；授权边界第 1 条改写为「主工作区的 main 上不自动发起，worktree 的功能分支属正常自动触发范围」，并新增独立条目讲清两种工作区；新增「worktree 场景」节（目标工作区解析、全部命令带 `-C`、禁止 `cd`（守卫不跟踪 cd 会误拦）、检测入口读 worktree、闸门看 worktree 分支）；第 0 步候选集改为 `git -C <目标工作区> status --porcelain`；第 5 步 `git add` 与新增的 `diff --cached` 验证都带 `-C`；第 7 步自动衔接把目标工作区路径传给 commit skill。
+3. `pi/agent/skills/commit/SKILL.md`：description 补 worktree 场景（并压缩其余文字保住 1024 上限，1009 → 定稿 989）；触发判定②改为「主工作区 main 上不自动衔接，worktree 功能分支照常」；新增「worktree 场景」节（两个工作区的分工、全部命令带 `-C`、worktree 里那三条 fatal、`gh` 例外）；0a 远端对齐在主工作区执行 `git -C <主工作区> merge --ff-only origin/main`（主工作区不在 main 或被未提交改动挡住 → 跳过并记录，不阻塞提交）；0b / 第 1 步 / 敏感扫描 / cache 检测 / 第 4–8 步全部改 `git -C <目标工作区>`；第 8 步 `gh repo create` 用 `--source=<目标工作区>`；9z 场景 A 拆成主工作区 / worktree 两种（worktree 里不 `switch main`，本地分支与 worktree 留给 dev-workflow 第 8 步收尾，远端源分支照常清理）；第 10 步前置条件 2 改为主工作区 `HEAD == origin/main`（**弃用 `merge-base --is-ancestor`**：PR 是 squash 合并，原提交与 main 无祖先关系，会误判成未合并），前置条件 3 与各步的 `fetch` / `log` / `rev-list` 全部带 `-C`；第 9 步明确「标配检测与补全以任务工作区为根」；第 11 步与汇报的 `git status` 改为 `git -C <目标工作区> status`。
+4. `pi/agent/skills/bump/SKILL.md`：第 1 步对齐 main 改为主工作区 `git -C <主工作区> fetch && merge --ff-only origin/main`（不在 worktree 里 `switch main`）；第 2 步 worktree 场景改为新建专用 bump worktree（`git -C <主工作区> worktree add ../<仓库名>-bump-v<版本> -b chore/bump-v<版本>`），不动主工作区；第 5 步把 bump 工作区路径传给 add skill。
+5. `pi/agent/skills/release/SKILL.md`：第 0 步正式发布对齐 main 改为主工作区 `-C` 执行并校验 `HEAD == origin/main`；新增「worktree 场景」说明（第 2–7 步全部针对主工作区，tag 必须打在 main 的 HEAD 上）；第 2 步 `status --porcelain`、第 3 步 `tag -l` / `ls-remote --tags`、第 5 步 `tag -a`、第 6 步 `push origin <tag>` 全部带 `-C <主工作区>`。
+6. `pi/agent/skills/dev-workflow/SKILL.md`：**修掉与现行授权规则的三处冲突**——2026-09-22 立的两处「commit 一律由用户亲自执行、AI 不代行」已被 2026-10-01（`/add` 预检干净自动衔接 commit）与 2026-10-04（常设授权：有待提交内容就直接按流程提交）覆盖，dev-workflow 却一直没同步：① CI 红修复循环的「用户自行 add + /commit」改为走 `/add` → `/commit`；② 开发过程提交条改为按 add / commit skill 授权；③「git / gh 授权边界」整段重写（明确旧口径已废止、全部 git 命令带 `-C`、暂存区只增不改）。第 8 步收尾的 `cd <主仓库> && git worktree remove` 改为 `git -C <主工作区> worktree remove`，同步其它 worktree 也带 `-C`。
+7. `pi/agent/extensions/git-status-guard.ts`：第 11 步的 status 比对此前只按会话 cwd 实测，worktree 场景会把正确的 worktree 输出误判成「编造」并替换成主工作区的 status。新增 `commandTarget()`：从每条 bash 命令里解析最近的 `git -C <path>` / `cd <path>` 目标，作为候选之一；比对时**贴出的内容匹配任一候选（worktree 或 cwd）即放行**，都不匹配才替换为优先的 worktree 输出。
+8. `pi/agent/extensions/add-mode-guard.ts` / `commit-mode-guard.ts`：两个开关的粒度是「登记的目录及子目录」，而 worktree 在主仓库同级、toplevel 是它自己——**在主仓库登记 manual 原本覆盖不到它名下的 worktree**（用户暂停了自动提交，AI 在 worktree 里却照常提交）。新增 `commonRoot()`：用 `git rev-parse --path-format=absolute --git-common-dir` 取共享 gitdir 的上级目录（主仓库根），`isManualPath` 判不到时再拿它判一次。
+
+**验证**（全部在 `/tmp` 临时仓库实测，用完清理）：
+- `git -C <worktree> add` → 放行；`cd <worktree> && git add` → 被 `git-main-guard` 拦（确认必须用 `-C`）；`git -C <worktree> commit # AI_AUTHORIZED_COMMIT` → 放行且 gitleaks pre-commit hook 正常执行。
+- worktree 与主工作区 index 隔离：worktree `add` 后主工作区 `diff --cached` 为空。
+- 0a worktree 变体：worktree 里 `fetch` → 主工作区 `merge --ff-only origin/main` 成功，HEAD 与 origin/main 相同。
+- 9z worktree 变体：push 分支 → squash 式前进 main → worktree fetch → 主工作区对齐 → 远端源分支 `push origin --delete` 成功；worktree 本地分支 `branch -D` 报 `cannot delete branch ... used by worktree`（符合设计，留给 dev-workflow 第 8 步）。
+- 第 10 步新前置条件（主工作区 `HEAD == origin/main`）在 squash 合并后成立。
+- `check_description.py`：add 752/1024、commit 989/1024、bump 481/1024、release 737/1024，全部通过。
+- 三个扩展 `esbuild --loader:.ts=ts` 语法检查通过。
+
 ### 2026-11-04 币种符号新规（美元写 `US$` / 港币写 `HK$`，禁止裸 `$`）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。

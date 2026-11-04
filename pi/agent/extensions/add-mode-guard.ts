@@ -25,7 +25,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const STATE_FILE = join(homedir(), ".pi", "agent", "state", "add-mode.json");
@@ -99,14 +99,40 @@ function repoRoot(path: string): string {
 	return root;
 }
 
-/** 某路径（它本身或它所在仓库）是否落在手动 add 条目之下。 */
+/** 某路径（它本身、它所在仓库）是否落在手动 add 条目之下。 */
 function isManualPath(path: string): boolean {
 	const entries = manualEntries();
 	if (entries.length === 0) return false;
 	const p = norm(path);
 	if (entries.some((e) => under(p, e))) return true;
 	const root = repoRoot(p);
-	return entries.some((e) => under(root, e));
+	if (entries.some((e) => under(root, e))) return true;
+	// worktree 也是同一个项目的延展（2026-11-04 增）：worktree 的 toplevel 是它自己，
+	// 但它与主仓库共享 .git——拿共享 gitdir 的上级目录（主仓库根）再判一次，
+	// 让「在主仓库登记 manual」能覆盖它名下的 worktree。
+	const common = commonRoot(p);
+	return entries.some((e) => under(common, e));
+}
+
+/** 取路径所在仓库的主仓库根（worktree 的 .git 指回主仓库的 .git），失败返回路径本身。 */
+function commonRoot(path: string): string {
+	const cacheKey = `common:${path}`;
+	const cached = repoCache.get(cacheKey);
+	if (cached) return cached;
+	let root = path;
+	try {
+		const out = execFileSync("git", ["-C", path, "rev-parse", "--path-format=absolute", "--git-common-dir"], {
+			encoding: "utf8",
+			timeout: 5000,
+			stdio: ["ignore", "pipe", "ignore"],
+		});
+		const common = out.trim();
+		if (common) root = norm(dirname(norm(common)));
+	} catch {
+		// 不是 git 仓库
+	}
+	repoCache.set(cacheKey, root);
+	return root;
 }
 
 /** 从 bash 命令里提取可能的目标目录：cwd、`cd X`、`git -C X`。 */
