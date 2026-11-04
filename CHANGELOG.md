@@ -4,6 +4,25 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-11-04 币种符号新规（美元写 `US$` / 港币写 `HK$`，禁止裸 `$`）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：用户 2026-11-04 立了一条全局表述规则——金额一律写完整币种符号（`US$` / `USD` / `HK$` / `HKD`），不许用裸 `$`。原因有两层：一是裸 `$` **没说清是哪种货币**，读者得靠上下文猜；二是本团队的语境里港币用得不少，裸 `$` 很容易被误读成港币（或反过来），一旦出现在复盘、订单记录、脚本输出里就是实打实的口径错误。规则同时划了三条边界，避免误伤：用户原文与外部原文（网页 / 报告 / 新闻 / 第三方文档）里的 `$` 不改（那是别人写的）、代码里作为字符串内容的 `$`（shell 变量 / 正则 / 模板语法）不受限、纯数学式子里与货币无关的符号照旧。
+
+**改了什么**（1 处改动 + 一轮排查）：
+
+1. `pi/agent/CLAUDE.md`：「## Language」节紧跟「标点符号一律使用简体中文标点」之后**原样新增**「币种符号：美元一律写 `US$` 或 `USD`，港币一律写 `HK$` 或 `HKD`，禁止用裸 `$`（2026-11-04 用户立）」条目——写法示例、适用范围（所有对话回复、所有落盘文件含文档 / 复盘 / CHANGELOG / TODO / 脚本输出与注释、所有金额与费率数字）、三条边界、以及工具强制说明（`DayTradingAgent` 的停盯总结 `CUR` 已改成 `US$`，金额前缀由常量统一控制、禁止在脚本里裸写 `$` 拼金额）。位置与全局一致，`diff` 逐字节无差异。
+2. **排查结论：镜像侧 skills / docs 无需跟进改动**。按规则扫了 `pi/agent/` 下全部 `*.md` / `*.txt` / `*.json` 里的 `$`——命中项全部落在豁免范围：`patch/branch-protection/branch-protection.sh`、`patch/subsync/*`、`skills/md2pdf/scripts/md2pdf.sh` 等是 shell 变量（`$1`、`$PWD`、`$(id -u)`）；`skills/macmini-use/SKILL.md`、`skills/skill-creator/SKILL.md`、`skills/agent-reach/references/video.md` 里的 `$i` / `$VIEWER_PID` / `$UA` 同为变量；`skills/image-ocr/SKILL.md` 的 `\$\s?\d+` 是「识别金额」的正则（代码，不是给人看的金额）；`skills/md2pdf/references/pitfalls.md` 的 `$header-includes$` 是 pandoc 模板占位符；`docs/capability-sync.md` 的 `grep -c '^## 2026-10-12$'` 是正则锚点。**没有任何一处是「金额写成裸 `$`」**，故本次不动 skills / docs 正文（LaTeX 数学公式里的 `$` 亦未触碰）。
+
+**验证**：`diff ~/.pi/agent/CLAUDE.md pi/agent/CLAUDE.md` 无输出（逐字节一致）；`grep -rn --include='*.md' -E '\$[0-9]' pi/agent/` 命中 0 条，确认没有「`$` 紧跟数字」的金额写法残留。
+
+**回归风险**：无。纯新增一条表述规则 + 一次只读排查，未改动任何既有规则文字、脚本逻辑或扩展行为；新条目与既有「标点符号」条并列，不覆盖任何旧要求。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ## [1.12.0] - 2026-11-03
 
 ### 2026-11-03 存量 37 个仓库全部补齐 strict PR CI（新增 validate-template/）
