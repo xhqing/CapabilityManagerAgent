@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+### 2026-11-04 访问量徽章正式取消 + macmini 上 gh 已认证（镜像同步，4 个文件）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。本批合并了两批互不相关的文案更新，一起提交。
+
+**为什么改**：
+
+1. **访问量徽章取消**：用户 2026-11-04 停用了 xhqing 仓库那套集中式访问量采集（采集工作流、脚本、`traffic/` 数据目录全删），全团队 24 个仓库 README 里的访问量徽章也在同一批 PR 里移除。规矩文件必须跟着改——否则下次 `/commit` 还会按旧规矩把这枚徽章当成「团队仓库允许的例外」保留甚至补挂，而它的数据源已经不存在了，只会长期展示冻结的旧值。
+2. **macmini 上 gh 已认证**：macmini 上 `brew install gh`（2.14.4）已完成，凭据按方案 A 落地——把本机 keyring 里的 OAuth token 复制到 macmini 本机的 `~/.config/gh/hosts.yml`（该目录不在 Syncthing 镜像范围内），实测 `gh auth status` 显示已登录、`gh api rate_limit` 返回 4990/5000、`gh issue list` 退出码 0、仓库权限 admin/push/triage。原先文档里写的「尚未认证、要用得先放凭据」已成事实错误，需改成「已认证」并补上 token 轮换后需重写的注意事项。
+
+**改了什么**（4 个文件，与全局逐字节一致）：
+
+1. `pi/agent/docs/new-agent-scaffold.md`：原「访问量徽章（Visitors，团队仓库专用例外）」整条重写为「访问量徽章已取消（2026-11-04 用户决定）」——新建仓库只挂 License / Version / Type 三枚，存量看到按遗留删除整行，并写明为什么取消（采集停掉后徽章冻结旧值、文案仍写「Visits/day (14d)」，等于长期展示不实数据；要恢复得连同采集链路与数据目录一起恢复）。顺带把首字母大写那条里的示例 `Visits/day` 换成 `Type-AI Agent`（`Visits/day` 已不再是本团队徽章）。
+2. `pi/agent/skills/commit/SKILL.md`：① 第 9a 步「Visitors 访问量徽章（团队仓库允许的例外，2026-08-16 立）」改为「访问量徽章已取消（2026-11-04 用户决定，取代 2026-08-16 的 Visitors 例外）」，明确 9a 不补挂；② 第 9l 步由「Visitors 属允许例外、不删」改为「遗留的访问量徽章按违规处理、删除整行」，检测句与修正句同步改写；③ 「严禁编辑 / 删除文件」例外清单、「写标记」「汇报」「边界」几处提到「Visitors 属允许例外」的表述一并改为「访问量徽章已于 2026-11-04 取消，遗留的按违规删除」；④ `.commit-cache.md` 的 `readme-badges` 标记示例文案同步改写。description 未改（989/1024，PASS）。
+3. `pi/agent/docs/macmini-mirror.md`：第四节「macmini 上的 `gh`」由「尚未认证」改写为「已认证（2026-11-04，方案 A）」——凭据位置与权限位（`~/.config/gh/hosts.yml`，user `xhqing`，mode 600，不在镜像范围）、scope 说明（repo / workflow / gist / read:org / admin:public_key，对 Issue 偏大但零维护，日后可换只含 Issues 的细粒度 PAT）、token 轮换后需重新写入、以及实测结果（认证状态、rate limit、`gh issue list`、仓库权限）。
+4. `pi/agent/skills/macmini-use/SKILL.md`：第二节末第 ④ 点由「macmini 上的 gh 需要认证」改为「已认证（2026-11-04）+ 凭据位置 + token 轮换后需重新写」。description 未改（442/1024，PASS）。
+
+**验证**：`diff -r` 对 `skills` / `docs` / `patch` / `extensions` 四部分与 `CLAUDE.md` 逐一复核，全局与镜像**无内容差异**（仅剩合法差异：本机私有不入库的 `anysearch/.env`、`backup/endpoints/endpoints.json`、`session-link` 运行时文件、`__pycache__`，均已在 `.gitignore` 覆盖范围内）。`check_description.py` 对 `commit` 与 `macmini-use` 两个 SKILL.md 均 PASS。
+
+**回归风险**：低，但有一处**规矩收紧**需备案——commit skill 第 9l 步以前对访问量徽章「豁免不删」，现在改成「视为违规、删除整行」。若某个仓库的 README 仍挂着这枚徽章（数据源已删、徽章显示失效），下次在该仓库跑 `/commit` 会把它删掉；这正是本次要的效果，但如果某处还想保留这枚徽章做历史记录，需要在跑 `/commit` 前先说明。其余改动均为文案事实更新（认证状态），不影响任何判定逻辑。
+
 ### 变更（移除访问量徽章，配合停用集中式流量采集）
 
 - **为什么改**：用户 2026-11-04 决定停用 xhqing 仓库的集中式访问量采集，同时不再在各仓库 README 展示访问量徽章。徽章的数据源必须由采集任务每天刷新，采集停掉之后徽章会冻结在旧值，而徽章文案写的是「Visits/day (14d)」——数字不再更新却仍显示成实时数据，留着反而误导读者。

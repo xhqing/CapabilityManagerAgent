@@ -69,8 +69,8 @@ edit / close` 都不属于 git 写操作（走 REST API、不碰本地 `.git`）
 远端会话可以直接开 Issue 记待办（记得带 `-R owner/repo`）。但：① `gh issue develop` 仍禁（会建本地
 分支）；② `gh pr` / `gh release` / `gh repo` / `gh workflow run` / `gh api` 写操作照旧回本机；
 ③ `gh issue create` 属于公开动作，public-text-guard 要求在命令末尾带 `# AI_SENSITIVE_CHECKED`（先做公开文本敏感自检）；
-④ macmini 上的 gh 需要认证才能用（凭据写在 macmini 本机 `~/.config/gh/hosts.yml` 或 `GH_TOKEN`，
-不在镜像范围内），没认证时它会报 `gh auth login`。
+④ macmini 上的 gh 已认证（2026-11-04：本机 OAuth token 副本写在 macmini 本机 `~/.config/gh/hosts.yml`，
+该目录不在镜像范围），可直接调 API；token 轮换后需重新写。
 
 ## 三、硬约束（不知道就会出事）
 
