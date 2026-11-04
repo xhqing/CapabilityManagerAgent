@@ -27,6 +27,7 @@ import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { LOCAL_MARK, REMOTE_RM_MARK, detectHeavy, detectMirrorDelete, detectTaskSignals, isMacminiHost } from "./classify.ts";
 import { STATUS_SCRIPT, buildScript, execRemote, launchRemote, mapPath } from "./remote.ts";
+import { createIndicator } from "./status.ts";
 
 /** 工具默认 / 最长同步等待（长任务请用 background）。 */
 const DEFAULT_TIMEOUT_MS = 180_000;
@@ -99,6 +100,11 @@ async function checkGitWrite(command: string): Promise<GitVerdict> {
 	return gitCheckFn(command);
 }
 
+/** 命令里是否真的在打 macmini（`ssh mac-mini …` 这类直接调用，不走 macmini_run 的路径）。 */
+function callsRemote(command: string): boolean {
+	return /(?:^|[\s;&|(])ssh\b[^\n]*\bmac-mini\b/.test(command) || /\bmac@mac-mini\b/.test(command);
+}
+
 const HEAVY_DENY = (label: string, segment: string) =>
 	`[macmini-use] 已拦下这条本机命令：**${label}** 属于重型任务，默认应分流到 macmini。\n` +
 	`命中片段：\`${segment}\`\n` +
@@ -110,6 +116,24 @@ const HEAVY_DENY = (label: string, segment: string) =>
 export default function (pi: ExtensionAPI) {
 	// macmini 上不启用：不能把活分流给自己
 	if (isMacminiHost()) return;
+
+	// 使用状态指示器：正在用 macmini 时，在输入框下方挂一行提示，用完即撤（见 status.ts）
+	const indicator = createIndicator();
+	pi.on("session_start", async (_event, ctx) => {
+		indicator.attach(ctx);
+	});
+	pi.on("session_shutdown", async () => {
+		indicator.dispose();
+	});
+	// 工具调用结束 → 销掉前台使用登记（后台任务另有 trackJob 跟踪进程存活）
+	pi.on("tool_result", async (event) => {
+		try {
+			const { toolCallId } = (event ?? {}) as { toolCallId?: string };
+			if (toolCallId) indicator.end(toolCallId);
+		} catch {
+			// 防御性放行
+		}
+	});
 
 	// ① 每轮注入分流判断；指令本身像重活时再补一条定向提醒（只给 AI 看）
 	pi.on("before_agent_start", async (event) => {
@@ -142,13 +166,28 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	// ③ 本机重型命令闸门（bash 与 background_run 两条路径都盖）
-	pi.on("tool_call", async (event) => {
+	pi.on("tool_call", async (event, ctx) => {
 		try {
-			const toolName = (event as { toolName?: string }).toolName;
+			const { toolName, toolCallId, input } = event as {
+				toolName?: string;
+				toolCallId?: string;
+				input?: { command?: string };
+			};
+			// 使用 macmini 的工具调用：登记前台使用状态（结束时由 tool_result 销号）
+			if (toolName === "macmini_run" || toolName === "macmini_status") {
+				indicator.attach(ctx);
+				indicator.begin(toolCallId ?? `anon-${Date.now()}`);
+				return;
+			}
 			if (toolName !== "bash" && toolName !== "background_run") return;
-			const input = (event as { input?: { command?: string } }).input;
 			const command = input?.command ?? "";
-			if (!command || command.includes(LOCAL_MARK)) return;
+			if (!command) return;
+			// 直接 `ssh mac-mini …` 也是在用 macmini：同样亮起指示器
+			if (callsRemote(command)) {
+				indicator.attach(ctx);
+				indicator.begin(toolCallId ?? `anon-${Date.now()}`);
+			}
+			if (command.includes(LOCAL_MARK)) return;
 			const hit = detectHeavy(command);
 			if (hit) return { block: true, reason: HEAVY_DENY(hit.label, hit.segment) };
 		} catch {
@@ -182,6 +221,7 @@ export default function (pi: ExtensionAPI) {
 			label: Type.Optional(Type.String({ description: "任务标签（background 时写进远端启动信息，便于识别）" })),
 		}),
 		async execute(_toolCallId, params, signal, _onUpdate, ctx: ExtensionContext) {
+			indicator.attach(ctx);
 			const command = String(params.command ?? "").trim();
 			if (!command) {
 				return { content: [{ type: "text", text: "[macmini-use] command 为空：没有可执行的内容。" }], isError: true, details: {} };
@@ -240,6 +280,8 @@ export default function (pi: ExtensionAPI) {
 
 			if (params.background) {
 				const job = await launchRemote(script, String(params.label ?? ""));
+				// 后台任务在工具调用返回后仍占着 macmini：登记存活跟踪，跑完自动撤指示器
+				if (!job.error) indicator.trackJob({ id: job.jobId, scriptPath: job.scriptPath });
 				if (job.error) {
 					return {
 						content: [{ type: "text", text: `[macmini-use] 后台启动失败：\n${trimOutput(job.error, 4000)}` }],
@@ -291,7 +333,8 @@ export default function (pi: ExtensionAPI) {
 		description:
 			"查看本机（MacBook，8 核 / 8GB）与 macmini（12 核 x64 / 32GB）的实时负载、可用磁盘、占 CPU 的进程，用来判断重活该不该分流。几秒返回。",
 		parameters: Type.Object({}),
-		async execute() {
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx: ExtensionContext) {
+			indicator.attach(ctx);
 			const text = await statusText();
 			return { content: [{ type: "text", text: trimOutput(text, 8000) }], details: {} };
 		},
@@ -301,31 +344,45 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("macmini", {
 		description: "在 macmini 上跑命令：/macmini status 看两机负载；/macmini <命令> 远端执行；/macmini bg <命令> 后台执行",
 		handler: async (args, ctx: ExtensionContext) => {
-			const raw = (args ?? "").trim();
-			const cwdRemote = mapPath(ctx?.cwd ?? process.cwd()).remote;
-			if (raw === "" || raw === "status") {
-				ctx.ui.notify(trimOutput(await statusText(), 4000), "info");
-				return;
+			// 用户手敲 /macmini 也是一次「正在使用 macmini」：挂出指示器，执行完就撤
+			indicator.attach(ctx);
+			const useId = `cmd-${Date.now()}`;
+			indicator.begin(useId);
+			try {
+				await runMacminiCommand((args ?? "").trim(), ctx);
+			} finally {
+				indicator.end(useId);
 			}
-			if (raw.startsWith("bg ")) {
-				const job = await launchRemote(buildScript(cwdRemote, raw.slice(3).trim()), "slash-command");
-				ctx.ui.notify(
-					job.error
-						? `后台启动失败：${job.error}`
-						: `已在 macmini 后台启动 ${job.jobId}${job.pid ? `（PID ${job.pid}）` : ""}\n日志：${job.logPath}`,
-					job.error ? "error" : "info",
-				);
-				return;
-			}
-			const res = await execRemote(buildScript(cwdRemote, raw), { timeoutMs: DEFAULT_TIMEOUT_MS });
-			const out = [res.stdout.trim(), res.stderr.trim()].filter(Boolean).join("\n--- stderr ---\n");
-			ctx.ui.notify(
-				trimOutput(
-					`[macmini] cwd=${cwdRemote}  用时 ${(res.durationMs / 1000).toFixed(1)}s  退出码 ${res.code ?? "?"}\n${out || "(无输出)"}`,
-					4000,
-				),
-				res.code === 0 ? "info" : "error",
-			);
 		},
 	});
+
+	/** `/macmini` 的执行体（指示器的 begin / end 由命令处理函数统一收口）。 */
+	async function runMacminiCommand(raw: string, ctx: ExtensionContext): Promise<void> {
+		const cwdRemote = mapPath(ctx?.cwd ?? process.cwd()).remote;
+		if (raw === "" || raw === "status") {
+			ctx.ui.notify(trimOutput(await statusText(), 4000), "info");
+			return;
+		}
+		if (raw.startsWith("bg ")) {
+			const job = await launchRemote(buildScript(cwdRemote, raw.slice(3).trim()), "slash-command");
+			// 后台任务同样登记存活跟踪（跑完自动撤指示器）
+			if (!job.error) indicator.trackJob({ id: job.jobId, scriptPath: job.scriptPath });
+			ctx.ui.notify(
+				job.error
+					? `后台启动失败：${job.error}`
+					: `已在 macmini 后台启动 ${job.jobId}${job.pid ? `（PID ${job.pid}）` : ""}\n日志：${job.logPath}`,
+				job.error ? "error" : "info",
+			);
+			return;
+		}
+		const res = await execRemote(buildScript(cwdRemote, raw), { timeoutMs: DEFAULT_TIMEOUT_MS });
+		const out = [res.stdout.trim(), res.stderr.trim()].filter(Boolean).join("\n--- stderr ---\n");
+		ctx.ui.notify(
+			trimOutput(
+				`[macmini] cwd=${cwdRemote}  用时 ${(res.durationMs / 1000).toFixed(1)}s  退出码 ${res.code ?? "?"}\n${out || "(无输出)"}`,
+				4000,
+			),
+			res.code === 0 ? "info" : "error",
+		);
+	}
 }

@@ -48,6 +48,15 @@ macmini_status()          # 看两机实时负载，判断该不该分流时用
   `macmini_run` 执行 `tail -n 60 <日志>` 取进度 / 结果。
 - 用户手动触发：`/macmini status`、`/macmini <命令>`、`/macmini bg <命令>`。
 
+**输入框下方会亮一行状态提示（2026-11-04 用户立）**：只要真的在用 macmini——调 `macmini_run`
+/ `macmini_status`、敲 `/macmini …`、或直接 `ssh mac-mini …`——pi 输入框正下方就显示
+`🖥  当前使用的是 macmini（算力机）`；后台任务（`background: true`）会一直亮到远端进程跑完，
+其余情况工具调用结束即撤。所以这一行的含义是确定的：**亮着 = macmini 此刻确实被占用，
+撤掉 = 没在用了**。它是事实反映、不是装饰：不要为了让它亮着而动 macmini，也不要在回复里
+再解释一遍这个提示。已知覆盖边界：`background_run` 里直接嵌 `ssh mac-mini …` 的写法只跟到
+工具调用返回为止（那条通道派出去的后台进程不在跟踪范围内），有长任务请走 `macmini_run` 的
+`background: true`。
+
 **不要为了省事在 macmini 上再开一个 pi 会话跑一条命令**——模型费用翻倍、任务还要多绕一层。
 只有「需要在远端多轮交互、反复看日志改代码」时才委派值班会话：
 
