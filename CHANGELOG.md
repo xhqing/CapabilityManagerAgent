@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+### 2026-11-04 macmini 使用状态指示器（新增 extensions/macmini-use/status.ts）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：macmini 的活是在另一台机器上跑的，本机这边只看得到一条工具调用结果——用户在界面上根本看不出「此刻有东西正在那台机器上跑」，容易误以为本机空闲而随手关机 / 断网。用户因此立规（原话）：「触发 macmini-use 并使用 macmini 的时候，需要在 pi-tui 输入框下方显示当前使用的是 macmini，使用完之后需要撤销掉这个状态」。目标是把「这台机器此刻在借 macmini 的算力」变成一眼可见的事实。
+
+**改了什么**（3 处改动 + 1 个新文件 + 1 处权限对齐，与全局逐字节一致）：
+
+1. **新增** `pi/agent/extensions/macmini-use/status.ts`：状态指示器。用 `ctx.ui.setWidget(key, [text], { placement: "belowEditor" })` 在**输入框正下方**挂一行 `🖥  当前使用的是 macmini（算力机）`（计数 > 1 时补「· N 个任务」），归零时传 `undefined` 清除。两类「正在使用」都计入：**前台调用**（`macmini_run` / `macmini_status` / `/macmini …` / `ssh mac-mini …` 执行期间，由 index.ts 在 `tool_call` 登记、`tool_result` 销号）与**后台任务**（`macmini_run` 的 `background: true`——工具早已返回但远端进程还在跑，于是每 20 秒 `pgrep -f <脚本路径>` 探一次，全部跑完再撑）。两道防永挂：前台登记 30 分钟、后台任务跟踪 6 小时到期自动撤。
+2. `pi/agent/extensions/macmini-use/index.ts`：接线——`session_start` 挂载指示器（并补 macmini 主机上不启用），四条使用入口（`macmini_run` / `macmini_status` / `/macmini` / `ssh mac-mini …`）均登记前台使用，后台任务调 `trackJob` 跟踪；`tool_result` 销号。
+3. `pi/agent/skills/macmini-use/SKILL.md`：第二节补「输入框下方会亮一行状态提示」段——含义（亮着 = 确实在占用远端算力）、不要为点亮而动 macmini、不要在回复里再解释一遍，以及**已知覆盖边界**（`background_run` 里嵌 `ssh mac-mini …` 只跟到工具调用返回，长任务请走 `macmini_run` 的 `background: true`）。
+4. `pi/agent/CLAUDE.md`：「重活默认分流到 macmini」条末尾补一句状态提示说明（四种触发入口 + 用完自动撤 + 亮着的含义）。
+5. `pi/agent/patch/duty-macmini/duty.sh`：仅**权限位对齐**（644 → 755）——全局早就是可执行、镜像这边一直缺执行位，顺手按「逐字节一致」补上（内容零改动）。
+
+**验证**：`diff -r` 逐目录复核 `extensions` / `skills` / `docs` / `patch` 与 `CLAUDE.md` 全部无差异（排除本机私有不入库文件：`anysearch/.env`、`backup/endpoints/endpoints.json`、`session-link/config.json`、`local-links.json`）；`esbuild --loader:.ts=ts` 对 `status.ts` 与 `index.ts` 均通过；`check_description.py skills/macmini-use/SKILL.md` → PASS 442/1024。全局侧已由改动方验证：`tsc` 类型检查通过、harness 模拟事件流转通过、真实 pi TUI 会话中后台执行 macmini 命令时输入框下方确实显示该行、执行结束自动消失。
+
+**回归风险**：低。指示器是纯显示层，不参与任何判定——`before_agent_start` 的分流注入、重型本机命令拦截、`macmini_run` / `macmini_status` 的既有行为都没改；widget 用独立 key（`macmini-use`）不会与其它扩展的 widget 冲突；30 分钟 / 6 小时两道 TTL 防止 `tool_result` 或远端失联时残留；macmini 主机上整个扩展按 hostname 不启用，远端不会自己给自己挂提示。已知局限已在 SKILL.md 写明：`background_run` 通道里嵌 `ssh mac-mini …` 的后台进程不在跟踪范围内。
+
+> 注：本条目写在 `## [Unreleased]` 下，版本号由下次发版 bump 时统一提升（未改动 `VERSION`）。
+
 ### 2026-11-04 add-mode / commit-mode：main 分支恒为「已关闭且只能关闭」
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
