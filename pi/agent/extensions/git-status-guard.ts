@@ -62,13 +62,39 @@ function isAuthorizedCommit(command: string): boolean {
 	return command.includes(AUTH_MARK) && hasGitCommit(command);
 }
 
-/** 在会话 cwd 实测 git status；失败（非仓库 / 超时等）返回 null。 */
+/** 在指定目录实测 git status；失败（非仓库 / 超时等）返回 null。 */
 function runGitStatus(cwd: string): string | null {
 	try {
 		return execSync("git status", { cwd, encoding: "utf8", timeout: 10000 }).trim();
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * 从命令里取最近一次 git 目标目录（2026-11-04 增）：`git -C <path>` 优先、`cd <path>` 次之。
+ * 背景：会话 cwd 常在 main 主工作区、实际提交在 worktree 里（AI 建的工作区），
+ * 此时第 11 步贴的是 `git -C <worktree> status` 的输出；只按 ctx.cwd 比对会误判成「编造」并替换错对象。
+ */
+function commandTarget(command: string, cwd: string): string | null {
+	const toAbs = (raw: string): string => {
+		let p = raw.trim().replace(/^["']|["']$/g, "");
+		if (p === "~" || p.startsWith("~/")) p = (process.env.HOME ?? "~") + p.slice(1);
+		if (p.startsWith("/")) return p;
+		return `${cwd.replace(/\/+$/, "")}/${p}`;
+	};
+	let target: string | null = null;
+	for (const raw of command.split(SEGMENT_SPLIT)) {
+		const seg = raw.trim();
+		if (!seg) continue;
+		const cd = /^cd\s+(.+)$/.exec(seg);
+		if (cd) target = toAbs(cd[1].split(/\s+/)[0]);
+		if (/^git\b/.test(seg)) {
+			const m = /\s-C\s*("[^"]*"|'[^']*'|\S+)/.exec(seg);
+			if (m) target = toAbs(m[1]);
+		}
+	}
+	return target;
 }
 
 /** 规范化：统一换行、去行尾空白、整体 trim 后逐字比对。 */
@@ -84,17 +110,22 @@ function normalize(s: string): string {
 export default function (pi: ExtensionAPI) {
 	let armed = false; // 本次 agent run 内发生过授权 commit
 	let sawStatusBlock = false; // 本次 run 内 assistant 消息出现过 status 代码块
+	let statusTarget: string | null = null; // 最近一次 bash 命令里的 git 目标目录（worktree 场景）
 
 	pi.on("agent_start", async () => {
 		armed = false;
 		sawStatusBlock = false;
+		statusTarget = null;
 	});
 
-	// 置位锚点：授权 commit 命令进入执行
+	// 置位锚点：授权 commit 命令进入执行；同时记录 git 目标目录
 	pi.on("tool_call", async (event) => {
 		try {
 			if (isToolCallEventType("bash", event)) {
-				if (isAuthorizedCommit(event.input.command ?? "")) armed = true;
+				const command = event.input.command ?? "";
+				if (isAuthorizedCommit(command)) armed = true;
+				const target = commandTarget(command, process.cwd());
+				if (target) statusTarget = target;
 			}
 		} catch {
 			// 防御性放行
@@ -128,10 +159,22 @@ export default function (pi: ExtensionAPI) {
 				if (part.type !== "text") return part;
 				if (STATUS_BLOCK.test(part.text)) sawStatusBlock = true;
 				if (!armed || !STATUS_BLOCK.test(part.text)) return part;
-				const real = runGitStatus(ctx.cwd);
-				if (real === null) return part;
 				const pasted = STATUS_BLOCK.exec(part.text)?.[1] ?? "";
-				if (normalize(pasted) === normalize(real)) return part;
+				// 候选目标：本次 run 里最近的 git 目标目录（worktree）优先，其次会话 cwd。
+				// 贴出的内容匹配任一候选即放过；都不匹配时替换为第一个可实测的目标（优先 worktree）。
+				const candidates = [statusTarget, ctx.cwd].filter((p): p is string => Boolean(p));
+				let real: string | null = null;
+				let matched = false;
+				for (const candidate of candidates) {
+					const out = runGitStatus(candidate);
+					if (out === null) continue;
+					if (real === null) real = out;
+					if (normalize(pasted) === normalize(out)) {
+						matched = true;
+						break;
+					}
+				}
+				if (real === null || matched) return part;
 				changed = true;
 				return {
 					...part,
@@ -155,7 +198,7 @@ export default function (pi: ExtensionAPI) {
 			const missed = !sawStatusBlock;
 			sawStatusBlock = false;
 			if (!missed) return;
-			const real = runGitStatus(ctx.cwd);
+			const real = runGitStatus(statusTarget ?? ctx.cwd);
 			if (real === null) return;
 			ctx.ui.notify(
 				"[git-status-guard] /commit 流程已结束，但 AI 未按 skill 第 11 步贴出 " +

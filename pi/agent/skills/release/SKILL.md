@@ -68,21 +68,22 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
 0. **路径分流 + 对齐 remote main（最前置）**：先分正式发布 or 预发布——
    - **预发布**（用户明确要求 prerelease / 预发布 / 发 rc / beta 版，或 dev-workflow 第 9 步使用验收选择手动预发布安装来源——配 auto-rc 的项目优先用自动 rc，见「预发布通道」触发条）→ 走「预发布通道」一节：不从 main 校验（合并前从功能分支、合并后从 main 均可），不适用本步其余校验（版本就绪校验跳过），确认当前分支与 HEAD 即预发布目标后，按预发布变体进入第 2 步起的流程；
    - **正式发布**（默认路径）：正式版只从 main 发布——**功能必须已合并进 main**（remote main 锁定、经 PR + CI 合并，2026-09-21 起）：
-     - `git switch main && git fetch origin && git pull --ff-only`；
-     - 校验 `HEAD === origin/main`：落后（bump PR 还没合并 / 功能 PR 还没合并）→ **暂停**，提示先完成对应合并（`gh pr list` 查看未合并 PR；bump PR 等 CI 绿 auto-merge）后再 `/release`；本地与远端分叉 → **暂停**报告，等用户确认对齐方式；
+     - **在主工作区对齐 main**（worktree 里 `git switch main` 会 fatal——`already used by worktree`）：`git -C <主工作区> fetch origin && git -C <主工作区> merge --ff-only origin/main`；
+     - 校验 `HEAD === origin/main`（`git -C <主工作区> rev-parse HEAD` 与 `git -C <主工作区> rev-parse origin/main` 相同）：落后（bump PR 还没合并 / 功能 PR 还没合并）→ **暂停**，提示先完成对应合并（`gh pr list` 查看未合并 PR；bump PR 等 CI 绿 auto-merge）后再 `/release`；本地与远端分叉 → **暂停**报告，等用户确认对齐方式；
      - 校验版本就绪：`VERSION`（或版本源文件）与 CHANGELOG 顶部条目版本号一致——不一致说明尚未 bump → **暂停**，提示先执行 `/bump`（三段式发版：/bump → /commit（push + 建 PR）→ CI 绿 auto-merge → /release）；
-     - 本 skill **不 push main 分支**：tag 推送（`git push origin <tag>`）只推 tag 引用、不碰分支更新，不携带本地 main 的未推送提交。
+     - 本 skill **不 push main 分支**：tag 推送（`git -C <主工作区> push origin <tag>`）只推 tag 引用、不碰分支更新，不携带本地 main 的未推送提交。
+     - **worktree 场景**（会话 cwd 在主工作区、提交发生在另一个 worktree）：本 skill 的第 2–7 步全部针对**主工作区**，每条 git 命令带 `-C <主工作区>`（tag 必须打在 main 的 HEAD 上，不能打在任务 worktree 的分支上）；任务工作区只用于核验「它的提交已进 origin/main」。
 1. **确定版本号与 tag 名**
    - 依次探测版本来源（取第一个命中的）：`package.json` 的 `version` 字段 → `VERSION` 文件 → `pyproject.toml` 的 `version` → `Cargo.toml` 的 `version`。
    - 规范化 tag 名：若版本号不以 `v` 开头则加 `v` 前缀（如 `0.2.2` → `v0.2.2`）；若已是 `v0.2.2` 则保留。下文记为 `<tag>`。
    - 目标 commit 默认为 `HEAD`。
 
 2. **检查工作区**
-   - `git status --porcelain`：若有任何未提交改动 → **暂停**，列出改动清单，提示用户先 `/commit` 或明确指示后再继续。
+   - `git -C <主工作区> status --porcelain`：若有任何未提交改动 → **暂停**，列出改动清单，提示用户先 `/commit` 或明确指示后再继续。
    - 工作区干净 → 继续。
 
 3. **检查 tag 是否已存在（本地 + 远程）**
-   - `git tag -l '<tag>'`（本地）、`git ls-remote --tags origin '<tag>'`（远程）。
+   - `git -C <主工作区> tag -l '<tag>'`（本地）、`git -C <主工作区> ls-remote --tags origin '<tag>'`（远程）。
    - **都不存在** → 进入标准流程（第 4 步起）。
    - **已存在**（本地或远程）→ **暂停**，报告：
      - 该 tag 本地 / 远程分别指向的 commit；
@@ -107,11 +108,11 @@ description: "打 tag 发布版本：读取版本号与 CHANGELOG，打带注释
      - **完成后的放行标记（工具强制）**：自检通过后，后续公开命令必须在命令末尾加注释标记 `# AI_SENSITIVE_CHECKED`（第 5-7 步及异常分支的 `git tag -a`、`git push origin <tag>`、`gh release create`、`gh release edit` 都适用）——public-text-guard（pi 端 `~/.pi/agent/extensions/public-text-guard.ts`）对未带此标记的「打 annotated tag / 推送 tag / 创建或编辑 Release」一律 deny（该守卫同时覆盖 PR / Issue 创建，见 commit skill「公开文本敏感自检」节）。标记语义 = 「将公开的文本已检查」，只能在自检通过（或确认文本无敏感）后添加，不得为绕过拦截擅自添加。
 
 5. **打 annotated tag**
-   - `git tag -a <tag> -m "<notes 首行>" -m "<body>" # AI_SENSITIVE_CHECKED`（notes 首行 = 概述句英译，与 body 分两个 `-m`；body 多行直接用换行；标记见第 4 步「完成后的放行标记」）。
+   - `git -C <主工作区> tag -a <tag> -m "<notes 首行>" -m "<body>" # AI_SENSITIVE_CHECKED`（notes 首行 = 概述句英译，与 body 分两个 `-m`；body 多行直接用换行；标记见第 4 步「完成后的放行标记」）。
    - message 末尾**不加** `Co-Authored-By`（tag 非提交，无需署名）。
 
 6. **推送 tag**
-   - `git push origin <tag> # AI_SENSITIVE_CHECKED`。
+   - `git -C <主工作区> push origin <tag> # AI_SENSITIVE_CHECKED`。
    - 若被拒（远程已存在）→ 回到第 3 步异常处理（**不自行 `--force`**）。
 
 7. **创建 GitHub Release**

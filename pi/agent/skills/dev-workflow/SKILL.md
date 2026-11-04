@@ -116,17 +116,17 @@ gh pr merge <分支名> --squash --auto --delete-branch    # enable auto-merge
 - PR 描述带 `fixes #<N>`——**合并时 GitHub 自动关闭对应 Issue**（测试与实现同 PR 进 main，Issue 状态机随之闭环，无需任何归档动作）。**PR 只在开发完成、本地全量测试全绿之后创建一次，内容 = 测试 + 实现**；**禁止为测试单独开 PR**（测试先上 PR 会让 `fixes #<N>` 把 Issue 提前关掉、main 出现半程状态——原因与事故实证见第 3 步「测试产物不单独提交、不单独开 PR」）。
 - **建 PR 前先过公开文本自检**（2026-10-03 增补）：title / body 定稿后按 commit skill「公开文本敏感自检」节检测（gitleaks + AI 三类语义检查），命中改写后重新自检；`gh pr create` 须带 `# AI_SENSITIVE_CHECKED` 标记——public-text-guard 硬拦截，未带标记一律 deny。
 - PR 建立即触发远端 CI（`pull_request` 触发），在 GitHub 干净环境跑第 6 步同一套全量；**CI 绿后 GitHub 自动 squash 合并进 main、删除远端分支**——合并的唯一门禁是 CI（不等人工验收）。复杂项目 CI 可能较慢，这个等待窗口正好先走第 9 步的预发布（rc.1），让用户开始试用。
-- CI 红 → 拉日志定位（`gh pr checks --watch` / `gh run view --log-failed`）→ 本地修复 → 用户自行 `git add` + `/commit`（commit + push 一条龙，AI 不代行 commit）→ CI 对新 head 自动重跑（auto-merge 在最终绿掉的那次 head 上执行）。
+- CI 红 → 拉日志定位（`gh pr checks --watch` / `gh run view --log-failed`）→ 本地修复 → 走 `/add` → `/commit`（预检完全干净则自动衔接 commit + push；2026-10-01 / 2026-10-04 规则；被 add-mode / commit-mode 暂停的项目按开关边界停在对应阶段）→ CI 对新 head 自动重跑（auto-merge 在最终绿掉的那次 head 上执行）。
 - squash 合并后 main 新 commit 的树 == PR head 的树（squash 只压缩提交历史、不改文件内容）——「合并进 main 的内容 == CI 测过的内容」的物理基础（完整论证见 `references/merge-discipline.md`）。
 - 合并后 main 上的 CI（`push` 触发）再跑一遍全量——最终确认 + 回归防护网持续生效（新测试从此常驻防护网）。
-- 开发过程的 push 属本 skill 流程内授权；**commit 不论分支 / worktree / 流程一律由用户亲自执行**（自行 `git add` + `/commit`，AI 不申请授权、不代行——2026-09-22 用户定，见「git / gh 授权边界」）；杂事 / bump 分支的提交推送走 `/commit`（push 后顺手建 PR + enable auto-merge）。
+- 开发过程的 push 属本 skill 流程内授权；**提交与推送走 add / commit skill 的既有授权**（`/add` 预检完全干净 → 自动衔接 `/commit`；工作区 / 暂存区有待提交内容 → 常设授权直接按流程提交；2026-10-01 / 2026-10-04 用户立；2026-09-22「commit 一律由用户亲自执行」的旧口径已废止；被 add-mode / commit-mode 暂停的项目按开关边界处理）；**所有 git 命令带 `git -C <worktree 绝对路径>`**（worktree 是任务的正常战场，2026-11-04 用户立）；杂事 / bump 分支同样走 `/add` → `/commit`（push 后顺手建 PR + enable auto-merge）。
 
 ## 第 8 步：合并后收尾
 
 CI 绿、auto-merge 完成后（Issue 已由 `fixes #N` 自动关闭；配了 auto-rc 的项目：合并后的 main push CI 再跑一遍全量、绿后自动发新 rc 供试用，见第 9 步）：
 
-1. **清理 worktree**：`cd <主仓库目录> && git worktree remove ../<仓库名>-<功能名>`（测试包产物放 worktree 的 tmp/ 下，随 worktree 一起清）；远端分支已随 `--delete-branch` 删除，本地分支确认已合并后 `git branch -d <分支名>`。
-2. **同步其它活着的 worktree**：本次功能合并进 main 后，在各 worktree 目录 `git fetch origin && git merge origin/main`——早对齐，冲突小；分支活得越短，冲突窗口越小。
+1. **清理 worktree**：`git -C <主工作区> worktree remove ../<仓库名>-<功能名>`（测试包产物放 worktree 的 tmp/ 下，随 worktree 一起清）；远端分支已随 `--delete-branch` 删除，本地分支确认已合并后 `git -C <主工作区> branch -d <分支名>`。
+2. **同步其它活着的 worktree**：本次功能合并进 main 后，在各 worktree 目录 `git -C <各 worktree> fetch origin && git -C <各 worktree> merge origin/main`——早对齐，冲突小；分支活得越短，冲突窗口越小。
 
 ## 第 9 步：使用验收（过程，不是瞬时门禁）
 
@@ -146,7 +146,7 @@ CI 绿、auto-merge 完成后（Issue 已由 `fixes #N` 自动关闭；配了 au
 
 ## git / gh 授权边界（与全局纪律衔接）
 
-**触发本 skill（用户要求开发核心功能）= 授权流程内的本地与远端编排操作**：`git worktree add` / `git switch -c` / `git merge origin/main`（对齐）/ `git push`（功能分支）/ `gh pr create`（建前过公开文本自检、带 `# AI_SENSITIVE_CHECKED` 标记）/ `gh pr merge --squash --auto --delete-branch`（enable auto-merge 是标准动作——合并由 CI 门禁独裁，无需用户逐次点头）/ `gh issue create`（代为执行，内容以用户口径为准；同为公开文本，建前自检、带标记）/ `git worktree remove`，以及本地测试与构建、预发布 tag + `gh release create --prerelease`（第 9 步验收来源）。**`git commit` 不在授权清单内——AI 一律不代为执行 commit**（2026-09-22 用户定：commit 动作由用户亲自完成——自行 `git add` 后触发 `/commit`（commit + push + PR auto-merge 一条龙）；AI 不向用户申请 commit 授权、不代行 commit，职责是在**开发完成时**的交付报告里列全应 `git add` 的路径与改动摘要（测试 + 实现 + CHANGELOG 一次列齐——测试先行的测试产物不单独列、不单独提交，见第 3 步），并确保所需 commit 功能在 `/commit` skill 覆盖范围内——发现缺口先补 skill 而不是申请代行。CI 红修复循环的 commit 同走此通道；2026-09-21 版「须用户明确授权后 AI 执行」表述随之收敛为常态只走用户 `/commit`）。**不改写 main 历史、不 force push、不触碰暂存区**（全局纪律不变；用户 `/commit` 前自行 `git add`，暂存区由用户亲自把关，skill 只提交暂存区内容）。杂事 / bump 分支的 commit + push 走 `/commit`（用户自行 `git add` 后触发，push 后顺手建 PR + enable auto-merge）；正式发版走全自动链：`/bump` → `/add` → `/commit` → `/release`（`/bump` 用户主动触发、或 commit 流程检测需要 bump 时自动触发，均预授权整条链；2026-10-02 起）。
+**触发本 skill（用户要求开发核心功能）= 授权流程内的本地与远端编排操作**：`git worktree add` / `git switch -c` / `git merge origin/main`（对齐）/ `git push`（功能分支）/ `gh pr create`（建前过公开文本自检、带 `# AI_SENSITIVE_CHECKED` 标记）/ `gh pr merge --squash --auto --delete-branch`（enable auto-merge 是标准动作——合并由 CI 门禁独裁，无需用户逐次点头）/ `gh issue create`（代为执行，内容以用户口径为准；同为公开文本，建前自检、带标记）/ `git worktree remove`，以及本地测试与构建、预发布 tag + `gh release create --prerelease`（第 9 步验收来源）。**`git commit` 的授权按 add / commit skill 的现行规则执行**（2026-10-01 起 `/add` 预检完全干净即自动衔接 commit；2026-10-04 起常设授权「工作区 / 暂存区有待提交内容就直接按 /add 或 /commit 流程处理」；**2026-09-22「commit 一律由用户亲自执行」的旧口径已废止**）：AI 在开发完成后直接走 `/add`（预检 + git add）→ 预检完全干净则自动 `/commit`（commit + push + PR + auto-merge 一条龙），被 add-mode / commit-mode 暂停的项目按开关边界停在对应阶段。**全部 git 命令带 `git -C <worktree 绝对路径>`**——worktree 是任务的正常战场，会话 cwd 常停在 main 主工作区（2026-11-04 用户立）。**不改写 main 历史、不 force push、不触碰暂存区已有内容**（暂存区只增不改）。杂事 / bump 分支的提交 + push 同样走 `/add` → `/commit`；正式发版走全自动链：`/bump` → `/add` → `/commit` → `/release`（`/bump` 用户主动触发、或 commit 流程检测需要 bump 时自动触发，均预授权整条链；2026-10-02 起）。
 
 ## references（按需加载）
 
