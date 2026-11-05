@@ -16,7 +16,7 @@
 
 [English](README.md)
 
-TeamToolkit 是**多智能体团队「共享能力层」的开源镜像**。用户级 `~/.pi/agent/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的东西——全局规则（`CLAUDE.md`）、技能、pi 扩展、`patch/` 下的辅助脚本、参考文档、第三方包清单——都在本仓库的 `pi/agent/` 下逐字节复现，与全局权威源保持一致。
+TeamToolkit 是**多智能体团队「共享能力层」的开源镜像**。用户级 `~/.pi/agent/` 目录下那些**不专属于某一个 agent、而是所有 agent 共用**的东西——全局规则（`AGENTS.md`）、技能、pi 扩展、`patch/` 下的辅助脚本、参考文档、第三方包清单——都在本仓库的 `pi/agent/` 下逐字节复现，与全局权威源保持一致。
 
 > **2026-11-05 更名**：本项目原为 `CapabilityManagerAgent`，由名为 Prometheus 的智能体角色维护；现在已**降级为普通项目**（不再有智能体人设），归团队的总经理助理（Kit）负责，发布动作改由单台机器上的脚本完成。旧地址会自动重定向。
 
@@ -26,7 +26,7 @@ TeamToolkit 是**多智能体团队「共享能力层」的开源镜像**。用�
 
 | 路径 | 内容 |
 |---|---|
-| `pi/agent/CLAUDE.md` | 团队全局规则：工作约定、工具强制的护栏、跨机工作流程 |
+| `pi/agent/AGENTS.md` | 团队全局规则：工作约定、工具强制的护栏、跨机工作流程 |
 | `pi/agent/skills/` | 通用技能（备份、发版、提交、macOS / 远程算力辅助等） |
 | `pi/agent/extensions/` | 把这些规则落成代码的 pi 扩展（护栏、横幅、同步辅助） |
 | `pi/agent/patch/` | 自研补丁脚本与小机制 |
@@ -59,7 +59,7 @@ TeamToolkit 是**多智能体团队「共享能力层」的开源镜像**。用�
 git clone https://github.com/xhqing/TeamToolkit.git
 cd TeamToolkit
 ls pi/agent/skills        # 每个目录一个技能，内含 SKILL.md
-cat pi/agent/CLAUDE.md    # 这些技能所遵循的工作规则
+cat pi/agent/AGENTS.md    # 这些技能所遵循的工作规则
 ```
 
 如果你在用 [pi](https://github.com/earendil-works/pi)，可以把需要的部分拷进自己的 `~/.pi/agent/`（技能与扩展从该目录自动发现）。路径与凭证是刻意不含的，相关工具请在你自己的机器上重新授权。

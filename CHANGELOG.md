@@ -4,6 +4,14 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-11-05 项目规则文件本体改为 AGENTS.md（CLAUDE.md 弃用）
+
+- **为什么改**：用户 2026-11-05 立规「所有注册表项目与全局的规则文件本体统一用 `AGENTS.md`，`CLAUDE.md` 弃用」。本仓库虽以 `pi/agent/` 镜像为主，但仓库根的这份项目说明同样是一份项目级规则文件，应与其他注册表项目保持一致；pi 的上下文文件候选顺序是 `AGENTS.override.md` > `AGENTS.md` > `CLAUDE.md`（同目录只加载第一个存在的），两份并存只会漂移。
+- **改了什么**：① 仓库根 `CLAUDE.md` 改名为实体 `AGENTS.md`（原 `AGENTS.md → CLAUDE.md` 软链接删除），标题由旧名 `CapabilityManagerAgent` 更新为 `TeamToolkit`；② 文中「`skills` / `CLAUDE.md` / …」「本文件（`.claude/CLAUDE.md`）」「`pi/agent/CLAUDE.md`」等引用同步改为 `AGENTS.md`；③ `README.md` / `README_cn.md` 三处 `pi/agent/CLAUDE.md` 与「全局规则（CLAUDE.md）」同步改为 `AGENTS.md`。
+- **回归检查**：`pi/agent/` 镜像内容未动（镜像由全局发布脚本生成，`pi/agent/AGENTS.md` 已随 PR #179 / #180 同步）；本次只改仓库根的说明文件与 README 引用，不影响镜像逐字节一致性核对。
+
 ## [1.14.0] - 2026-11-05
 
 ### 2026-11-05 macmini 迁接收尾：git 只读守卫退役、共享目录收敛（镜像同步，7 个文件）
