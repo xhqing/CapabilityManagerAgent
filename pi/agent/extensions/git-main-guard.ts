@@ -4,7 +4,7 @@
  * 规矩：所有智能体团队项目（Agent 项目 + 其名下子项目）一律锁死 remote main——
  * 不得从本地直接 push main，不得在 main 上直接 commit；一切改动走
  * worktree 分支 → PR → CI → auto-merge → remote main → 本地 main 快进同步。
- * 文本规则在全局 `~/.pi/agent/CLAUDE.md`「开发流程：worktree + PR」节。
+ * 文本规则在全局 `~/.pi/agent/AGENTS.md`「开发流程：worktree + PR」节。
  *
  * 拦截范围（只对带 GitHub remote 的仓库生效，避免误伤临时 / 本地实验仓库）：
  * 1. `git push` 的 refspec 指向 main / master（含裸 `git push` 且当前在 main、

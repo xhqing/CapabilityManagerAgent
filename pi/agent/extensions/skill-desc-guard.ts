@@ -1,7 +1,7 @@
 /**
  * Skill description 长度守卫（pi 端，tool_call 拦截 + tool_result 兜底）。
  *
- * 2026-11-03 用户立规（全局 CLAUDE.md「Skill 编写纪律」的配套工具）：
+ * 2026-11-03 用户立规（全局 AGENTS.md「Skill 编写纪律」的配套工具）：
  * skill 的 `description` 是**硬上限 1024 字符**（Agent Skills spec，pi 按 JS
  * `string.length` 计数：一个汉字 1、一个 emoji 2），超了 pi 每次启动都会打
  * `[Skill conflicts] description exceeds 1024 characters` 警告，且 skill 的

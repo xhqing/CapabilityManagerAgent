@@ -1,6 +1,6 @@
 #!/bin/sh
 # macmini 只读镜像：git 写操作全局禁止（2026-10-31 用户立规）
-# 规则见 ~/.pi/agent/CLAUDE.md「跨机协作」节；说明见同目录 README.md。
+# 规则见 ~/.pi/agent/AGENTS.md「跨机协作」节；说明见同目录 README.md。
 cat >&2 <<'MSG'
 [macmini-git-readonly] 拒绝执行：这台机器（macmini）是只读镜像，git 写操作已全局禁止。
 

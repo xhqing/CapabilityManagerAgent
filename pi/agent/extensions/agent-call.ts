@@ -69,7 +69,7 @@ function sleep(ms: number): Promise<void> {
  * 2026-10-17 用户决定：后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）。
  * 校验方式：目标目录名必须命中 `~/.pi/agent/docs/agents-registry.md` 里已登记的 Agent 项目名
  * （子项目的 AGENTS.md 软链接会让「标记文件存在性」检查误放行，故改用注册表校验）；
- * 注册表不可读时退回旧的标记文件检查（CLAUDE.md / AGENTS.md / .claude/CLAUDE.md）。
+ * 注册表不可读时退回旧的标记文件检查（AGENTS.md / .pi；CLAUDE.md 已弃用、仅作向后兼容）。
  */
 const REGISTRY = join(homedir(), ".pi", "agent", "docs", "agents-registry.md");
 
@@ -124,7 +124,7 @@ function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: 
 	if (!markers.some((m) => existsSync(m))) {
 		return {
 			ok: false,
-			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 CLAUDE.md / AGENTS.md / .pi，注册表也读不到）。${expected}`,
+			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 AGENTS.md / .pi，注册表也读不到）。${expected}`,
 		};
 	}
 	return { ok: true };

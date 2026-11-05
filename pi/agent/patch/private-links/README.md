@@ -1,6 +1,6 @@
 # private-links：私有内容接线管理
 
-> 配套规则见全局 `CLAUDE.md`「私有内容目录 `~/.dev/private`」。本目录只有两个文件：
+> 配套规则见全局 `AGENTS.md`「私有内容目录 `~/.dev/private`」。本目录只有两个文件：
 > `manifest.tsv`（登记清单）与 `private-links.py`（工具）。
 
 ## 它解决什么问题

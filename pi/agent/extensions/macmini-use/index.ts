@@ -80,25 +80,21 @@ interface GitVerdict {
 	hit?: string;
 }
 
-let gitCheckFn: ((command: string) => GitVerdict) | null = null;
+/**
+ * 远端 git 写操作判定（2026-11-05 修订）。
+ *
+ * 旧版拦的是「一切 git 子命令」（包括 `git remote -v` / `git branch` / `git fetch` 这类只读），
+ * 前提是「macmini 的 `.git` 与本机逐文件同步」——该前提已在 2026-11-05 架构改造后消失
+ * （`~/Developer` 不再同步，每台机器各自 clone；`git-readonly-guard.ts` 已删除）。
+ * 现在只拦**真正会改写仓库的子命令**，读操作（status / diff / log / show / branch / remote /
+ * config / ls-files / rev-parse / fetch / worktree list）一律放行。
+ */
+const GIT_WRITE_RE =
+	/\bgit\s+(?:-C\s+\S+\s+|--git-dir=\S+\s+)?(add|commit|push|merge|rebase|cherry-pick|revert|am|apply|rm|mv|reset|restore|checkout|switch|clean|stash|tag|submodule|init|clone|gc|prune|filter-[a-z]+|update-ref)\b/;
 
-/** 复用 macmini 只读守卫的判定（动态导入，缺文件时退化成本地的保守正则）。 */
-async function checkGitWrite(command: string): Promise<GitVerdict> {
-	if (!gitCheckFn) {
-		try {
-			const mod = (await import("../git-readonly-guard.ts")) as { checkCommand?: (c: string) => GitVerdict };
-			if (typeof mod.checkCommand === "function") gitCheckFn = mod.checkCommand;
-		} catch {
-			// 对方文件不在：用下方兜底，不影响本扩展其余能力
-		}
-		gitCheckFn ??= (cmd: string) => {
-			const m = cmd.match(
-				/\bgit\s+(?:-C\s+\S+\s+)?(add|commit|push|pull|fetch|reset|restore|merge|rebase|cherry-pick|revert|rm|mv|checkout|switch|clean|stash|tag|branch|config|remote|worktree|submodule|init|clone|gc|filter-[a-z]+|update-ref)\b/,
-			);
-			return m ? { blocked: true, hit: `git ${m[1]}` } : { blocked: false };
-		};
-	}
-	return gitCheckFn(command);
+function checkGitWrite(command: string): GitVerdict {
+	const m = command.match(GIT_WRITE_RE);
+	return m ? { blocked: true, hit: `git ${m[1]}` } : { blocked: false };
 }
 
 /** 命令里是否真的在打 macmini（`ssh mac-mini …` 这类直接调用，不走 macmini_run 的路径）。 */
@@ -238,7 +234,7 @@ export default function (pi: ExtensionAPI) {
 				: `\n[macmini-use] 注意：\`${mapped.remote}\` 不在两机镜像范围内，macmini 上看到的是它自己的目录（不是本机这份数据的副本）。`;
 
 			// 远端 git 写操作：拒绝（会污染本机同步过去的 .git/index）
-			const git = await checkGitWrite(command);
+			const git = checkGitWrite(command);
 			if (git.blocked) {
 				return {
 					content: [
@@ -246,8 +242,8 @@ export default function (pi: ExtensionAPI) {
 							type: "text",
 							text:
 								`[macmini-use] 已拒绝：远端命令包含 git 写操作（${git.hit ?? "git"}）。\n` +
-								`macmini 是只读镜像机：它的 \`.git\` 与本机逐文件同步，在远端 add / commit / checkout 会改坏本机的索引与引用；而且它不连 GitHub，提交出来仍要回本机重做。\n` +
-								`正确做法：在 macmini 上只跑计算、只产出文件；git 写 / 发版回本机执行（远端产物会自动同步回来）。读操作（status / diff / log）仍可用。`,
+								`团队口径（2026-11-05）：**git 写 / 发版一律在本机做**——两机各自 clone 同一批仓库，但提交、PR、打 tag 只需要一个权威源，两边同时写会把历史分叉。\n` +
+								`macmini 现在能正常读仓库（status / diff / log / fetch 都行），请你把改动拿回本机走 add → commit → PR。`,
 						},
 					],
 					isError: true,

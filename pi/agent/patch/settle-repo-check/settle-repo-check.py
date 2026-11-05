@@ -2,7 +2,7 @@
 """子项目仓库收尾巡检（2026-10-09 用户立规的配套工具强制）。
 
 用户规则：所有 Agent 会话结束任务之前，都要检查自己负责的子项目仓库是否干净，
-不干净的全部要处理干净（规则正文见全局 ~/.claude/CLAUDE.md「会话收尾检查」节）。
+不干净的全部要处理干净（规则正文见全局 ~/.pi/agent/AGENTS.md「会话收尾检查」节）。
 
 用法：
   settle-repo-check.py --cwd <dir> [--json]   # pi 端扩展 settle-repo-check.ts 调用

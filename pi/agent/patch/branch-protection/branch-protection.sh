@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GitHub 仓库 main 分支保护 —— strict 模式 PR CI 的配置与审计
 #
-# 规矩来源：~/.pi/agent/CLAUDE.md「开发流程：worktree + PR」第 3 条
+# 规矩来源：~/.pi/agent/AGENTS.md「开发流程：worktree + PR」第 3 条
 #           （2026-11-03 用户立规：新建项目仓库一律必须 strict 模式的 PR CI）
 # 说明文档：~/.pi/agent/docs/repo-branch-protection.md
 #

@@ -1,7 +1,7 @@
 /**
  * xpilot（本机代理服务）关闭守卫（pi 端，tool_call 拦截 + 用户汇报）。
  *
- * 2026-10-27 用户立规（全局 CLAUDE.md「禁止 Agent 自行关闭 xpilot」配套工具强制）：
+ * 2026-10-27 用户立规（全局 AGENTS.md「禁止 Agent 自行关闭 xpilot」配套工具强制）：
  * **禁止所有 Agent 自己关闭 xpilot；确需关闭必须经用户授权。** 立规起因：AI 为「逐节点
  * 验证老虎白名单」用 `xpilot stop` + `xpilot start <node>` 把 6 个节点挨个切了一遍
  * （共停起 7 次），等于把本机出口（包括 AI 自己、以及 system_proxy.enabled=true 下

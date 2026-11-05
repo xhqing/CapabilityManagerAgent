@@ -1,6 +1,6 @@
 # team-toolkit-publish：全局能力层的单 pusher 发布
 
-> 配套规则见全局 `CLAUDE.md`「维护全局通用能力」条与 `docs/capability-sync.md`。
+> 配套规则见全局 `AGENTS.md`「维护全局通用能力」条与 `docs/capability-sync.md`。
 
 ## 一句话
 
@@ -19,7 +19,7 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 
 | 步骤 | 原因 |
 |---|---|
-| 先等 Syncthing `idle` | 否则可能把「只同步到一半的全局目录」发布出去（CLAUDE.md 引用还没到的 skill） |
+| 先等 Syncthing `idle` | 否则可能把「只同步到一半的全局目录」发布出去（AGENTS.md 引用还没到的 skill） |
 | 发现 `*.sync-conflict-*` 直接退出 | 有冲突副本说明能力层本身要人管，不能当正常内容推上去 |
 | rsync 带 `--delete` 单向覆盖 | 镜像必须与全局一致，删掉的文件也要同步删掉 |
 | 自动写 CHANGELOG | 生成物手写必飘；条目里带「为什么改 / 改了什么 / 回归风险」 |
