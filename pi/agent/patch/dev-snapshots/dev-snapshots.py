@@ -155,9 +155,19 @@ def _pi_agent_excluded(rel: Path) -> bool:
 
 
 def _private_excluded(rel: Path) -> bool:
+    """排除「每台机器各自不同、或本身是同步元数据」的路径。
+
+    `.stignore` / `.stfolder` 是 Syncthing 的本机配置（不会被同步），两台机器的
+    mtime / 存在性不一样——不排除的话，同一份内容在两台机器上算出的内容指纹不同，
+    「任一侧做的快照另一侧也认」就失效了。
+    """
     s = str(rel)
     return (
         s.startswith(".state")
+        or s.startswith(".stignore")
+        or s.startswith(".stfolder")
+        or "/node_modules/" in s
+        or s.startswith("node_modules/")
         or s.endswith(".DS_Store")
         or "/.DS_Store" in s
         or "sync-conflict" in s
