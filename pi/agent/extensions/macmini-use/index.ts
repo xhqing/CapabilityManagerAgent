@@ -15,8 +15,11 @@
  *      make -j / ffmpeg / tesseract / whisper …，只收 macmini 接得住的类型），要求改用
  *      macmini_run；确需本机执行时命令末尾加 `# AI_LOCAL_OK: <理由>` 重发（逃生门，不是禁用）。
  *   ④ **镜像安全**：远端 `rm -rf` 会经 Syncthing 删到本机，所以 `macmini_run` 里递归
- *      删除镜像目录默认拒绝（/tmp 除外），要删须带 `AI_REMOTE_RM_OK` 并说清理由；
- *      远端 git 写操作一律拒绝（macmini 是只读镜像，写了会污染本机 `.git/index`）。
+ *      删除镜像目录默认拒绝（/tmp 除外），要删须带 `AI_REMOTE_RM_OK` 并说清理由。
+ *      **git 不再限制（2026-11-05 用户立）**：`~/Developer` 不再同步、每台机器各自 clone，
+ *      旧的「git 只读」前提（两边共写一份 `.git`）已消失——macmini 可以正常 fetch / pull /
+ *      提交 / 推送；唯一保留的是团队通用的 remote main 锁定（改动走分支 + PR + CI，由
+ *      `git-main-guard.ts` 两机一致拦住 main 上的 add / commit 与 push main）。
  *
  * 只在非 macmini 上生效（hostname 判定）：在 macmini 上「分流给自己」没有意义。
  * 判定逻辑在 classify.ts / remote.ts（纯函数，可单独测），本文件只做接线与 UI。
@@ -81,20 +84,17 @@ interface GitVerdict {
 }
 
 /**
- * 远端 git 写操作判定（2026-11-05 修订）。
+ * 远端 git 写操作判定（2026-11-05 用户立：macmini 恢复正常 git 读写，git 写不再拦截）。
  *
- * 旧版拦的是「一切 git 子命令」（包括 `git remote -v` / `git branch` / `git fetch` 这类只读），
+ * 历史：旧版拦「一切 git 子命令」（包括 `git remote -v` / `git branch` / `git fetch` 这类只读），
  * 前提是「macmini 的 `.git` 与本机逐文件同步」——该前提已在 2026-11-05 架构改造后消失
  * （`~/Developer` 不再同步，每台机器各自 clone；`git-readonly-guard.ts` 已删除）。
- * 现在只拦**真正会改写仓库的子命令**，读操作（status / diff / log / show / branch / remote /
- * config / ls-files / rev-parse / fetch / worktree list）一律放行。
+ * 现在**完全放行**：macmini 可以 fetch / pull / 提交 / 推送，与团队普通仓库同样的约束
+ * （remote main 锁定：改动走分支 + PR + CI，由 `git-main-guard.ts` 在两机一致拦住）。
+ * 本函数保留为单一入口，将来若需再收紧（如只允许 fetch / pull）改这里即可。
  */
-const GIT_WRITE_RE =
-	/\bgit\s+(?:-C\s+\S+\s+|--git-dir=\S+\s+)?(add|commit|push|merge|rebase|cherry-pick|revert|am|apply|rm|mv|reset|restore|checkout|switch|clean|stash|tag|submodule|init|clone|gc|prune|filter-[a-z]+|update-ref)\b/;
-
-function checkGitWrite(command: string): GitVerdict {
-	const m = command.match(GIT_WRITE_RE);
-	return m ? { blocked: true, hit: `git ${m[1]}` } : { blocked: false };
+function checkGitWrite(_command: string): GitVerdict {
+	return { blocked: false };
 }
 
 /** 命令里是否真的在打 macmini（`ssh mac-mini …` 这类直接调用，不走 macmini_run 的路径）。 */
@@ -233,7 +233,7 @@ export default function (pi: ExtensionAPI) {
 				? ""
 				: `\n[macmini-use] 注意：\`${mapped.remote}\` 不在两机镜像范围内，macmini 上看到的是它自己的目录（不是本机这份数据的副本）。`;
 
-			// 远端 git 写操作：拒绝（会污染本机同步过去的 .git/index）
+			// 远端 git 操作：2026-11-05 起不拦（macmini 各自 clone，可正常读写；remote main 锁定由 git-main-guard 管）
 			const git = checkGitWrite(command);
 			if (git.blocked) {
 				return {
