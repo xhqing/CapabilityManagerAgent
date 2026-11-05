@@ -41,3 +41,15 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 | `有 Syncthing 冲突副本` | 人工对比合并、删掉副本后重跑 |
 | `只允许在 macmini 上跑` | 正常。macmini 不在线时先改全局，等它上线跑一次即可 |
 | PR 自动合并没有触发 | CI 没通过或分支保护要求分支最新；`gh pr view` 看状态 |
+
+## npm 清单怎么更新（重要）
+
+`pi/agent/npm/` **不由发布机生成**：`~/.pi/agent/npm/` 是架构相关目录、不参与两机同步，
+两机装的包版本可能不同（实测 macmini 与 MacBook 就差一个小版本）。在发布机上跑
+`refresh.py` 会把版本号写回去，所以清单只在**装了包的那台机器**上生成：
+
+```bash
+python3 ~/.pi/agent/patch/npm-manifest/refresh.py --dst /tmp/team-toolkit-npm   # 在装包的机器上
+scp /tmp/team-toolkit-npm/* mac-mini:~/Developer/TeamToolkit/pi/agent/npm/      # 拷到发布机
+ssh mac-mini 'python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py'        # 正常发布
+```

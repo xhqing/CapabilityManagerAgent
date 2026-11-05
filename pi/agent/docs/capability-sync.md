@@ -69,6 +69,25 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 - 项目专用扩展（含具体项目硬编码路径、clone 者用不上的）
 - 本机产物：`*.log`、`*.lock`、`__pycache__/`、`*.pyc`、`*.sync-conflict-*`
 
+## 四之二、npm 清单怎么更新（不走发布机）
+
+`~/.pi/agent/npm/` 是**架构相关**目录（arm64 / x64 各装各的），不参与两机同步，所以：
+
+- **不要**在 macmini 上生成这份清单——它装的包版本可能与本机不同（2026-11-05 实测：
+  macmini 上是 `pi-mcp-adapter` 7.0.0、本机是 7.0.1），在那边跑 `refresh.py` 会把版本号写回去。
+- 正确做法：在**装了 pi 包的那台机器**（本机）上生成到临时目录，再把结果随发布提交：
+
+```bash
+# 本机：生成清单到临时目录
+python3 ~/.pi/agent/patch/npm-manifest/refresh.py --dst /tmp/team-toolkit-npm
+# 拷到发布机的仓库里（发布机仍是唯一 pusher）
+scp /tmp/team-toolkit-npm/* mac-mini:~/Developer/TeamToolkit/pi/agent/npm/
+# macmini：正常发布
+ssh mac-mini 'python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py'
+```
+
+`publish.py` 默认**不碰** `pi/agent/npm/`，只打印一行提示。
+
 ## 五、核对与排查
 
 ```bash
