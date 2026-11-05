@@ -22,7 +22,7 @@
 - **盯盘的对话输出（特例，唯一要精简的场景）**：结论直接给、信号直接发、不展开解释，但仍然要语义清晰、容易理解。
 - **不要自创简写**（所有场景通用）：通用术语正常使用，但不为了短而自造缩略说法（例如把「买盘较多」压成「偏正」、把「继续上涨」压成「续涨」）。
 - **逐条检测 / 核对类结果用 ✅ / ❌ 列表展示**（所有场景通用）：回复中凡是「多条检测项逐条判断是否通过 / 就绪」的结果（/commit 标配检测、敏感扫描、改完文件后的验证清单等）一律用列表逐条展示，**通过打 ✅、没通过打 ❌**（形如 `- ✅ License：已存在`），不要用表格、不要用整段文字罗列。不适用于盯盘实时信号输出和纯叙述性回复。
-- **已授权事项不问第二遍（2026-10-29 用户立）**：凡是规则里已经写明「无需询问 / 不用问 / 直接做」的事，**执行时直接做**，不要用「要不要我……」「需要我……吗」「要我把……做好吗」这类问句结尾征求确认。用户原话：「这个能不能工具强制掉，不要总是给多余的询问」。清单（与 `~/.pi/agent/extensions/redundant-ask-guard.ts` 的 `AUTHORIZED_BRIEF` 保持一致）：① 全局能力层改动后同步 CapabilityManagerAgent 开源镜像 → 直接 `agent_call` Prometheus（不要问）；② 工作区 / 暂存区有待提交内容 → 直接按 `/add` 或 `/commit` 流程处理（**被 add-mode / commit-mode 暂停的项目例外**，见「Git 写操作必须先征得同意」节的两个开关条目）；③ 其它 agent 项目仓库有待提交内容 → 直接 `agent_call` 对方按其 `/add` → `/commit` 处理；④ `/add` 预检完全干净 → 自动衔接 `/commit`，`/commit` 第 10 步命中发版条件 → 自动 bump / 发版；⑤ 新建项目 `git init`、向 `agents-registry` 追加新 agent 行 → 免确认。**仍应询问的**：方案分叉大、返工成本高、规则未覆盖、涉及不可逆破坏性操作。**工具强制**：`redundant-ask-guard.ts` 每轮把这份清单追加进系统提示（预防），并在回复里命中「询问句式 + 已授权关键词」时，把一条**只给 AI 看**的回执（`display: false`，用户界面不显示）注入下一轮上下文，内容指出问了哪一类、正确做法是什么（检测 + 自纠）。**不向用户弹任何提示**——用户 2026-10-29 补充：「不要让我看警告，这种事情定了规矩我就不想插手了，警告应该让当前会话看见」。
+- **已授权事项不问第二遍（2026-10-29 用户立）**：凡是规则里已经写明「无需询问 / 不用问 / 直接做」的事，**执行时直接做**，不要用「要不要我……」「需要我……吗」「要我把……做好吗」这类问句结尾征求确认。用户原话：「这个能不能工具强制掉，不要总是给多余的询问」。清单（与 `~/.pi/agent/extensions/redundant-ask-guard.ts` 的 `AUTHORIZED_BRIEF` 保持一致）：① 全局能力层改动后发布 **TeamToolkit** 开源镜像 → 直接在 macmini 跑 `python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py`（不要问；macmini 不可用时先把本机改完，等它上线由脚本补发）；② 工作区 / 暂存区有待提交内容 → 直接按 `/add` 或 `/commit` 流程处理（**被 add-mode / commit-mode 暂停的项目例外**，见「Git 写操作必须先征得同意」节的两个开关条目）；③ 其它 agent 项目仓库有待提交内容 → 直接 `agent_call` 对方按其 `/add` → `/commit` 处理；④ `/add` 预检完全干净 → 自动衔接 `/commit`，`/commit` 第 10 步命中发版条件 → 自动 bump / 发版；⑤ 新建项目 `git init`、向 `agents-registry` 追加新 agent 行 → 免确认。**仍应询问的**：方案分叉大、返工成本高、规则未覆盖、涉及不可逆破坏性操作。**工具强制**：`redundant-ask-guard.ts` 每轮把这份清单追加进系统提示（预防），并在回复里命中「询问句式 + 已授权关键词」时，把一条**只给 AI 看**的回执（`display: false`，用户界面不显示）注入下一轮上下文，内容指出问了哪一类、正确做法是什么（检测 + 自纠）。**不向用户弹任何提示**——用户 2026-10-29 补充：「不要让我看警告，这种事情定了规矩我就不想插手了，警告应该让当前会话看见」。
 
 ## 文件命名规范
 
@@ -147,11 +147,11 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 ## 团队结构参考（按需读取，指针节）
 
-团队共有 18 个 agent（三个小组 + 直属岗位；2026-10-26 注销 Hermes、2026-10-31 除名 Alfred 与 Tinker 后从 21 减到 18，口径与 `docs/agents-registry.md` 智能体命名注册表的行数一致）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.pi/agent/docs/`，CapabilityManagerAgent `pi/agent/`（docs / skills / patch / CLAUDE.md / extensions）为逐字节一致的开源镜像）：
+团队共有 18 个 agent（三个小组 + 直属岗位；2026-10-26 注销 Hermes、2026-10-31 除名 Alfred 与 Tinker、2026-11-05 注销 Prometheus（项目降级为普通项目 TeamToolkit，归 Kit）后从 21 减到 17，口径与 `docs/agents-registry.md` 智能体命名注册表的行数一致）。涉及以下场景时**先读对应文档再动手**（权威源在全局 `~/.pi/agent/docs/`，CapabilityManagerAgent `pi/agent/`（docs / skills / patch / CLAUDE.md / extensions）为逐字节一致的开源镜像）：
 
 - **新建 Agent 项目**：先读 `~/.pi/agent/docs/agents-registry.md`（名称查重 + 流水线位置）与 `~/.pi/agent/docs/new-agent-scaffold.md`（命名规则（以 `Agent` 结尾、前缀尽可能简单）、脚手架清单、README / logo / 徽章规范、`.gitignore` 必含项、开源到 GitHub 流程、双语 README 同步细则）。新建时向注册表追加新 agent 行**免确认**（仅限追加，不改已有行）。
 - **跨 agent 移交 / 推荐子任务**：读 `~/.pi/agent/docs/agents-registry.md`（注册表：名称、项目、职责、销售流水线、三小组分组）。
-- **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、同步 CapabilityManagerAgent 镜像**：读 `~/.pi/agent/docs/capability-sync.md`。全局 `~/.pi/agent/` 是唯一权威源，Prometheus 是通用能力开源的**单一出口**（只有它镜像全局，其余项目不再分发副本）；发现全局与镜像分叉时**自动同步对齐（全局权威优先）、无需询问**；同步动作只记 CapabilityManagerAgent 的 CHANGELOG。
+- **维护全局通用能力（skills / CLAUDE.md / docs / hooks / patch / pi 扩展）、发布 TeamToolkit 镜像**：读 `~/.pi/agent/docs/capability-sync.md`。全局 `~/.pi/agent/` 是唯一权威源；**TeamToolkit**（原 CapabilityManagerAgent，2026-11-05 更名、降级为 Kit 名下的普通项目）是通用能力开源的**单一出口**，其 `pi/agent/` 逐字节镜像全局。**发布改为单 pusher**：只在 macmini 上单向生成镜像并推送（两台机器同时 PR 会造出重复提交），脚本 `patch/team-toolkit-publish/publish.py`；发现全局与镜像分叉时自动对齐（全局权威优先）、无需询问；同步动作只记 TeamToolkit 的 CHANGELOG。
 - **智能体专属文件：实体只属于 Agent 项目；子项目 = 身份层软链接 + 能力层「组合式超集」（2026-10-30 用户修订，取代 2026-10-17 的「`.pi` 也挂软链接」）**：`CLAUDE.md`、`AGENTS.md`、`AGENTS.override.md`、`.claude/`、项目级 `.pi/` 等「会话启动时按工作目录加载、表征智能体身份」的项目级文件，其**实体副本（独立内容）只有 Agent 项目（团队 agent 项目）允许拥有**——非 Agent 项目（含子项目）不得放实体、不得复制内容进去。子项目按**两层**处理：
   - **身份层 —— `AGENTS.md` 挂软链接，必须与 Agent 项目保持一致**：`AGENTS.md → ../<负责Agent项目>/AGENTS.md`。**为什么必须一致、不做超集**：pi 的上下文文件只从「全局 + 祖先目录 + 当前目录」加载，**没有 include / 导入机制**，超集只能靠复制，复制必然随 Agent 侧演进而漂移；而且子项目里的会话仍然是同一个 agent，身份本来就不该分叉。
   - **能力层 —— `.pi/` 是子项目自己的真实目录（不再是软链接），做超集，但用「引用 + 追加」实现**：`.pi/settings.json` 把负责 Agent 的 `.pi/extensions`、`.pi/skills`、`.pi/prompts`、`.pi/themes` 以**路径**引用进来（`~` 或相对路径均可，数组支持 glob 与 `!` 排除），本地独有内容放子项目自己的 `./extensions`、`./skills` 等目录（`.pi/` 下这四个目录本来就会被自动发现，不必再写进 settings）；子项目专属**规则**用 `.pi/APPEND_SYSTEM.md` 追加（**不要用 `.pi/SYSTEM.md`**——那是整体替换，会把 agent 身份冲掉）。**为什么这样分层**：引用的是**目录**而不是逐个文件，Agent 侧以后新增技能 / 扩展会**自动带过来**、零同步动作；同时子项目往 `.pi` 写东西只写自己的目录，**不会污染 Agent 项目、也不影响兄弟子项目**（这是 `.pi` 整目录软链接时代做不到的——那时子项目写 `.pi` 等于直接写进 Agent 项目）。**一条纪律**：子项目 `.pi` 只允许**追加**，不允许重述 / 覆盖基座规则，一旦重述就有两套说法、必然打架。
@@ -239,7 +239,7 @@ pi 加载扩展时**只要有一个文件解析失败就 `exit(1)`**——打印
 - **适用范围**：pi 启动时会加载的扩展代码——`~/.pi/agent/extensions/**` 与 `<当前项目>/.pi/extensions/**` 下的 `.ts` / `.mts` / `.cts` / `.js` / `.mjs` / `.cjs`（`.tsx` / `.jsx` 除外：Node 类型擦除不支持 JSX）。技能脚本、项目源码、第三方 npm 包不在此列——它们写坏了不会让 pi 起不来。
 - **最常见的成因**：模板字符串里写了**未转义的反引号**。`` `只有 `~/.pi/agent` 与 …` `` 这种写法会把模板字符串提前闭合，正确写法是内部反引号加反斜杠：`\``。2026-11-04 的 `macmini-use/index.ts` 就是栽在这一处，导致 2026-11-05 一整天 `pi` 起不来。
 - **工具强制（`extensions/ts-syntax-guard.ts`）**：① `write` / `edit` 写入扩展目录时，先按「写入后的完整内容」用**pi 加载器同一个解析器**（Node `stripTypeScriptTypes`）校验，有语法错直接 block 并给出出错行与代码片段——坏内容根本落不了盘；② `bash` 执行后对比扩展文件 mtime，被改动的逐个复检，坏了就在工具结果里追加醒目告警（覆盖 `cat >` / `tee` / `sed -i` / `cp` / `mv` 这类旁路写入）。
-- **随时可手工复核**：`node ~/.pi/agent/patch/ts-syntax-check/check.mjs [目录…]`（无参数时查全局扩展目录 + 当前项目 `.pi/extensions`）。**成批同步 / 复制扩展代码之后（例如对齐 CapabilityManagerAgent 开源镜像）必跑一次**——手工复制不过守卫，只有事后核对能兜住。
+- **随时可手工复核**：`node ~/.pi/agent/patch/ts-syntax-check/check.mjs [目录…]`（无参数时查全局扩展目录 + 当前项目 `.pi/extensions`）。**成批同步 / 复制扩展代码之后（例如对齐 TeamToolkit 开源镜像）必跑一次**——手工复制不过守卫，只有事后核对能兜住。
 - **逃生门**：建 `~/.pi/agent/state/ts-syntax-guard-off` 可临时停用守卫，仅用于「解析器本身误报」这种极端情况；正常改代码永远不需要——解析器错了就该改代码，因为 pi 用的就是同一个解析器。
 
 ### 运行版本与开发版本隔离（禁止 npm link / 本地直跑开发源码）

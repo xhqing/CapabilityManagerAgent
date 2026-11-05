@@ -1,12 +1,12 @@
 # 新建 Agent 项目脚手架与开源约定
 
-> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 CapabilityManagerAgent 仓库 `pi/agent/docs/`。
+> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 TeamToolkit 仓库 `pi/agent/docs/`。
 
 **为什么**：agent 越来越多，统一脚手架避免重造轮子、避免泄露密钥。**怎么用**：复制已有 agent 项目（如 FullStackEngineerAgent）再按角色改写。
 
 ## 通用能力开源单一出口
 
-**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **CapabilityManagerAgent（Prometheus）的 `pi/agent/` 镜像**（`skills/`、`CLAUDE.md`、`docs/`、`patch/`、`extensions/` 五部分 + npm 清单）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
+**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **TeamToolkit（Prometheus）的 `pi/agent/` 镜像**（`skills/`、`CLAUDE.md`、`docs/`、`patch/`、`extensions/` 五部分 + npm 清单）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
 
 - **为什么**：全局 `~/.pi/agent/` 是运行时实际加载的「活」源头；每个项目放一份副本意味着通用能力一改动就要同步到所有项目，副本容易过期分叉（新建 NetOpsAgent 时即发现 anysearch `runtime.conf` 副本与全局不一致、find-skill 副本多出 `.env.example`）。统一单一出口后，全局改一处、镜像同步一处，各项目零维护。
 - **边界**：单一出口模式已全量落地——各 agent 项目的 anysearch 等通用 skill 副本已全部清除（2026-09-13 核验，`~/Developer/*/.claude/skills/` 下无任何 anysearch 副本），「既有项目副本」这层维护已终结，不再存在项目间分发。
@@ -15,7 +15,7 @@
 
 - **AutoMemory 已全局弃用**：新建项目**不配 AutoMemory**（不建 memory 目录、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ CLAUDE.md，不依赖 AutoMemory 自动记。
 - **目录名 / 名称** = 以 `Agent` 结尾即可，前缀尽可能简单（2026-10-09 用户修订，如 `cuAgent`）；不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名。
-- **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 CapabilityManagerAgent `pi/agent/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
+- **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 TeamToolkit `pi/agent/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
 - **子项目：身份层挂软链接 + 能力层建真实 `.pi/`、不放实体（2026-10-30 用户修订，取代 2026-10-17 的「`.pi` 也挂软链接」）**：新建子项目时在子项目根目录做两件事——（1）`AGENTS.md → ../<负责Agent项目>/AGENTS.md` 相对路径软链接（身份必须与 Agent 项目一致）；（2）建**真实目录** `.pi/`，里面放 `settings.json` 把负责 Agent 的四个资源目录引用进来（把 `<Agent项目>` 换成实际目录名）：
   ```json
   {
