@@ -43,6 +43,37 @@ python3 dev-snapshots.py restore private       # 默认取最新一份（恢复�
 - 端点注册表 `~/.pi/agent/skills/backup/endpoints/endpoints.json` 里有 `root_folder_token`。
 - 飞书域名必须直连：脚本内部已设 `NO_PROXY`（本机挂了全局代理时也不会握手超时）。
 
+## 两台机器各自的准备（2026-11-05 实测）
+
+| | MacBook（arm64） | macmini（x86_64） |
+|---|---|---|
+| lark-cli | `~/.local/bin/lark-cli`（arm64） | `~/.local/bin/lark-cli`（`lark-cli-<ver>-darwin-amd64.tar.gz`） |
+| 应用 | 原有 app（`config init` 时配的） | `lark-cli config init --new` 生成的**另一个 app**（两台机器的 app id 不同） |
+| 备份根文件夹 | 同一个（`endpoints.json` 的 `root_folder_token`） | **同一个**——实测两个 app 都能访问，用户是文件夹所有者 |
+
+要点：
+
+- **两个 app 没问题**：只要授权的是同一个飞书用户，云端文件夹对所有 app 都可见，`dev-snapshots/<target>/` 由脚本按名字查token、不会重复建。
+- **macmini 的 PATH 坑**：非交互 shell（`ssh mac-mini '…'`）的 PATH 里**没有** `~/.local/bin`，直接调 `lark-cli` 会 `FileNotFoundError`。脚本已内置定位兜底（`shutil.which` → `~/.local/bin` → `~/bin` → homebrew 两个路径）。
+- **github.com 在 macmini 上被限速**：下 release 资产经常截断（`gzip truncated`）。正确做法是**在本机下载、scp 过去**；顺带把 macmini 的 git 全局配置成 `http.version=HTTP/1.1` + `http.lowSpeedLimit/Time=0`，否则连 `git clone` 都会 75 秒超时。
+
+## 指纹必须两端一致（否则「共享令牌」失效）
+
+`tree_hash` 只算「路径 + mtime + 大小」，因此**必须排除两类东西**，脚本里已处理：
+
+1. **同步元数据**：`.stignore`、`.stfolder`（Syncthing 不同步它们，两机天然不同；符号链接的 mtime 也不保留）。
+2. **各机各自维护的本机配置**：`skills/anysearch/runtime.conf`、`patch/session-link/{config,local-links,chain-registry}.json`、`trust.json`、`mcp-project-approvals.json` —— 这些既会让指纹不等，也会把本机路径写进备份。
+3. 依赖目录：`node_modules`（私有大目录里也可能藏着一个）。
+
+验证两端一致：
+
+```bash
+python3 -c "import importlib.util as u;s=u.spec_from_file_location('d','dev-snapshots.py');m=u.module_from_spec(s);s.loader.exec_module(m);print(m.tree_hash('private'))"
+ssh mac-mini 'cd ~/.pi/agent/patch/dev-snapshots && python3 -c "import importlib.util as u;s=u.spec_from_file_location("d","dev-snapshots.py");m=u.module_from_spec(s);s.loader.exec_module(m);print(m.tree_hash("private"))"'
+```
+
+两边输出相同，才说明「任一侧做的快照另一侧也认」。
+
 ## 坑（与 backup skill 的飞书文档一致）
 
 1. 同名上传**不覆盖、会生成副本** → 我们用秒级时间戳命名，另外同一秒内重复触发要避免并发。
