@@ -27,10 +27,21 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+const DEBUG = process.env.MW_DEBUG === "1";
+const DEBUG_FILE = "/tmp/main-wip-debug.log";
+function dbg(message: string): void {
+	if (!DEBUG) return;
+	try {
+		appendFileSync(DEBUG_FILE, `[${new Date().toISOString()}] ${message}\n`);
+	} catch {
+		// 调试日志失败不影响功能
+	}
+}
 
 const HOME = homedir();
 const ADD_STATE = join(HOME, ".pi", "agent", "state", "add-mode.json");
@@ -122,12 +133,14 @@ export default function (pi: ExtensionAPI) {
 		try {
 			const cwd = (ctx as { cwd?: string })?.cwd ?? process.cwd();
 			const state = inspect(cwd);
+			dbg(`agent_settled cwd=${cwd} state=${JSON.stringify(state)}`);
 			if (!state) return;
 
 			// 暂存区有内容 → 轮不到 AI 动（暂存区红线），等用户处理
 			if (state.staged) return;
 
 			const paused = pausedByMode(state.root);
+			dbg(`paused=${paused}`);
 			if (paused) return;
 
 			const now = Date.now();
@@ -140,6 +153,7 @@ export default function (pi: ExtensionAPI) {
 			lastRoot = state.root;
 
 			const preview = state.changed.slice(0, 8).join("、");
+			dbg(`KICK root=${state.root} changed=${state.changed.length}`);
 			pi.sendMessage(
 				{
 					customType: "main-wip",
