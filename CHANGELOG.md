@@ -1,12 +1,38 @@
 # Changelog
 
-本项目（CapabilityManagerAgent）是智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `CLAUDE.md` / `docs` 三部分（全局规则随 CLAUDE.md 走；原 `~/.claude/rules/` 目录已废弃删除，2026-09-14 起文档口径统一）与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/`、`pi/agent/extensions/`、`pi/agent/npm/` 镜像范围的增删改，以及全局 ↔ 本项目镜像的同步动作。
+本项目（TeamToolkit，原 CapabilityManagerAgent）是智能体舰队通用能力底座的**开源镜像仓库**：`claude/`（2026-08-03 起从 `.claude/` 迁入）下的 `skills` / `CLAUDE.md` / `docs` 三部分（全局规则随 CLAUDE.md 走；原 `~/.claude/rules/` 目录已废弃删除，2026-09-14 起文档口径统一）与全局权威源 `~/.claude/` 逐字节一致（2026-08-04 起权威方向反转：全局为权威、本项目 `claude/` 为镜像）。本 CHANGELOG 记录**通用能力底座的变更**——即 `claude/`、`pi/agent/extensions/`、`pi/agent/npm/` 镜像范围的增删改，以及全局 ↔ 本项目镜像的同步动作。
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
 ## [1.14.0] - 2026-11-05
 
 ### 2026-11-05 macmini 迁接收尾：git 只读守卫退役、共享目录收敛（镜像同步，7 个文件）
+
+- **镜像同步（2026-11-05）**：从全局 `~/.pi/agent` 单向发布。
+  **为什么改**：全局能力层有改动，本仓库是它的开源镜像，必须保持一致。
+  **改了什么**：14 个文件——
+  - `CHANGELOG.md`
+  - `README.md`
+  - `README_cn.md`
+  - `VERSION`
+  - `pi/agent/CLAUDE.md`
+  - `pi/agent/docs/agents-registry.md`
+  - `pi/agent/docs/capability-sync.md`
+  - `pi/agent/docs/new-agent-scaffold.md`
+  - `pi/agent/docs/repo-branch-protection.md`
+  - `pi/agent/extensions/redundant-ask-guard.ts`
+  - `pi/agent/patch/npm-manifest/refresh.py`
+  - `pi/agent/patch/skill-custom/README.md`
+  - `pi/agent/skills/backup/SKILL.md`
+  - `pi/agent/patch/team-toolkit-publish/`
+  **回归风险**：无（只同步内容，不改本仓库自身逻辑）。
+
+- **更名 + 降级为普通项目（2026-11-05）**：`CapabilityManagerAgent` → **`TeamToolkit`**，GitHub 仓库已改名（旧 URL 自动重定向）。
+  **为什么改**：这个项目的实际职责就是「把全局能力层镜像出去」，而不是一个需要人设与独立会话的智能体；维持一个专职 agent 只为跑同步，成本高于收益。用户要求把它退化成普通项目、归 Kit 负责。
+  **改了什么**：① 仓库名与目录名改为 `TeamToolkit`；② README 双语重写（去掉 Prometheus 人设，改成「团队共享工具箱 + 单 pusher 发布」的说明，类型徽章改 `Team Toolkit`）；③ 发布方式从「改完全局 → agent_call Prometheus 同步」改为 `patch/team-toolkit-publish/publish.py` 单点发布（只在 macmini 跑，避免两台机器同时 PR 造出重复提交）；④ 版本号 1.14.0 → 2.0.0（身份变化）；⑤ 全局 `docs/capability-sync.md` 整篇重写、`docs/agents-registry.md` 里 Prometheus 从 Agent 表移出并记为「已除名」、本项目作为 Kit 的子项目登记；⑥ 全局 `extensions/redundant-ask-guard.ts` 的授权清单改为「直接跑发布脚本」。
+  **验证**：镜像五部分 `diff` 与全局逐字节一致；`publish.py --check` 通过；README 双语内容一致。
+  **回归风险**：低——只改名与换发布通道，镜像内容不动。唯一注意点：今后**不要**再在镜像里直接改内容（会被下一次发布覆盖），也不要从两台机器同时发布（脚本已按 hostname 拒绝）。
+
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
 

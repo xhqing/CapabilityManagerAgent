@@ -102,7 +102,7 @@ function buildBrief(modes: { add: boolean; commit: boolean }): string {
 	}
 	return `【已授权事项：直接做，不要征求确认（2026-10-29 用户立规）】
 下面这些事用户已经明确授权，**不要用「要不要我…」「需要我…吗」这类问句结尾**，直接执行：
-- 全局能力层（~/.pi/agent 下的 skills / CLAUDE.md / docs / patch / extensions）改动后，同步 CapabilityManagerAgent 开源镜像 → 直接 agent_call Prometheus（dir 用 /Users/xhq/Developer/CapabilityManagerAgent），不要问用户。
+- 全局能力层（~/.pi/agent 下的 skills / CLAUDE.md / docs / patch / extensions）改动后，发布 TeamToolkit 开源镜像 → 直接在 macmini 跑 \`python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py\`，不要问用户。
 ${commitLine}
 - 其它 agent 项目的仓库有待提交内容 → 直接 agent_call 对方按其自己的 /add → /commit 处理。
 - /add 预检完全干净 → 自动衔接 /commit；/commit 第 10 步命中发版条件 → 自动 bump / 发版。
@@ -117,8 +117,8 @@ const ASK_RE =
 /** 已授权事项：关键词 → 命中后应该怎么做的提示（写进给 AI 的回执里）。 */
 const AUTHORIZED_HINTS: Array<{ re: RegExp; hint: string }> = [
 	{
-		re: /镜像同步|同步(到|回)?镜像|CapabilityManagerAgent|Prometheus/,
-		hint: "直接 agent_call Prometheus（dir: /Users/xhq/Developer/CapabilityManagerAgent）同步镜像并记 CHANGELOG",
+		re: /镜像同步|同步(到|回)?镜像|TeamToolkit|CapabilityManagerAgent/,
+		hint: "直接跑 `python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py`（在 macmini 上执行）发布镜像并记 CHANGELOG",
 	},
 	{
 		re: /\/add\b|\/commit\b|\/bump\b|\/release\b|预检|发版链/,
