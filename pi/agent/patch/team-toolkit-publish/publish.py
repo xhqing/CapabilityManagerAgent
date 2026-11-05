@@ -137,7 +137,7 @@ def sync_part(part: str, mirror: Path, dry: bool) -> None:
     excludes = []
     for pat in EXCLUDES:
         excludes += ["--exclude", pat]
-    cmd = ["rsync", "-a", "--delete", *excludes, f"{src}", f"{dst.parent}/"]
+    cmd = ["rsync", "-a", "-c", "--delete", *excludes, f"{src}", f"{dst.parent}/"]
     if dry:
         cmd.insert(1, "--dry-run")
         cmd.insert(1, "-v")
@@ -153,10 +153,19 @@ def dry_run_diff(part: str, mirror: Path) -> list[str]:
     excludes = []
     for pat in EXCLUDES:
         excludes += ["--exclude", pat]
-    cmd = ["rsync", "-a", "--delete", "--dry-run", "--itemize-changes",
+    cmd = ["rsync", "-a", "-c", "--delete", "--dry-run", "--itemize-changes",
            *excludes, f"{src}", f"{dst.parent}/"]
     out = sh(cmd, check=False).stdout
-    return [ln for ln in out.splitlines() if ln and not ln.startswith("sending")]
+    keep = []
+    for ln in out.splitlines():
+        if not ln or ln.startswith("sending"):
+            continue
+        # itemize 格式（11 列）：YXcstpoguax。只有「时间」这一位不同（`.f..t` / `.d..t`）不算内容变更，
+        # 否则每台机器 mtime 不同就会造出空提交；内容/大小变化是 `>f.st....` 这类，必须保留。
+        if re.match(r"^[.>][fd]\.\.[t.]", ln):
+            continue
+        keep.append(ln)
+    return keep
 
 
 def note_npm() -> None:
