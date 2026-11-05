@@ -78,6 +78,13 @@ PI_AGENT_EXCLUDES = [
     "mcp-npx-cache.json",
     "mcp-last-seen-version.json",
     "trust.json",
+    "mcp-project-approvals.json",
+    # 以下几条是「各机各自维护」的本机配置：Syncthing 不同步（见 .stignore），
+    # 不排除的话两台机器算出的内容指纹会不同、且会把本机路径写进公开备份。
+    "skills/anysearch/runtime.conf",
+    "patch/session-link/config.json",
+    "patch/session-link/local-links.json",
+    "patch/session-link/chain-registry.json",
     "*.log",
     "*.lock",
     "__pycache__/",
@@ -93,6 +100,24 @@ TARGETS = {
 }
 
 TAR_NAME_RE = re.compile(r"^(pi-agent|private)-\d{8}-\d{6}\.tar\.gz$")
+
+
+def _lark_bin() -> str:
+    """定位 lark-cli：非交互 shell（如 ssh 直接执行）的 PATH 里常常没有 ~/.local/bin。"""
+    candidates = [
+        shutil.which("lark-cli"),
+        str(HOME / ".local" / "bin" / "lark-cli"),
+        str(HOME / "bin" / "lark-cli"),
+        "/opt/homebrew/bin/lark-cli",
+        "/usr/local/bin/lark-cli",
+    ]
+    for cand in candidates:
+        if cand and Path(cand).exists():
+            return cand
+    return "lark-cli"
+
+
+LARK = _lark_bin()
 
 
 # ----------------------------------------------------------------- 基础
@@ -221,7 +246,7 @@ def feishu_root_token() -> str:
 
 
 def feishu_list(folder: str) -> list[dict]:
-    out = sh(["lark-cli", "drive", "files", "list", "--folder-token", folder,
+    out = sh([LARK, "drive", "files", "list", "--folder-token", folder,
               "--as", "user", "--format", "json"])
     try:
         j = json.loads(out.stdout)
@@ -236,7 +261,7 @@ def feishu_ensure_folder(parent: str, name: str) -> str:
     for f in feishu_list(parent):
         if f.get("name") == name and f.get("type") == "folder":
             return f["token"]
-    out = sh(["lark-cli", "drive", "+create-folder", "--name", name,
+    out = sh([LARK, "drive", "+create-folder", "--name", name,
               "--folder-token", parent, "--as", "user"])
     tok = _find_token(out.stdout)
     if not tok:
@@ -262,13 +287,13 @@ def _find_token(text: str) -> str | None:
 
 
 def feishu_upload(local: Path, folder: str) -> bool:
-    out = sh(["lark-cli", "drive", "+upload", "--file", f"./{local.name}",
+    out = sh([LARK, "drive", "+upload", "--file", f"./{local.name}",
               "--folder-token", folder, "--as", "user"], cwd=str(local.parent))
     return '"ok": true' in out.stdout or '"ok":true' in out.stdout
 
 
 def feishu_delete(file_token: str) -> bool:
-    out = sh(["lark-cli", "drive", "+delete", "--file-token", file_token,
+    out = sh([LARK, "drive", "+delete", "--file-token", file_token,
               "--type", "file", "--as", "user", "--yes"])
     return '"ok": true' in out.stdout or '"ok":true' in out.stdout
 
@@ -443,7 +468,7 @@ def cmd_restore(args) -> int:
         files.sort(key=lambda f: f["name"], reverse=True)
         pick = next((f for f in files if f["name"] == name), files[0]) if name else files[0]
         SNAP_LOCAL.mkdir(parents=True, exist_ok=True)
-        out = sh(["lark-cli", "drive", "+download", "--file-token", pick["token"],
+        out = sh([LARK, "drive", "+download", "--file-token", pick["token"],
                   "--output", f"./{pick['name']}", "--as", "user"], cwd=str(SNAP_LOCAL))
         if not (SNAP_LOCAL / pick["name"]).exists():
             print(f"[ERR] 下载失败：{out.stdout[:200]} {out.stderr[:200]}")

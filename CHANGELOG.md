@@ -4,6 +4,23 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-11-05 dev-snapshots 补齐本机配置排除 + 两机准备说明（镜像同步，2 个文件）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：上一条把 `.stignore` / `.stfolder` / `node_modules` 排除出指纹后，实测还有两类路径会让两台机器算出不同指纹、并把本机路径写进公开备份：`skills/anysearch/runtime.conf`、`patch/session-link/{config,local-links,chain-registry}.json`、`trust.json`、`mcp-project-approvals.json`——它们都由各机各自维护、Syncthing 本就不同步。另外在 macmini 上实测到两个环境坑：非交互 shell（`ssh mac-mini '…'`）的 PATH 里没有 `~/.local/bin`，直接调 `lark-cli` 会 `FileNotFoundError`。
+
+**改了什么**：
+
+1. `pi/agent/patch/dev-snapshots/dev-snapshots.py`：`PI_AGENT_EXCLUDES` 补上 `mcp-project-approvals.json`、`skills/anysearch/runtime.conf`、`patch/session-link/{config,local-links,chain-registry}.json`；新增 `_lark_bin()` 定位 `lark-cli`（`shutil.which` → `~/.local/bin` → `~/bin` → homebrew 两个路径），所有调用点改用 `LARK` 常量。
+2. `pi/agent/patch/dev-snapshots/README.md`：新增「两台机器各自的准备」表（lark-cli 位置、两台机器的 app 差异、同一个备份根文件夹）与「指纹必须两端一致」段（必须排除的两类东西 + 两端校验命令），并记录 macmini 上 github.com 限速的处理办法（在本机下载后 scp 过去）。
+
+**验证**：与全局 `diff` 一致；90 秒观察窗口内全局文件无进一步变化；脚本为纯排除逻辑 + 二进制定位兜底，不改变打包 / 上传 / 令牌语义。
+
+**回归风险**：无。新增排除只影响指纹口径（更保守），`lark-cli` 定位顺序为先 PATH、再本机常见目录，路径不变时行为不变。
+
 ## [1.13.1] - 2026-11-05
 
 ### 2026-11-05 dev-snapshots 快照指纹排除 Syncthing 本机元数据（镜像同步，1 个文件）
