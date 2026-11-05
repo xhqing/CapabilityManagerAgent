@@ -1,19 +1,19 @@
 # 新建 Agent 项目脚手架与开源约定
 
-> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 TeamToolkit 仓库 `pi/agent/docs/`。
+> 本文件由全局 `~/.pi/agent/AGENTS.md`「团队结构参考」指针节指向。**何时读**：新建 Agent 项目（含团队 agent 与独立工具型 agent）前必读，保证团队一致、开源安全。权威源在全局 `~/.pi/agent/docs/`，开源镜像在 TeamToolkit 仓库 `pi/agent/docs/`。
 
 **为什么**：agent 越来越多，统一脚手架避免重造轮子、避免泄露密钥。**怎么用**：复制已有 agent 项目（如 FullStackEngineerAgent）再按角色改写。
 
 ## 通用能力开源单一出口
 
-**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **TeamToolkit（Prometheus）的 `pi/agent/` 镜像**（`skills/`、`CLAUDE.md`、`docs/`、`patch/`、`extensions/` 五部分 + npm 清单）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
+**新建 Agent 项目一律不放与全局通用能力重复的内容**——`~/.pi/agent/skills/` 里的通用 skill（如 anysearch）不再复制进各 agent 项目的 `.claude/`。通用能力的开源分发统一经 **TeamToolkit（原 Prometheus）的 `pi/agent/` 镜像**（`skills/`、`AGENTS.md`、`docs/`、`patch/`、`extensions/` 五部分 + npm 清单）一次性完成——clone 该项目即得全部通用能力；各 agent 项目只放自己独有的内容（新建项目一律不建 `.claude/` 目录，见下）。
 
 - **为什么**：全局 `~/.pi/agent/` 是运行时实际加载的「活」源头；每个项目放一份副本意味着通用能力一改动就要同步到所有项目，副本容易过期分叉（新建 NetOpsAgent 时即发现 anysearch `runtime.conf` 副本与全局不一致、find-skill 副本多出 `.env.example`）。统一单一出口后，全局改一处、镜像同步一处，各项目零维护。
 - **边界**：单一出口模式已全量落地——各 agent 项目的 anysearch 等通用 skill 副本已全部清除（2026-09-13 核验，`~/Developer/*/.claude/skills/` 下无任何 anysearch 副本），「既有项目副本」这层维护已终结，不再存在项目间分发。
 
 ## 脚手架清单
 
-- **AutoMemory 已全局弃用**：新建项目**不配 AutoMemory**（不建 memory 目录、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ CLAUDE.md，不依赖 AutoMemory 自动记。
+- **AutoMemory 已全局弃用**：新建项目**不配 AutoMemory**（不建 memory 目录、不填 `autoMemoryDirectory`、`.gitignore` 不挂 memory 条目）。知识沉淀走 rules/skills（强约束规范）+ AGENTS.md，不依赖 AutoMemory 自动记。
 - **目录名 / 名称** = 以 `Agent` 结尾即可，前缀尽可能简单（2026-10-09 用户修订，如 `cuAgent`）；不再要求「职称式全称 + PascalCase」，新建 agent 也不再强制拟人名。
 - **不建 `.claude/` 目录**：新建项目**一律不建 `.claude/` 目录**，旧规定要求照建的 `.claude/` 下文件（`settings.json`、`settings.local.json`、`settings.local.example.json`，以及角色专属 skills / rules 等）**一律都不要**；通用能力经 TeamToolkit `pi/agent/` 镜像统一开源（见上「通用能力开源单一出口」节），项目内不留任何副本。项目根只建脚手架清单内的根目录文件（如 `LICENSE.md`（MIT））。
 - **子项目：身份层挂软链接 + 能力层建真实 `.pi/`、不放实体（2026-10-30 用户修订，取代 2026-10-17 的「`.pi` 也挂软链接」）**：新建子项目时在子项目根目录做两件事——（1）`AGENTS.md → ../<负责Agent项目>/AGENTS.md` 相对路径软链接（身份必须与 Agent 项目一致）；（2）建**真实目录** `.pi/`，里面放 `settings.json` 把负责 Agent 的四个资源目录引用进来（把 `<Agent项目>` 换成实际目录名）：
@@ -26,7 +26,7 @@
   }
   ```
   两项都**随仓库提交**（2026-10-17 用户决定：仓库主要作用户本人的备份；跨仓库关联是团队网络的组成部分，看到 `AGENTS.md` 软链接与 `.pi/settings.json` 里的 Agent 项目路径即表示「某 Agent 项目进驻该子项目」，在说明文档中写明即可）。子项目**不建**智能体专属文件的实体副本、不复制内容进去；子项目独有的 skill / 扩展放 `.pi/skills`、`.pi/extensions`（这两个目录本来就会被自动发现，不必写进 settings）；子项目专属**规则**用 `.pi/APPEND_SYSTEM.md` **追加**（不要用 `.pi/SYSTEM.md`，那是整体替换）。**为什么这样设计**：身份层没有 include 机制、复制必漂移，所以用软链接保持一致；能力层用**目录引用**而不是复制，Agent 侧新增技能 / 扩展自动带过来，且子项目写 `.pi` 只写自己目录、不污染 Agent 项目与兄弟子项目。**纪律**：子项目 `.pi` 只允许追加，不允许重述 / 覆盖基座规则。`.claude/` 也不挂链接（Claude Code 侧不再维护）。后台开启会话（intercom / `agent_call` / `agent_wake`）仍只能以 Agent 项目根目录为工作目录。细则见 `~/.pi/agent/docs/agents-registry.md`「智能体专属文件归属与子项目映射」节。
-- **角色化 `CLAUDE.md` 直接放项目根目录**（你是谁 / 产物契约 / 工具 / 约束 / 流水线位置，不放 `.claude/` 下）；**建项目根 `CLAUDE.md` 的同时，在项目根建一条软链接 `AGENTS.md` 指向它**（`ln -s CLAUDE.md AGENTS.md`，两文件内容天然同步，兼容只认 `AGENTS.md` 的 agent 工具）+ **中英双语 `README.md`**（含名称 + topics）。README 顶部必须有 **logo**（`assets/logo.svg`，统一模板：640×200 渐变色卡 + 角色 emoji + 名字 + 职称，配色按角色区分）+ **标准徽章**（shields.io：**License / Version / Type** 三枚是必须含有的底线——License 标开源许可证（如 MIT）、Version 标项目版本号（取自 VERSION 文件）、Type 标项目类型（如 AI Agent）；**不含** Forks，也不含 Stars / Last Commit 等 GitHub 动态数值 / 时间徽章；另**不含**点明 LLM / 厂商的徽章，如 "Built with Claude Code"）。logo 的视觉规范（英文文字、agent 门面模板 vs 子项目象征）见 icon-design skill。
+- **角色化 `AGENTS.md` 直接放项目根目录**（你是谁 / 产物契约 / 工具 / 约束 / 流水线位置，不放 `.claude/` 下）——**2026-11-05 起它就是规则文件本体，不再建 `CLAUDE.md`、也不再挂 `AGENTS.md → CLAUDE.md` 软链接**（pi 的上下文文件候选顺序 `AGENTS.override.md` > `AGENTS.md` > `CLAUDE.md`，本体在 `AGENTS.md` 时 `CLAUDE.md` 不参与加载，留着只会双份漂移）+ **中英双语 `README.md`**（含名称 + topics）。README 顶部必须有 **logo**（`assets/logo.svg`，统一模板：640×200 渐变色卡 + 角色 emoji + 名字 + 职称，配色按角色区分）+ **标准徽章**（shields.io：**License / Version / Type** 三枚是必须含有的底线——License 标开源许可证（如 MIT）、Version 标项目版本号（取自 VERSION 文件）、Type 标项目类型（如 AI Agent）；**不含** Forks，也不含 Stars / Last Commit 等 GitHub 动态数值 / 时间徽章；另**不含**点明 LLM / 厂商的徽章，如 "Built with Claude Code"）。logo 的视觉规范（英文文字、agent 门面模板 vs 子项目象征）见 icon-design skill。
 - **访问量徽章已取消（2026-11-04 用户决定）**：团队各仓库 README 里那枚指向 `xhqing/xhqing` 仓库 `traffic/badges/<repo>.json` 的 shields.io endpoint 访问量徽章（Visitors / Visits/day）**不再使用**——用户 2026-11-04 决定停用集中式流量采集，采集工作流、脚本与 `traffic/` 数据目录已一并删除，全团队 24 个仓库的徽章也在同一批 PR 里移除。**新建仓库只挂 License / Version / Type 三枚**；存量仓库里若还看到这枚徽章，按遗留处理、删除整行。
   **为什么取消**（供理解，不必照抄进文档）：徽章数据必须由采集任务每天刷新，采集停掉后徽章会冻结在旧值、而徽章文案仍写「Visits/day (14d)」，等于长期展示不实数据——留着比删掉更糟。恢复的话需要同时恢复采集链路与数据目录，不是单挂一枚徽章的事。
 - **徽章英文首字母必须大写**：README 里所有徽章上的英文文字——静态 badge 的 label（如 `License`、`Version`、`Type`）与 message、endpoint 徽章 JSON 里的 `label` 字段、以及徽章 `<img>` 的 `alt` 文本——凡英文，**首字母一律大写**（如 `License-MIT`、`Mode-Signal`、`Type-AI Agent`）。**为什么**：小写首字母在徽章墙上观感不一致、显得随意，与团队统一的专业视觉风格不符；首字母大写是英文标识词的标准书写规范。**怎么用**：新写徽章时直接按首字母大写书写；既有小写存量，接触一处改一处（顺手改，不必专门一次性返工）。**边界**：本条管「徽章上显示的英文文字」；URL 路径、仓库目录名等非显示内容不管；单词内部字母（如 `AI Agent` 的 `AI`、`iOS`）按该词本身的规范书写，不因本条改动。

@@ -54,7 +54,6 @@ TS_FMT = "%Y%m%d-%H%M%S"
 
 # 全局能力层要打包的部分（运行时数据 / 二进制 / 会话记录一律排除）
 PI_AGENT_INCLUDES = [
-    "CLAUDE.md",
     "AGENTS.md",
     "settings.json",
     "mcp-adapter.json",

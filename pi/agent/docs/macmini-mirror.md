@@ -48,7 +48,7 @@
 | folder id | 本机 | macmini | 模式 | 内容 | 排除项 |
 |---|---|---|---|---|---|
 | `private` | `~/.dev/private` | `~/.dev/private` | 双向 | 各项目私有内容**本体**（`private-links` 的软链接指过来） | `.DS_Store`、`._*` |
-| `pi-agent` | `~/.pi/agent` | `~/.pi/agent` | 双向 | 全局能力层（`CLAUDE.md` / `skills/` / `docs/` / `patch/` / `extensions/` / `prompts/` / `themes/` / 配置） | `sessions/`、`state/`、`logs/`、`tmp/`、`intercom/`、`npm/`、`bin/`、运行时缓存、`trust.json`、`skills/anysearch/runtime.conf`、`patch/session-link/*.json`、`__pycache__`、`*.log`、`*.lock` |
+| `pi-agent` | `~/.pi/agent` | `~/.pi/agent` | 双向 | 全局能力层（`AGENTS.md` / `skills/` / `docs/` / `patch/` / `extensions/` / `prompts/` / `themes/` / 配置） | `sessions/`、`state/`、`logs/`、`tmp/`、`intercom/`、`npm/`、`bin/`、运行时缓存、`trust.json`、`skills/anysearch/runtime.conf`、`patch/session-link/*.json`、`__pycache__`、`*.log`、`*.lock` |
 
 **明确不同步**：`~/Developer` 下所有项目仓库（含 `.git`、worktree、`node_modules`、构建产物）、
 `~/.dev/snapshots/`（本地快照，各机各留 5 份）、机器本地配置（`.claude/settings.local.json`、

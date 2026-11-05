@@ -8,7 +8,7 @@
 
 用户原话：「规定以后新建立的项目仓库全部必须使用 strict 模式的 pr-ci」。
 
-**规矩本身**（已同步写入 `~/.pi/agent/CLAUDE.md`「开发流程：worktree + PR」第 3 条）：新建的团队项目仓库上线时必须同时具备三件套，缺一不可。
+**规矩本身**（已同步写入 `~/.pi/agent/AGENTS.md`「开发流程：worktree + PR」第 3 条）：新建的团队项目仓库上线时必须同时具备三件套，缺一不可。
 
 1. **至少一个在 PR 上会真实跑的 CI 检查**。确实没有测试可跑的项目（纯文档、纯脚本）也要补一个最轻量的检查——markdown lint、`bash -n` 语法检查、`python3 -m compileall`、构建可编译即可。**不存在「没 CI 就豁免 strict」的例外**：没有检查时 strict 参数根本无从谈起，所谓「strict 模式」就是空话。
 2. **该检查挂成 required status check**。CI 跑了但不拦合并，等于没有门禁——这是比 strict 更容易漏的一层。
@@ -100,7 +100,7 @@
 
 ## 2026-11-02：全团队锁死 remote main（用户立规，已铺开）
 
-用户原话：「任何任务都先单独建立 worktree……所有智能体团队项目（包括 Agent 项目和各个 Agent 的子项目）都锁死 remote-main，不能从本地直接 Push-local-main 到 remote-main，只能从 worktree 走 PR 流程」。规则正文见 `~/.pi/agent/CLAUDE.md`「开发流程：worktree + PR」节。
+用户原话：「任何任务都先单独建立 worktree……所有智能体团队项目（包括 Agent 项目和各个 Agent 的子项目）都锁死 remote-main，不能从本地直接 Push-local-main 到 remote-main，只能从 worktree 走 PR 流程」。规则正文见 `~/.pi/agent/AGENTS.md`「开发流程：worktree + PR」节。
 
 **已铺开范围**（2026-11-02 实测，脚本逐仓 `PUT …/branches/<default>/protection`）：
 

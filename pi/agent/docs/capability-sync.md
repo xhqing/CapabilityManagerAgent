@@ -1,7 +1,7 @@
 # 全局通用能力的开源出口：TeamToolkit（2026-11-05 起单 pusher）
 
-> 本文件由全局 `~/.pi/agent/CLAUDE.md`「团队结构参考」指针节指向。**何时读**：维护全局 `~/.pi/agent/`
-> 的通用能力（skills / CLAUDE.md / docs / patch / pi 扩展）时、装 / 删 / 升级 pi 第三方包后刷新清单时、
+> 本文件由全局 `~/.pi/agent/AGENTS.md`「团队结构参考」指针节指向。**何时读**：维护全局 `~/.pi/agent/`
+> 的通用能力（skills / AGENTS.md / docs / patch / pi 扩展）时、装 / 删 / 升级 pi 第三方包后刷新清单时、
 > 需要发布 / 排查镜像分叉时。
 
 ## 一、它是什么、归谁
@@ -41,7 +41,7 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 脚本做的事（顺序固定）：
 
 1. **等 Syncthing 收敛**：查 `/rest/db/status?folder=pi-agent`，两边都 `idle` 才继续——否则会把
-   「只同步到一半的全局目录」发布出去（最坑的形态是 `CLAUDE.md` 引用了还没到的 skill）。
+   「只同步到一半的全局目录」发布出去（最坑的形态是 `AGENTS.md` 引用了还没到的 skill）。
 2. **拒绝发布冲突副本**：发现 `*.sync-conflict-*` 直接报错退出（说明能力层本身要人管了）。
 3. **单向 rsync** 五部分 + npm 清单到仓库的 `pi/agent/`（排除本机产物与本机私有配置）。
 4. **生成 CHANGELOG 条目**（列出本次变更文件）+ 按需 bump 版本号。
@@ -54,7 +54,7 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 
 | 全局 | 镜像 | 说明 |
 |---|---|---|
-| `CLAUDE.md` | `pi/agent/CLAUDE.md` | 全局规则（含「工作规则」各节） |
+| `AGENTS.md` | `pi/agent/AGENTS.md` | 全局规则（含「工作规则」各节；`CLAUDE.md` 已弃用，镜像里不再有该文件） |
 | `skills/` | `pi/agent/skills/` | 所有**通用** skill |
 | `docs/` | `pi/agent/docs/` | 参考文档（agents-registry、capability-sync、macmini-mirror 等） |
 | `patch/` | `pi/agent/patch/` | 自研补丁 / 辅助脚本 |
@@ -93,7 +93,7 @@ ssh mac-mini 'python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py'
 ```bash
 # 全局 vs 镜像 逐字节比对（排除本机私有文件与本机产物）
 diff -r ~/.pi/agent/skills      ~/Developer/TeamToolkit/pi/agent/skills
-diff    ~/.pi/agent/CLAUDE.md   ~/Developer/TeamToolkit/pi/agent/CLAUDE.md
+diff    ~/.pi/agent/AGENTS.md   ~/Developer/TeamToolkit/pi/agent/AGENTS.md
 # 确认镜像内容真的被 git 跟踪（2026-10-04 事故：.gitignore 里一条裸 docs/ 把镜像静默吞掉）
 git -C ~/Developer/TeamToolkit ls-files pi/agent/docs | wc -l
 ```

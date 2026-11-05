@@ -113,6 +113,6 @@ pi 扩展那层则在 macmini 上的 pi 会话里直接验证：让它执行 `gi
 
 ## 七、相关文档
 
-- 规则条文：`~/.pi/agent/CLAUDE.md`「跨机协作：macmini 值班会话」节的「macmini 严格 git 只读」条。
+- 规则条文：`~/.pi/agent/AGENTS.md`「跨机协作：macmini 值班会话」节的「macmini 严格 git 只读」条。
 - 镜像说明：`~/.pi/agent/docs/macmini-mirror.md`（同步范围、排除项、冲突处理）。
 - 扩展源码：`~/.pi/agent/extensions/git-readonly-guard.ts`。

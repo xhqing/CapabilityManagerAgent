@@ -1,6 +1,6 @@
 # strict 模式 PR CI 的配置与审计
 
-> 规矩来源：全局 `~/.pi/agent/CLAUDE.md`「开发流程：worktree + PR」第 3 条
+> 规矩来源：全局 `~/.pi/agent/AGENTS.md`「开发流程：worktree + PR」第 3 条
 > （2026-11-03 用户立规：「规定以后新建立的项目仓库全部必须使用 strict 模式的 pr-ci」）。
 > 说明与现状：`~/.pi/agent/docs/repo-branch-protection.md`。
 

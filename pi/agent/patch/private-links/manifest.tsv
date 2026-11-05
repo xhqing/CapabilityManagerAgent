@@ -40,7 +40,7 @@ ProductStrategistAgent	docs
 SiteBuilderAgent	artifacts
 SiteBuilderAgent	docs
 SiteBuilderAgent	site/config.js
-SocialMediaManagerAgent	CLAUDE.local.md
+SocialMediaManagerAgent	AGENTS.local.md
 SocialMediaManagerAgent	assets/brand/photo
 SocialMediaManagerAgent	docs/articles/ai-trading
 ToolCallingRules	quick-profit-plan.md

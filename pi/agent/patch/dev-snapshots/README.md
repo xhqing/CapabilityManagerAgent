@@ -1,13 +1,13 @@
 # dev-snapshots：受保护共享目录的改前快照
 
-> 配套规则见全局 `CLAUDE.md`「两个共享目录的『改前快照』」与
+> 配套规则见全局 `AGENTS.md`「两个共享目录的『改前快照』」与
 > 「跨机协作 · 删除红线」两节。守卫是 `~/.pi/agent/extensions/snapshot-guard.ts`。
 
 ## 保护对象
 
 | target | 路径 | 打包内容 | 典型体积 |
 |---|---|---|---|
-| `pi-agent` | `~/.pi/agent` | `CLAUDE.md` / `skills/` / `docs/` / `patch/` / `extensions/` / `prompts/` / `themes/` / `settings.json` / `mcp-adapter.json` | 约 0.5 MB |
+| `pi-agent` | `~/.pi/agent` | `AGENTS.md` / `skills/` / `docs/` / `patch/` / `extensions/` / `prompts/` / `themes/` / `settings.json` / `mcp-adapter.json` | 约 0.5 MB |
 | `private` | `~/.dev/private` | 全部（排除 `.state/`、`.DS_Store`） | 约 95 MB |
 
 `~/.pi/agent` 里 1.3 GB 的运行时数据（`sessions/` `npm/` `bin/` `state/` `logs/` 等）全部排除，

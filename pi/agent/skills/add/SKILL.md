@@ -1,6 +1,6 @@
 ---
 name: add
-description: git add 前的敏感信息预检与分流：gitleaks 工具确定性扫描（内置约 200 种密钥格式 + 全局自定义规则）+ AI 语义扫描（财务状况、个人隐私标识、敏感叙述类无固定格式内容）双层把关，预检干净的文件直接加入暂存区，含疑似敏感内容块的文件留在工作区并输出精确到内容块（行号 + 片段）的人工过目清单——需要肉眼过目的内容少而精。MUST USE 当用户输入 /add，或说「add 一下」「预检一下」「扫一下再 add」「把改动加进暂存区」「这些能提交吗」「哪些文件能 add」时，即使用户没明说 add 也要触发；或由 bump skill 改完版本号文件后自动衔接；或发现工作区 / 暂存区有待提交内容时自动发起（常设授权：有待提交内容就直接走本 skill，预检完全干净则自动衔接 commit；主工作区的 main 分支上不自动发起，先建 worktree 再走；**worktree 的功能分支属正常自动触发范围**；被 add-mode 暂停的项目除外，被 commit-mode 暂停的项目仍可 add 但不衔接 commit）。**worktree 场景**：会话 cwd 通常停在 main 主工作区、任务在 AI 建的 worktree 里做——此时检测入口与全部 git 命令都必须带 `git -C <worktree 绝对路径>`（禁止 cd），候选集读 worktree 而不是 cwd。用户触发即授权当次对预检通过的文件执行 git add（全局 CLAUDE.md「Git 暂存区禁止 AI 自主增删改」的授权例外）；对暂存区已有内容只增不改、绝不删除或修改。NOT for：gitleaks 自定义词表维护（~/.gitleaks.toml 手工维护）。
+description: git add 前的敏感信息预检与分流：gitleaks 工具确定性扫描（内置约 200 种密钥格式 + 全局自定义规则）+ AI 语义扫描（财务状况、个人隐私标识、敏感叙述类无固定格式内容）双层把关，预检干净的文件直接加入暂存区，含疑似敏感内容块的文件留在工作区并输出精确到内容块（行号 + 片段）的人工过目清单——需要肉眼过目的内容少而精。MUST USE 当用户输入 /add，或说「add 一下」「预检一下」「扫一下再 add」「把改动加进暂存区」「这些能提交吗」「哪些文件能 add」时，即使用户没明说 add 也要触发；或由 bump skill 改完版本号文件后自动衔接；或发现工作区 / 暂存区有待提交内容时自动发起（常设授权：有待提交内容就直接走本 skill，预检完全干净则自动衔接 commit；主工作区的 main 分支上不自动发起，先建 worktree 再走；**worktree 的功能分支属正常自动触发范围**；被 add-mode 暂停的项目除外，被 commit-mode 暂停的项目仍可 add 但不衔接 commit）。**worktree 场景**：会话 cwd 通常停在 main 主工作区、任务在 AI 建的 worktree 里做——此时检测入口与全部 git 命令都必须带 `git -C <worktree 绝对路径>`（禁止 cd），候选集读 worktree 而不是 cwd。用户触发即授权当次对预检通过的文件执行 git add（全局 AGENTS.md「Git 暂存区禁止 AI 自主增删改」的授权例外）；对暂存区已有内容只增不改、绝不删除或修改。NOT for：gitleaks 自定义词表维护（~/.gitleaks.toml 手工维护）。
 ---
 
 # add — git add 前的敏感信息预检分流
@@ -17,10 +17,10 @@ description: git add 前的敏感信息预检与分流：gitleaks 工具确定�
 ## 授权边界（硬性，不可越过）
 
 1. **用户触发 `/add`（或当轮明确要求 add）= 授权当次对预检通过的文件执行 `git add`**；bump skill 改完版本号文件后的自动衔接同此授权（用户 2026-10-02 立「bump 后自动 /add」规则即预授权）；**发现工作区 / 暂存区有待提交内容时的自动发起亦同此授权**（2026-10-04 用户立的常设授权：「有待提交内容就直接触发 /add 或 /commit 提交，不用问我」）——**但主工作区的 main 分支上不自动发起（2026-11-03 用户立；worktree 范围 2026-11-04 明确）**：主工作区停在 main 时不自动发起 add，发现那里的改动先建 worktree、在 worktree 分支上执行（工具强制：`git-main-guard.ts` 拦 main 上的 `git add`，逃生门 `# AI_AUTHORIZED_ADD_MAIN` 仅限用户当轮授权）。
-   - **「主工作区 main」与「worktree 功能分支」要分清（2026-11-04 用户 clarify）**：用户的常规工作流是**在 main 分支的主工作区开 pi 会话 → 会话里让 AI 建 worktree → 任务全程在 worktree 里完成并提交**。所以「非 main 分支才自动发起」这条限制，指的是**主工作区**停在 main 时不自动发起，**不是**禁止在 worktree 里触发——worktree 的分支是 `feat/xxx` / `fix/xxx` / `chore/xxx`，属正常自动触发范围，本 skill 在那里正常工作。这是全局 CLAUDE.md「Git 暂存区禁止 AI 自主增删改」条款的授权例外（2026-09-22 立；常设授权形式 2026-10-04 增；main 分支限制 2026-11-03 增；worktree 适用范围 2026-11-04 明确）。
+   - **「主工作区 main」与「worktree 功能分支」要分清（2026-11-04 用户 clarify）**：用户的常规工作流是**在 main 分支的主工作区开 pi 会话 → 会话里让 AI 建 worktree → 任务全程在 worktree 里完成并提交**。所以「非 main 分支才自动发起」这条限制，指的是**主工作区**停在 main 时不自动发起，**不是**禁止在 worktree 里触发——worktree 的分支是 `feat/xxx` / `fix/xxx` / `chore/xxx`，属正常自动触发范围，本 skill 在那里正常工作。这是全局 AGENTS.md「Git 暂存区禁止 AI 自主增删改」条款的授权例外（2026-09-22 立；常设授权形式 2026-10-04 增；main 分支限制 2026-11-03 增；worktree 适用范围 2026-11-04 明确）。
    - **add-mode / commit-mode 两个独立开关的边界（2026-10-31 用户立）**：`add-mode manual` 暂停自动 add 的项目 → 不要自行发起本 skill，只有用户当轮明确要求 add / 提交时才走（`add-mode-guard.ts` 硬拦无意图的 `git add`）；`commit-mode manual` 暂停自动 commit 的项目 → add 照常自动执行，但**预检完全干净后不自动衔接 commit**（第 7 步的衔接暂停，只 add 不提交；`commit-mode-guard.ts` 硬拦无意图的 `git commit`）。两个开关完全独立（不同命令、不同状态文件、不同扩展），可以单独或同时开启。
 2. **只增不改**：本 skill 绝不触碰暂存区已有内容——不执行 `git restore --staged`、`git rm --cached`、`git reset`、`git mv` 等任何会改动暂存区现有内容的命令。发现暂存区里已有可疑内容时只报告，不动它（留给用户处理）。
-3. **预检完全干净时自动衔接 commit skill（2026-10-01 用户立，全局 CLAUDE.md 授权形式③）**：本次预检结果满足「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，`/add` 的授权自动延伸到当次提交推送——直接进入 commit skill 的完整流程（`git commit` + `git push` 及其全部固有步骤与检测），衔接命令的 `git commit` 照常带 `# AI_AUTHORIZED_COMMIT` 标记放行。该完整流程含 commit skill 第 10 步的自动发版衔接——满足发版条件时会继续自动进入 `/release` 完成发版（2026-10-02 起；2026-10-13 起发版条件收紧：仅自最新 tag 含 fix / feat 类改动时触发，纯文档 / 杂事类不发版——详见 commit skill 第 10 步）。任一条件不满足（有需人工过目的文件 / 有不建议入库的文件 / 本次无文件入库）→ 停在本 skill 报告阶段、不衔接。用户当轮明确说「只 add、不要提交」时也不衔接。
+3. **预检完全干净时自动衔接 commit skill（2026-10-01 用户立，全局 AGENTS.md 授权形式③）**：本次预检结果满足「至少 1 个文件加入暂存区 + 需人工过目 0 个 + 不建议入库 0 个」时，`/add` 的授权自动延伸到当次提交推送——直接进入 commit skill 的完整流程（`git commit` + `git push` 及其全部固有步骤与检测），衔接命令的 `git commit` 照常带 `# AI_AUTHORIZED_COMMIT` 标记放行。该完整流程含 commit skill 第 10 步的自动发版衔接——满足发版条件时会继续自动进入 `/release` 完成发版（2026-10-02 起；2026-10-13 起发版条件收紧：仅自最新 tag 含 fix / feat 类改动时触发，纯文档 / 杂事类不发版——详见 commit skill 第 10 步）。任一条件不满足（有需人工过目的文件 / 有不建议入库的文件 / 本次无文件入库）→ 停在本 skill 报告阶段、不衔接。用户当轮明确说「只 add、不要提交」时也不衔接。
 4. 用户口头确认「这几个没问题，add 吧」= 当轮授权 add 这几个文件；确认后文件若有新改动，须重新扫描再 add。确认后重新扫描干净并入暂存区 → 同样按第 3 条判定是否自动衔接（全部干净则衔接）。
 
 ## worktree 场景（2026-11-04 用户立：会话在 main 开、任务在 worktree 做）
@@ -120,7 +120,7 @@ gitleaks dir <候选文件或目录> --config ~/.gitleaks.toml --no-banner -v
 
 「♻️ 白名单跳过」不构成阻断：那些内容块是用户此前明确确认过可公开的，视为干净。
 
-**满足 → 直接进入 commit skill 的完整流程**，不停下等用户输入 `/commit`——把目标工作区路径一起交过去（worktree 场景下 commit skill 的全部命令同样以 `git -C <目标工作区>` 执行，见其「worktree 场景」节）——远端 main 对齐检测（0a）→ 分支感知 → 暂存区敏感扫描 → cache 检测 → `git commit && git push` → 分支 / PR 处理 → 第 9 步标配检测 → 9z 等待对齐 → 第 10 步自动发版链（未就绪时自动走 /bump → /add → /commit）等全部固有步骤一步不省（含其所有终止 / 暂停规则）。`git commit` 命令照常带 `# AI_AUTHORIZED_COMMIT` 标记（全局 CLAUDE.md 授权的第三种场景）。这是预检干净场景的默认行为，不需要也不应再向用户确认「要不要提交」。
+**满足 → 直接进入 commit skill 的完整流程**，不停下等用户输入 `/commit`——把目标工作区路径一起交过去（worktree 场景下 commit skill 的全部命令同样以 `git -C <目标工作区>` 执行，见其「worktree 场景」节）——远端 main 对齐检测（0a）→ 分支感知 → 暂存区敏感扫描 → cache 检测 → `git commit && git push` → 分支 / PR 处理 → 第 9 步标配检测 → 9z 等待对齐 → 第 10 步自动发版链（未就绪时自动走 /bump → /add → /commit）等全部固有步骤一步不省（含其所有终止 / 暂停规则）。`git commit` 命令照常带 `# AI_AUTHORIZED_COMMIT` 标记（全局 AGENTS.md 授权的第三种场景）。这是预检干净场景的默认行为，不需要也不应再向用户确认「要不要提交」。
 
 **不满足 → 停在报告阶段**：输出第 6 步报告与指引，等用户处理需要过目的文件 / 不建议入库的文件，不衔接。
 

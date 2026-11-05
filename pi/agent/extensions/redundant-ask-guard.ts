@@ -2,12 +2,12 @@
  * 多余询问守卫（pi 端，系统提示注入 + 回复检测 + 只喂给 AI 的回执）。
  *
  * 2026-10-29 用户立规：**已经授权过的事不要再问用户，直接做。** 立规起因：镜像同步
- * 早在全局 CLAUDE.md 里写明「由 Prometheus 负责、发现分叉自动同步对齐、无需询问」，
+ * 早在全局 AGENTS.md 里写明「由 Prometheus 负责、发现分叉自动同步对齐、无需询问」，
  * 但 AI 仍然在收尾时问了一句「要我现在做吗」。用户随后补了第二条口径：「不要让我看
  * 警告，这种事情定了规矩我就不想插手了，警告应该让当前会话看见」——所以本扩展**不向
  * 用户弹任何提示**，命中时只把回执写进 AI 自己的上下文（`display: false`）。
  *
- * 为什么会反复犯：授权分散在 CLAUDE.md 的不同章节（跨机协作 / 会话间协作 / commit
+ * 为什么会反复犯：授权分散在 AGENTS.md 的不同章节（跨机协作 / 会话间协作 / commit
  * 规则 / 新建项目），一轮对话读到的不一定是那几条。所以把它们抽成**一份短清单，
  * 每轮对话开始前追加进系统提示**——预防为主。
  *
@@ -90,7 +90,7 @@ function modesAt(cwd: string | undefined): { add: boolean; commit: boolean } {
 	return { add: hit(state.add), commit: hit(state.commit) };
 }
 
-/** 已授权事项清单（每轮追加进系统提示；与全局 CLAUDE.md「输出风格」节那条保持一致）。 */
+/** 已授权事项清单（每轮追加进系统提示；与全局 AGENTS.md「输出风格」节那条保持一致）。 */
 function buildBrief(modes: { add: boolean; commit: boolean }): string {
 	let commitLine = `- 工作区 / 暂存区有待提交内容 → 直接按 /add 或 /commit 流程处理。`;
 	if (modes.add && modes.commit) {
@@ -102,7 +102,7 @@ function buildBrief(modes: { add: boolean; commit: boolean }): string {
 	}
 	return `【已授权事项：直接做，不要征求确认（2026-10-29 用户立规）】
 下面这些事用户已经明确授权，**不要用「要不要我…」「需要我…吗」这类问句结尾**，直接执行：
-- 全局能力层（~/.pi/agent 下的 skills / CLAUDE.md / docs / patch / extensions）改动后，发布 TeamToolkit 开源镜像 → 在 macmini 上跑 \`python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py\`（本机用 ssh / macmini_run 调用；脚本按 hostname 拒绝在 MacBook 上发布），不要问用户。
+- 全局能力层（~/.pi/agent 下的 skills / AGENTS.md / docs / patch / extensions）改动后，发布 TeamToolkit 开源镜像 → 在 macmini 上跑 \`python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py\`（本机用 ssh / macmini_run 调用；脚本按 hostname 拒绝在 MacBook 上发布），不要问用户。
 ${commitLine}
 - 其它 agent 项目的仓库有待提交内容 → 直接 agent_call 对方按其自己的 /add → /commit 处理。
 - /add 预检完全干净 → 自动衔接 /commit；/commit 第 10 步命中发版条件 → 自动 bump / 发版。

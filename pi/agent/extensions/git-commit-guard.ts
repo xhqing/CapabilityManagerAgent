@@ -2,7 +2,7 @@
  * git commit 未授权拦截（pi 端，tool_call 拦截）。
  *
  * 判定逻辑（2026-10-17 起 pi 端独立维护）：commit 不论分支 / worktree / 流程一律须
- * 用户明确授权（2026-09-21 用户立规，全局 CLAUDE.md 铁律配套工具强制），
+ * 用户明确授权（2026-09-21 用户立规，全局 AGENTS.md 铁律配套工具强制），
  * hook 对无 AI_AUTHORIZED_COMMIT 标记的 git commit 一律 deny。授权标记仅
  * 三种场景使用：/commit skill 的串联命令、用户当轮消息明确授权后、
  * /add 预检完全干净后的自动衔接（2026-10-01 增）。

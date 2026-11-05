@@ -13,7 +13,7 @@ eval set 格式（同原版，JSON 数组）：
 
 默认隔离（只测「该 skill 的 description 本身」）：
   --no-skills（不加载全局 skills）+ --skill <被测> + --no-context-files
-  （不加载 AGENTS.md/CLAUDE.md）+ --no-session（不写会话文件）。
+  （不加载 AGENTS.md）+ --no-session（不写会话文件）。
   ⚠️ 不要加 --no-extensions：本机模型 provider（volcengine 等）经 extension
   包注册，禁用后认证失败（实测 401）。
   用 --keep-global-skills / --keep-context 可分别放开隔离（测真实环境下的竞争）。
@@ -243,7 +243,7 @@ def main():
     parser.add_argument("--trigger-threshold", type=float, default=0.5, help="触发率阈值（默认 0.5）")
     parser.add_argument("--model", default=None, help="传给 pi 的模型（默认用 pi 配置）")
     parser.add_argument("--keep-global-skills", action="store_true", help="放开隔离：同时加载全局 skills（测真实竞争）")
-    parser.add_argument("--keep-context", action="store_true", help="放开隔离：同时加载 AGENTS.md/CLAUDE.md")
+    parser.add_argument("--keep-context", action="store_true", help="放开隔离：同时加载 AGENTS.md")
     parser.add_argument("--dry-run", action="store_true", help="只打印将执行的调用数，不真跑")
     parser.add_argument("--verbose", action="store_true", help="打印进度到 stderr")
     args = parser.parse_args()

@@ -11,7 +11,7 @@
 它做什么（顺序固定）
 --------------------
 1. **等 Syncthing 收敛**：查本机 Syncthing 的 `pi-agent` 目录状态，不是 `idle` 就等；
-   否则会把「只同步到一半的全局目录」发布出去（最坑的是 CLAUDE.md 引用了还没到的 skill）。
+   否则会把「只同步到一半的全局目录」发布出去（最坑的是 AGENTS.md 引用了还没到的 skill）。
 2. **拒绝发布冲突副本**：发现 `*.sync-conflict-*` 直接退出（能力层本身需要人管）。
 3. **单向 rsync** 五部分 + npm 清单到仓库 `pi/agent/`（排除本机产物与本机私有配置）。
 4. **写 CHANGELOG**：自动生成本次变更的文件清单（生成物不靠手写，否则必飘）。
@@ -48,7 +48,7 @@ REPO_DEFAULT = HOME / "Developer" / "TeamToolkit"
 MIRROR_SUB = Path("pi") / "agent"
 
 # 进镜像的五部分（顺序固定，便于 diff 阅读）
-PARTS = ["CLAUDE.md", "skills", "docs", "patch", "extensions"]
+PARTS = ["AGENTS.md", "skills", "docs", "patch", "extensions"]
 
 # 不进镜像：本机私有配置 + 本机产物 + 运行时目录
 EXCLUDES = [

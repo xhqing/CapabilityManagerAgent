@@ -34,7 +34,15 @@ import { isToolCallEventType, type ExtensionAPI } from "@earendil-works/pi-codin
 
 const HOME = homedir();
 export const GUARDED_ROOTS = [`${HOME}/.pi/agent`, `${HOME}/.dev/private`];
-const EXEMPT = [`${HOME}/.dev/private/.state`, `${HOME}/.dev/snapshots`];
+const EXEMPT = [
+	`${HOME}/.dev/private/.state`,
+	`${HOME}/.dev/snapshots`,
+	// pi 的运行时数据：会话记录 / 状态文件 / 日志，随时可重建，且是 AI 最常读写的路径——
+	// 不豁免的话「读会话记录 + 任意删除动作」就会误判成「要改受保护目录」（2026-11-05 实测两次误拦）。
+	`${HOME}/.pi/agent/sessions`,
+	`${HOME}/.pi/agent/state`,
+	`${HOME}/.pi/agent/logs`,
+];
 const SNAP_TOOL = `${HOME}/.pi/agent/patch/dev-snapshots/dev-snapshots.py`;
 
 /** 目录根本身（等于这些路径的删除一律拒绝）。 */
@@ -44,17 +52,38 @@ export const ROOT_PATHS = GUARDED_ROOTS;
 export const DELETE_VERBS =
 	/(^|[^A-Za-z0-9_])(rm|unlink|shred|trash|truncate|mv)([ \t]|$)|\s-delete([ \t]|$)|--delete([ \t]|$)/;
 
-/** 其它会改内容的动作：fresh 模式。 */
+/**
+ * 其它会改内容的动作：fresh 模式。
+ *
+ * 注意 `cat` / `echo` / `printf` 已移出：它们只在**带重定向**时写盘，而重定向由下面的
+ * `>>?` 分支覆盖。留着它们会把 `cat ~/.pi/agent/sessions/xxx.jsonl` 这类纯读命令判成写
+ * （2026-11-05 实测因此误拦过一次）。
+ */
 export const WRITE_VERBS =
-	/(^|[^A-Za-z0-9_])(cp|tee|sed|chmod|chown|ln|touch|install|patch|rsync|tar|unzip|ditto|dd|printf|cat|echo|python|python3|node|perl|ruby)([ \t]|$)|>>?[ \t]*[^ \t>|]|sed[ \t]+-i|\bfind\b.*-delete/;
+	/(^|[^A-Za-z0-9_])(cp|tee|sed|chmod|chown|ln|touch|install|patch|rsync|tar|unzip|ditto|dd|python|python3|node|perl|ruby)([ \t]|$)|>>?[ \t]*[^ \t>|]|sed[ \t]+-i|\bfind\b.*-delete/;
+
+/** 把豁免路径从命令文本里挖掉，避免「读一次会话记录」被当成「要改受保护目录」。 */
+function stripExempt(command: string): string {
+	// 带 `..` 的命令不享豁免：`~/.pi/agent/state/../skills` 这种路径穿越能绕过文本匹配。
+	// 宁可在这种写法上多拦一次，也不给绕行留口子。
+	if (command.includes("..")) return command;
+	let out = command;
+	for (const path of EXEMPT) {
+		for (const form of [path, path.replace(HOME, "~"), path.replace(HOME, "$HOME")]) {
+			if (form && form.length > 1) out = out.split(form).join("<EXEMPT>");
+		}
+	}
+	return out;
+}
 
 /** 命令里是否出现受保护目录（也认 `~` 写法）。 */
 export function mentionsGuarded(command: string): string[] {
 	const hits: string[] = [];
+	const text = stripExempt(command);
 	for (const root of GUARDED_ROOTS) {
 		const tilde = root.replace(HOME, "~");
 		const dollar = root.replace(HOME, "$HOME");
-		if (command.includes(root) || command.includes(tilde) || command.includes(dollar)) {
+		if (text.includes(root) || text.includes(tilde) || text.includes(dollar)) {
 			hits.push(root);
 		}
 	}
@@ -145,10 +174,14 @@ export default function (pi: ExtensionAPI) {
 				const strict = DELETE_VERBS.test(command);
 				if (!strict && !WRITE_VERBS.test(command)) return; // 只读命令放行
 
+				// 只提到豁免路径（会话记录 / state / 日志）时不算「要改受保护目录」：
+				// mentionsGuarded 是按整条命令文本匹配的，读一次会话文件就会命中。
 				const targets = roots.map((r) => (r.endsWith(".pi/agent") ? "pi-agent" : "private"));
-				const r = runCheck([...new Set(targets)], strict ? 0 : 30);
+				const uniqueTargets = [...new Set(targets)];
+				const guardTarget = uniqueTargets.length > 1 ? "both" : (uniqueTargets[0] ?? "both");
+				const r = runCheck([guardTarget], strict ? 0 : 30);
 				if (!r.ok) {
-					return { block: true, reason: DENY(r.out.trim(), [...new Set(targets)].join(" ")) };
+					return { block: true, reason: DENY(r.out.trim(), guardTarget) };
 				}
 			}
 		} catch {

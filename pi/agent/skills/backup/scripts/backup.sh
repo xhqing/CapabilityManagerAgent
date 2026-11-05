@@ -29,7 +29,7 @@
 #   backup.sh <project dir> --endpoint <name>   # backup to ONE registered endpoint
 #   backup.sh <project dir> --list              # list what would be backed up
 # Requires: jq; per-endpoint tooling (lark-cli / rclone) already authorized.
-# Fixed-path files that cannot move into backup/ (e.g. CLAUDE.local.md) are
+# Fixed-path files that cannot move into backup/ (e.g. AGENTS.local.md) are
 # represented there as symlinks; archive mode dereferences them (tar -h), raw
 # mode stages them with cp -L so the link name is kept, content is uploaded.
 # NOTE: keep this file pure ASCII (a stray invisible Unicode char once broke bash).
