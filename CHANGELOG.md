@@ -4,7 +4,7 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
-## [Unreleased]
+## [1.13.0] - 2026-11-05
 
 ### 2026-11-05 跨机架构改造：代码走 GitHub，只有两个共享目录用 Syncthing（镜像同步，20 个文件）
 
