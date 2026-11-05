@@ -64,11 +64,7 @@ macmini_status()          # 看两机实时负载，判断该不该分流时用
 ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to macmini --text "任务与背景"'
 ```
 
-**gh 在 macmini 上只有 Issue 能用（2026-11-04 用户核定）**：`gh issue create / list / view / comment /
-edit / close` 都不属于 git 写操作（走 REST API、不碰本地 `.git`），已在 git-readonly-guard 里放行，
-远端会话可以直接开 Issue 记待办（记得带 `-R owner/repo`）。但：① `gh issue develop` 仍禁（会建本地
-分支）；② `gh pr` / `gh release` / `gh repo` / `gh workflow run` / `gh api` 写操作照旧回本机；
-③ `gh issue create` 属于公开动作，public-text-guard 要求在命令末尾带 `# AI_SENSITIVE_CHECKED`（先做公开文本敏感自检）；
+**gh / git 在 macmini 上已恢复正常（2026-11-05 用户立）**：git 只读层已撤除（`git-readonly-guard.ts` 已删、`core.hooksPath` 只读 hook 已清），macmini 可以正常 `fetch` / `pull` / 提交 / 推送，`gh` 的全部子命令也都可用。**唯一保留的约束是团队通用的那几条**：remote main 锁定（改动走分支 + PR + CI，由 `git-main-guard.ts` 两机一致拦住）、同一仓库同一时间只在一台机器上做写操作（避免本地 main 各自分叉）、公开动作（PR / Issue / Release）须先做公开文本敏感自检并在命令末尾带 `# AI_SENSITIVE_CHECKED`。
 ④ macmini 上的 gh 已认证（2026-11-04：本机 OAuth token 副本写在 macmini 本机 `~/.config/gh/hosts.yml`，
 该目录不在镜像范围），可直接调 API；token 轮换后需重新写。
 
@@ -205,7 +201,7 @@ macmini_run: rm -rf /tmp/macmini-jobs/<job>.sh /tmp/macmini-jobs/<job>.log
 ## 九、不要这样做
 
 - ❌ 把一条 `grep` / `cat` / `git status` 也发到 macmini——SSH 往返比命令本身还慢。
-- ❌ 在 macmini 上 `git add` / `commit` / `checkout`，或指望它 push / 创建 PR。
+- ❌ 同一个仓库在两台机器上同时提交（各自 clone 会分叉）——同一仓库同一时间只在一处做 git 写；macmini 上的正常读写（fetch / pull / 分支 + PR）已经放开。
 - ❌ 在 `~/.pi/agent` / `~/.dev/private` 里随手 `rm -rf`——本机同一份也消失，这两个目录没有「重建」这条路。
 - ❌ 把 `node_modules` / `.venv` / 编译缓存 rsync 回本机——架构不通用、还占盘。
 - ❌ 在 macmini 上再开一个 pi 会话只为了跑一条命令——费用翻倍，不值得。

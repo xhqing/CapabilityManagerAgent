@@ -125,7 +125,7 @@ ssh -L 8385:127.0.0.1:8384 mac-mini    # 浏览器打开 http://127.0.0.1:8385
 3. **`/Users/xhq` 与 `/Users/mac`**：被排除的配置（trust / approvals / anysearch runtime / session-link）
    两机各自维护；同步过去的内容里如果写了 `/Users/xhq/...`，在 macmini 上不成立。
 4. **架构差异**：macmini 是 Intel x64，本机 arm64；依赖、原生二进制、构建缓存各装各的。
-5. **macmini 断 GitHub 属于「待恢复」状态**：恢复前所有 clone / push / PR 都只能在本机做。
+5. **macmini 的 GitHub 访问已于 2026-11-05 恢复**（独立凭证、HTTPS + gh token；github.com 在那边被限速，大仓库拉取较慢）：可以正常 `fetch` / `pull` / 提交 / 推送，同样受 remote main 锁定（改动走分支 + PR + CI）。
 
 ## 九、文件清单
 
