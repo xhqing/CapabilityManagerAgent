@@ -269,8 +269,13 @@ def main() -> int:
     sh(["git", "-C", str(repo), "fetch", "-q", "origin"])
     head_branch = sh(["git", "-C", str(repo), "rev-parse", "--abbrev-ref", "HEAD"]).stdout.strip()
     if head_branch != "main":
-        print(f"[ERR] 当前在 {head_branch}，请先切回 main 再发布")
-        return 2
+        # 上一轮发布留下的 chore/sync-* 分支是常态：工作区干净就自动切回 main
+        dirty = sh(["git", "-C", str(repo), "status", "--porcelain"]).stdout.strip()
+        if dirty:
+            print(f"[ERR] 当前在 {head_branch} 且工作区不干净，先处理干净再发布")
+            return 2
+        sh(["git", "-C", str(repo), "checkout", "-q", "main"])
+        print(f"[INFO] 已从 {head_branch} 切回 main")
     sh(["git", "-C", str(repo), "merge", "--ff-only", "-q", "origin/main"], check=False)
 
     if args.check:
