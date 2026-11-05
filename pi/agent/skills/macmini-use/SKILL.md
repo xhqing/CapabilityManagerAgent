@@ -26,7 +26,7 @@ macmini 上跑，再把结果带回来。**
 | 单条命令、读文件、grep、git status、跑一个测试文件 | **本机** | 十几秒内结束的分流是净亏 |
 | 需要 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain / 安装扩展 | **本机** | 远端没有用户眼前的那个界面 |
 | 需要 arm64 产物、本机原生模块、本机 node_modules | **本机** | 远端是 x64，编出来在本机跑不了 |
-| 提交 / 推送 / PR / Release / CI | 过渡期仍 **本机** | macmini 恢复 GitHub 前仍是只读 + 断网；恢复后可在 macmini 上按同样流程（PR + CI）做 |
+| 提交 / 推送 / PR / Release / CI | 两台都行 | macmini 已恢复正常 git 读写（HTTPS + gh token，remote 已改 https）；同样受 remote main 锁定，改动走分支 + PR + CI |
 | 操作 `~/Downloads`、`/Volumes`、`~/Library`、`~/Key`、`~/.ssh` 等本机专属路径 | **本机** | macmini 上没有这些数据 |
 
 **判断要落到行动**：决定分流就一句话说明（「这个放 macmini 跑」），然后直接执行，不要问用户。
@@ -88,7 +88,7 @@ edit / close` 都不属于 git 写操作（走 REST API、不碰本地 `.git`）
 5. **构建缓存落 /tmp**：`~/Developer` 已不再同步，但为了让远端磁盘干净、也避免把大件产物误提交，缓存仍统一指到 `/tmp`：
    `CARGO_TARGET_DIR=/tmp/<项目>-target`、`swift build --scratch-path /tmp/<项目>-build`、
    `GOCACHE` 默认就在 `~/Library/Caches`（不同步，可不动）。
-6. **GitHub 断连（过渡状态）**：在恢复 macmini 的 GitHub 凭证之前，远端 clone / fetch / push、`gh` 都会失败；这期间拉仓库、发版在本机做。
+6. **GitHub 已恢复（2026-11-05）**：走 HTTPS + gh token；github.com 在 macmini 上被限速，clone / fetch 会慢（已用 HTTP/1.1 + 关低速阈值缓解），大仓库优先本机拉。macmini 上 `~/Developer` 是独立 clone，**不再与本机同步**。
 
 ## 四、macmini 工具链实况（2026-11-03 实测）
 
@@ -199,7 +199,7 @@ macmini_run: rm -rf /tmp/macmini-jobs/<job>.sh /tmp/macmini-jobs/<job>.log
 | 同一个命令远端 Node 版本不对 | 手写 ssh 用了 `bash -lc`（拿到 Node 16）；改用 `macmini_run` 或 `ssh mac-mini '命令'` |
 | `xcrun: error ... requires Xcode` | macmini 只有 Command Line Tools；`xcodebuild` 类任务回本机 / 走 CI |
 | 编译通过但本机跑不起来 | 产物是 x64；本机 arm64 需要重新编，或改用 CI 出 arm64 产物 |
-| `git ...` 在远端被拒 | 过渡期预期行为：macmini 仍是只读且断网。回本机提交 / 发版 |
+| `git ...` 在远端失败 | 已经不再是「只读」问题：多半是 github.com 被限速（已配 `http.version=HTTP/1.1` + 关低速阈值）或凭据过期（`gh auth status` 查） |
 | 删除命令被拒 | 远端递归删除会删到本机；临时文件放 /tmp，确需删除加 `AI_REMOTE_RM_OK` |
 
 ## 九、不要这样做

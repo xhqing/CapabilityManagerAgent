@@ -65,6 +65,7 @@ load 变化），因此不会每轮破坏 prompt 缓存。内容口径：本机 
 - **递归删除**：非 `/tmp` 的 `rm -r` 默认拒绝（远端删除会经 Syncthing 删到本机），
   带 `# AI_REMOTE_RM_OK` 才放行。
 - 后台任务的脚本与日志都在远端 `/tmp/macmini-jobs/`（不在共享范围内，不会回流）。
+- **2026-11-05 起**：macmini 上的项目目录是独立 clone，git 读写正常；只有 `~/.pi/agent` 与 `~/.dev/private` 是共享目录。
 
 ## 四、验证
 

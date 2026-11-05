@@ -1,3 +1,8 @@
+> **⚠️ 已退役（2026-11-05）**：本机制的前提是「两台机器的 `.git` 靠 Syncthing 双向同步」——
+> 架构改造后 `~/Developer` 不再同步、各机 `.git` 各自独立，这个约束已无存在意义。
+> 撤除动作：删 `extensions/git-readonly-guard.ts` + `git config --global --unset core.hooksPath`（macmini）。
+> 本文档保留作历史说明。
+
 # macmini git 只读约束（2026-10-31 用户立规）
 
 > 用户原话：「禁止 macmini 这台设备进行 git 写操作，git add / git commit / git push 等等

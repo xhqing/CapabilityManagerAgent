@@ -4,6 +4,28 @@
 
 > 按全局 CLAUDE.md「同步动作只记权威源的 CHANGELOG」规矩：通用能力的同步只记本文件，**不记到各业务 agent 项目**（如 DayTradingAgent 等）的 CHANGELOG，避免污染那些项目自己的变更记录。
 
+## [Unreleased]
+
+### 2026-11-05 macmini 迁接收尾：git 只读守卫退役、共享目录收敛（镜像同步，7 个文件）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：2026-11-05 的跨机架构改造把「项目代码走 GitHub、只有两个目录用 Syncthing」定下来，但当时 `~/Developer` 共享还在过渡、macmini 仍是严格 git 只读。本次收尾完成：`developer` 共享已从 Syncthing 配置移除；macmini 上 38 个仓库原地转正为正经 clone（`fetch --prune` + `reset --hard origin/<分支>`，依赖目录全部保留）；10 个坏掉的 worktree 残留目录清掉；GitHub 访问用 HTTPS + gh token 恢复（34 个 SSH remote 改写为 https，没有给 macmini 放 SSH 私钥）。只读层的前提（`.git` 被双向同步）已经不存在，守卫必须退役——留着会把 macmini 上正常的提交 / 推送误拦。
+
+**改了什么**（7 个文件，与全局逐字节一致）：
+
+1. **删除** `pi/agent/extensions/git-readonly-guard.ts`：macmini 只读守卫退役，镜像里同步删除（`pi/agent/extensions/` 下不再有这个文件）。
+2. `pi/agent/CLAUDE.md`：「macmini 的 git 权限」条由「撤除时机」改为「已撤除（2026-11-05）」，写明 38 个仓库已原地转正、守卫与 `core.hooksPath` hook 已撤、macmini 现在同样受 remote main 锁定。
+3. `pi/agent/docs/macmini-mirror.md`：「过渡状态」段改为「已完成（2026-11-05 收尾）」；「凭证」条目改为最终方案（HTTPS + gh token、remote 改写、不放 SSH 私钥）；补充 `setup.py` 默认不再重建 `developer`。
+4. `pi/agent/skills/macmini-use/SKILL.md`：分发表「提交 / 推送 / PR / Release / CI」由「过渡期仍本机」改为「两台都行」；第 6 条「GitHub 断连（过渡状态）」改为「已恢复（受限速影响）」；故障表「git 在远端被拒」改为「限速 / 凭据过期」。
+5. `pi/agent/patch/macmini-use/README.md`：补一条「2026-11-05 起 macmini 是独立 clone、git 读写正常，只有两个共享目录」。
+6. `pi/agent/patch/macmini-git-readonly/README.md`：顶部加「⚠️ 已退役（2026-11-05）」横幅，保留作历史说明。
+7. `pi/agent/patch/macmini-mirror/setup.py`：`developer` 共享改为显式 `--with-developer` 才建；`drop_folder()` 改用 `DELETE /rest/config/folders/<id>` 并复用 `api()`（`remote=True` 必须经 ssh + curl 打到对端，否则带对端 API key 打本机端点会 403）。
+
+**验证**：六个改动文件与全局逐字节一致，删除项已确认 `pi/agent/extensions/` 下无残留；`diff -rq` 对五部分复核只剩 `.gitignore` 覆盖的本机私有文件。
+
+**回归风险**：**有意的行为变化**——macmini 不再被本地守卫拦截 git 写操作，改为与其它机器一样受「remote main 锁定 + 分支 + PR + CI」约束。macmini 上仍在运行的旧会话要重启才会卸下旧扩展；`core.hooksPath` 只读 hook 已在 macmini 侧清掉。文档里保留的守卫说明都已标注「已退役」，不会被误当成现行机制。
+
 ## [1.13.2] - 2026-11-05
 
 ### 2026-11-05 dev-snapshots 补齐本机配置排除 + 两机准备说明（镜像同步，2 个文件）
