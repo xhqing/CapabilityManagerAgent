@@ -65,8 +65,7 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom ask --to macmini --t
 ```
 
 **gh / git 在 macmini 上已恢复正常（2026-11-05 用户立）**：git 只读层已撤除（`git-readonly-guard.ts` 已删、`core.hooksPath` 只读 hook 已清），macmini 可以正常 `fetch` / `pull` / 提交 / 推送，`gh` 的全部子命令也都可用。**唯一保留的约束是团队通用的那几条**：remote main 锁定（改动走分支 + PR + CI，由 `git-main-guard.ts` 两机一致拦住）、同一仓库同一时间只在一台机器上做写操作（避免本地 main 各自分叉）、公开动作（PR / Issue / Release）须先做公开文本敏感自检并在命令末尾带 `# AI_SENSITIVE_CHECKED`。
-④ macmini 上的 gh 已认证（2026-11-04：本机 OAuth token 副本写在 macmini 本机 `~/.config/gh/hosts.yml`，
-该目录不在镜像范围），可直接调 API；token 轮换后需重新写。
+**凭证**：macmini 上的 `gh` 已认证（2026-11-04：本机 OAuth token 副本写在 macmini 本机的 `~/.config/gh/hosts.yml`，该目录不在镜像范围）；token 轮换后需要重新写入。
 
 ## 三、硬约束（不知道就会出事）
 
