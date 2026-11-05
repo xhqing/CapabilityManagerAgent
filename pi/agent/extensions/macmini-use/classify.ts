@@ -111,11 +111,29 @@ export interface DeleteHit {
 }
 
 /**
- * 判断一条*远端*命令里有没有「递归删除且目标不在 /tmp」的动作。
+ * 允许 macmini 自由改删的共享目录（2026-11-05 用户立）。
  *
- * 为什么单独管这一条：macmini 的 `~/Developer` 与 `~/.pi/agent` 与本机是**双向镜像**，
- * 远端的 `rm -rf` 会原样删掉本机的文件（Syncthing 把删除当作一次同步事件传播）。
- * 临时目录 `/tmp` 不在镜像里，删它无害；镜像目录里的递归删除必须先拿到明确意图。
+ * 这两个目录是团队最不可重建的东西，所以放行的同时配了「改前快照」机制：写入 / 删除前
+ * 必须有一次新鲜快照（`~/.pi/agent/patch/dev-snapshots/dev-snapshots.py`），由 pi 扩展
+ * `snapshot-guard.ts` 在两侧会话里强制；快照令牌放在 `~/.dev/private/.state/`，随
+ * Syncthing 同步，所以任一侧做的快照另一侧也认。
+ * 注意：目录**本身**永远不许删，只允许改删里面的内容。
+ */
+export const MUTABLE_ROOTS = ["/Users/mac/.pi/agent", "/Users/mac/.dev/private"];
+
+/** 目标是否落在可改删子树的内部（等于根不算——删根必须拦）。 */
+function insideMutable(abs: string): boolean {
+	return MUTABLE_ROOTS.some((root) => abs.startsWith(root + "/"));
+}
+
+/**
+ * 判断一条*远端*命令里有没有「递归删除且目标既不在 /tmp、也不在可改删共享目录」的动作。
+ *
+ * 架构改造后（2026-11-05 起）macmini 上的项目目录只是普通 clone（可从 GitHub 重建），
+ * 不再逐文件镜像，所以项目目录里的删除不再波及本机。真正需要保护的是两个共享目录：
+ * `~/.dev/private`（私有内容本体）与 `~/.pi/agent`（全局能力层）。它们允许改删，
+ * 但由 snapshot-guard 强制「改前快照」；**根目录仍然不许删**——删掉同步目录根会让
+ * Syncthing 两端的状态变得难以收拾。
  *
  * @param command 远端要执行的命令
  * @param remoteCwd 远端工作目录（用于把相对路径解析成绝对路径）
@@ -134,12 +152,13 @@ export function detectMirrorDelete(command: string, remoteCwd: string): DeleteHi
 			.map((t) => t.trim())
 			.filter((t) => t !== "" && !t.startsWith("-"));
 		if (targets.length === 0) continue; // 目标由变量拼出，看不出来：从宽放行
-		const allTmp = targets.every((t) => {
+		const allSafe = targets.every((t) => {
 			const abs = t.startsWith("/") || t.startsWith("~") ? t : posix.join(base, t);
 			const norm = abs.replace(/^~(?=\/|$)/, "/Users/mac").replace(/\/+$/, "");
-			return norm === "/tmp" || norm.startsWith("/tmp/");
+			if (norm === "/tmp" || norm.startsWith("/tmp/")) return true;
+			return insideMutable(norm); // 可改删共享目录：放行（快照由 snapshot-guard 强制）
 		});
-		if (!allTmp) return { segment: seg.slice(0, 140), targets };
+		if (!allSafe) return { segment: seg.slice(0, 140), targets };
 	}
 	return null;
 }

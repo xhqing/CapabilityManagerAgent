@@ -34,7 +34,8 @@ export interface MappedPath {
 
 /**
  * 把本机路径映射成 macmini 上的路径。
- * 规则与镜像一致：两机 `~/Developer`、`~/.pi/agent` 结构相同，只差 home。
+ * 规则：两机 home 不同（/Users/<用户>），其余路径按 home 相对映射；2026-11-05 起只有
+ * `~/.pi/agent` 与 `~/.dev/private` 是共享目录，`~/Developer` 是各自独立的 clone。
  */
 export function mapPath(localPath: string): MappedPath {
 	let p = (localPath ?? "").trim();

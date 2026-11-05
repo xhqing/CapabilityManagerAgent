@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """逐字节校验本机 ↔ macmini 两个共享目录是否完全一致。
 
-用法：python3 verify.py [developer|pi-agent|all]
+用法：python3 verify.py [private|pi-agent|all|developer(过渡期旧共享)]
+`all` = 当前两个共享目录（private + pi-agent）
+（2026-11-05 起代码不再同步：`developer` 只作过渡保留，正常应传 private / pi-agent / all）
 
 做法：两端各自遍历目录，**严格按两边 .stignore 的实际规则**跳过排除项，对每个文件算
 SHA-256 + 权限位，逐条比对；符号链接比较链接目标（含指向目录的链接）。
@@ -17,11 +19,21 @@ HOME = Path.home()
 REMOTE_HOST = "mac-mini"
 
 FOLDERS = {
+    "private": {
+        "local": HOME / ".dev/private",
+        "remote": "/Users/mac/.dev/private",
+        "skip_dirs": {".stfolder"},
+        "skip_exact": {".DS_Store", ".stignore"},
+        "skip_prefix": ("._",),
+        "skip_suffix": (),
+        "skip_rel": set(),
+        "git_locks_only": False,
+    },
     "developer": {
         "local": HOME / "Developer",
         "remote": "/Users/mac/Developer",
         "skip_dirs": {"node_modules", ".lake", ".venv", "venv", "__pycache__", ".stfolder"},
-        "skip_exact": {".DS_Store"},
+        "skip_exact": {".DS_Store", ".stignore"},
         "skip_prefix": ("._",),
         "skip_suffix": (".pyc",),
         "skip_rel": set(),
@@ -32,7 +44,7 @@ FOLDERS = {
         "remote": "/Users/mac/.pi/agent",
         "skip_dirs": {"sessions", "state", "logs", "tmp", "npm", "bin", "intercom",
                       "__pycache__", ".stfolder", ".lock.d"},
-        "skip_exact": {".DS_Store"},
+        "skip_exact": {".DS_Store", ".stignore"},
         "skip_prefix": ("._",),
         "skip_suffix": (".pyc", ".log", ".lock"),
         "skip_rel": {
@@ -121,7 +133,7 @@ def scan_remote(path, spec):
 
 def main():
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
-    names = list(FOLDERS) if which == "all" else [which]
+    names = [f for f in ("private", "pi-agent") if f in FOLDERS] if which == "all" else [which]
     bad_total = 0
     for name in names:
         spec = FOLDERS[name]

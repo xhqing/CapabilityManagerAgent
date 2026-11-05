@@ -108,7 +108,27 @@ def folder_spec(fid, label, path, device_ids, versions_path):
     }
 
 
+def drop_folder(base, key, fid, remote):
+    """从配置里移除某个共享目录（默认不删磁盘文件，只停同步）。"""
+    import json
+    import urllib.request
+
+    cfg = api(base, key, "GET", "/config", remote=remote)
+    folders = [f for f in cfg.get("folders", []) if f.get("id") != fid]
+    if len(folders) == len(cfg.get("folders", [])):
+        print(f"  [skip] {fid} 不存在")
+        return
+    cfg["folders"] = folders
+    req = urllib.request.Request(
+        f"{base}/rest/config", method="PUT",
+        data=json.dumps(cfg).encode(),
+        headers={"X-API-Key": key, "Content-Type": "application/json"})
+    urllib.request.urlopen(req, timeout=20).read()
+    print(f"  [del ] {fid} 已从配置移除（磁盘文件保留）")
+
+
 def main():
+    drop_dev = "--drop-developer" in sys.argv
     lk = local_key()
     rk = remote_key()
     lid = api(LOCAL, lk, "GET", "/system/status")["myID"]
@@ -123,6 +143,9 @@ def main():
     ensure_folder(LOCAL, lk, folder_spec(
         "pi-agent", "pi agent (team mirror)", "/Users/xhq/.pi/agent",
         [lid, rid], "/Users/xhq/.syncthing-versions/pi-agent"), False)
+    ensure_folder(LOCAL, lk, folder_spec(
+        "private", "私有内容本体（~/.dev/private）", "/Users/xhq/.dev/private",
+        [lid, rid], "/Users/xhq/.syncthing-versions/private"), False)
 
     print("== macmini ==")
     ensure_device(LOCAL, rk, lid, "MacBook-Air-xhq", f"tcp://{LOCAL_IP}:22000", True)
@@ -132,6 +155,14 @@ def main():
     ensure_folder(LOCAL, rk, folder_spec(
         "pi-agent", "pi agent (team mirror)", "/Users/mac/.pi/agent",
         [rid, lid], "/Users/mac/.syncthing-versions/pi-agent"), True)
+    ensure_folder(LOCAL, rk, folder_spec(
+        "private", "私有内容本体（~/.dev/private）", "/Users/mac/.dev/private",
+        [rid, lid], "/Users/mac/.syncthing-versions/private"), True)
+
+    if drop_dev:
+        print("== 移除 developer 共享（代码改走 GitHub）==")
+        drop_folder(LOCAL, lk, "developer", False)
+        drop_folder(LOCAL, rk, "developer", True)
     print("== 完成 ==")
 
 

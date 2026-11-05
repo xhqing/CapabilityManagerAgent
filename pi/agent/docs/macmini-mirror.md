@@ -1,211 +1,146 @@
-# 本机 ↔ macmini 全量镜像（Syncthing 双向同步）
+# 本机 ↔ macmini 协作与同步（2026-11-05 架构改造版）
 
-> 2026-10-28 用户要求建立：把本机注册表里的全部 Agent 项目与非 Agent 项目镜像到 macmini，
-> 两机任一方改动都自动同步、保持逐字节一致；全局 `~/.pi/agent/` 同样镜像；并切断 macmini
-> 与 GitHub 的连接，所有同步到 GitHub 的动作走本机。
+> **2026-11-05 起了根本变化**：项目代码不再走 Syncthing，改走 GitHub；Syncthing 只负责两个
+> 目录——`~/.dev/private`（各项目私有内容本体）与 `~/.pi/agent`（全局能力层）。
+> 旧版本文档（「全量镜像 `~/Developer` + `~/.pi/agent`」）描述的拓扑已作废，历史见 git 历史。
 >
-> 本文是这套镜像的权威说明：拓扑、同步范围、排除项、断连方式、日常操作、已知边界。
+> 本文是这套协作的权威说明：拓扑、同步范围、macmini 的 GitHub 访问、日常操作、边界与风险。
 
-## 一、拓扑
+## 一、为什么改（旧拓扑的问题）
 
-| 项目 | 本机 | macmini |
-|---|---|---|
-| 机器 | MacBook Air（arm64） | Mac mini（Intel x64） |
-| 用户 | `/Users/xhq` | `/Users/mac` |
-| 守护进程 | Syncthing 2.1.5（brew，`sh.brew.syncthing`） | Syncthing 2.1.5（独立二进制，`com.local.syncthing`） |
-| Device ID | `HLAXNSF-OJSCYNT-PEOIRA3-3RHATRR-43IZWQK-NVDKOHP-HKYFJ4U-3GESEAO` | `STHSVVE-Y6ZQSUM-BNJBW7Q-P7QTZBQ-IL6QEYL-QJMYKFQ-TN5WWOV-5QYSTQ5` |
-| 配置 | `~/Library/Application Support/Syncthing/config.xml` | 同左（用户 mac） |
+旧拓扑把 `~/Developer`（全部项目，含 `.git`）双向同步。代价是：
 
-两台机器在同一局域网，Syncthing 走 LAN 直连（`tcp://192.168.1.101:22000`），不依赖 GitHub、
-不依赖中继；断网时各自继续工作，恢复后自动续传。
+1. **冲突副本**：两边同时改同一文件就产生 `.sync-conflict-*`，只能人工合并——用一套比 git 弱的机制替代 git。
+2. **被迫加硬规矩**：「同一个 git 仓库同一时间只在一台机器上做写操作」，以及 macmini 的「严格 git 只读」
+   （pi 扩展 + 全局 git hook）。这不是设计出来的，是同步 `.git` 逼出来的补丁。
+3. **worktree 在另一台机器上是死的**：目录同步过去了，但 `.git` 指针写的是对端绝对路径
+   （`gitdir: /Users/xhq/...`），`git status` 直接 fatal，`git worktree list` 显示 `prunable`。
+4. **远端递归删除会删到本机**：`macmini_run` 上最危险的一个 footgun。
+5. **逐字节校验**要扫 7.7 GB，而项目代码本来就能用 git 校验。
 
-**两个共享目录（folder id 两机必须一致）：**
+改成「代码走 GitHub」后，上面五条全部消失：单一权威源、线性历史、PR 门禁、SSH 加密传输，
+不需要任何自建规则来维持一致性。
 
-| folder id | 本机路径 | macmini 路径 |
-|---|---|---|
-| `developer` | `/Users/xhq/Developer` | `/Users/mac/Developer` |
-| `pi-agent` | `/Users/xhq/.pi/agent` | `/Users/mac/.pi/agent` |
+## 二、现在的拓扑
 
-## 二、同步语义
+```
+                    ┌──────────── GitHub（代码唯一中转）────────────┐
+                    │  clone / fetch / push / PR / CI / merge      │
+                    └───────▲──────────────────────────▲───────────┘
+                            │                          │
+                  MacBook Air（arm64）        Mac mini（x64 / 32GB）
+                  ~/Developer（各自 clone）    ~/Developer（各自 clone）
+                            │                          │
+                     Syncthing 双向（只有两个目录）
+                            │                          │
+        ~/.dev/private  ◄────┤                          ├────►  ~/.dev/private
+        ~/.pi/agent     ◄────┘                          └────►  ~/.pi/agent
+```
 
-- **双向**：folder 类型 `sendreceive`，任一方新增 / 修改 / 删除都会传播到另一方。
-- **近实时**：`fsWatcherEnabled=true`、`fsWatcherDelayS=3`——文件改动约 3 秒后开始同步；
-  另有每 10 分钟一次的全量重扫兜底（`rescanIntervalS=600`）。
-- **冲突不覆盖**：同一文件在两台机器上都被改过时，Syncthing **不会**用一方覆盖另一方，
-  而是在旁边生成 `*.sync-conflict-<日期>-<时间>-<设备>.ext` 副本，两份都保留。
-  这类副本会被 `status.py` 统计，需要人工合并。
-- **删除可恢复**：两个 folder 都开了 staggered 版本库（保留 30 天），路径在本机
-  `~/.syncthing-versions/<folder>/`、macmini `~/.syncthing-versions/<folder>/`（在共享目录之外，
-  不会被同步）。误删 / 被覆盖的文件可从版本库取回。
-- **权限位随内容同步**（`ignorePerms=false`）：可执行位等在两机保持一致；文件属主不参与同步
-  （本机 `xhq`、macmini `mac`，各自归属本机用户）。
+- 两台机器各自 clone、各自建 worktree、各自跑 add → commit → push → PR → CI → merge，
+  然后本地 main 快进同步。`~/Developer` 之间**没有任何同步**。
+- macmini 恢复 GitHub 访问（用**独立凭证**，不与本机共用，见第四节）。
+- 全局能力层 `~/.pi/agent` 两边仍逐字节一致（双向），所以任何一台机器都能改规则 / 技能；
+  **开源镜像只在 macmini 上生成并推送**（单 pusher，见 `docs/capability-sync.md`）。
 
-## 三、同步范围与排除项（重要）
+## 三、同步范围（只有两个目录）
 
-`~/Developer` 与 `~/.pi/agent` 下的**全部内容**都同步，**只有**下面这些明确排除。
-排除项写在各自目录根的 `.stignore` 里（两机内容相同，模板在
-`~/.pi/agent/patch/macmini-mirror/stignore-developer`、`stignore-pi-agent`）。
+| folder id | 本机 | macmini | 模式 | 内容 | 排除项 |
+|---|---|---|---|---|---|
+| `private` | `~/.dev/private` | `~/.dev/private` | 双向 | 各项目私有内容**本体**（`private-links` 的软链接指过来） | `.DS_Store`、`._*` |
+| `pi-agent` | `~/.pi/agent` | `~/.pi/agent` | 双向 | 全局能力层（`CLAUDE.md` / `skills/` / `docs/` / `patch/` / `extensions/` / `prompts/` / `themes/` / 配置） | `sessions/`、`state/`、`logs/`、`tmp/`、`intercom/`、`npm/`、`bin/`、运行时缓存、`trust.json`、`skills/anysearch/runtime.conf`、`patch/session-link/*.json`、`__pycache__`、`*.log`、`*.lock` |
 
-### `~/Developer` 排除
+**明确不同步**：`~/Developer` 下所有项目仓库（含 `.git`、worktree、`node_modules`、构建产物）、
+`~/.dev/snapshots/`（本地快照，各机各留 5 份）、机器本地配置（`.claude/settings.local.json`、
+`DATA-LOCATION.local.md` 等）。
 
-| 排除项 | 原因 |
-|---|---|
-| `node_modules` | 依赖目录，含原生模块；本机 arm64 与 macmini x64 不通用，拷过去也跑不起来（也很大、churn 多） |
-| `.lake` | Lean 构建缓存（TradingProofs 里约 3.2GB），可重建、跨工具链不通用 |
-| `.venv` / `venv` | Python 虚拟环境，含本机绝对路径与架构相关二进制 |
-| `__pycache__` / `*.pyc` | Python 字节码缓存，可重建 |
-| `.DS_Store`、`._*` | macOS 系统垃圾文件 |
-| `**/.git/*.lock`、`**/.git/**/*.lock` | git 提交过程中的瞬时锁文件，同步过去会让对端误判「index 被锁」 |
+**过渡状态（2026-11-05）**：`developer` 共享还没移除——因为 macmini 目前拿不到 GitHub，
+先保留代码同步作为过渡。等 macmini 的 GitHub 凭证就位、按仓库名重新 clone 完成后，执行
+`python3 ~/.pi/agent/patch/macmini-mirror/setup.py --drop-developer` 移除共享（只动配置，不动磁盘文件），
+再清理 macmini 上的旧目录。
 
-以上排除项都已确认**没有被任何仓库跟踪**（`git ls-files` 核对过），因此不影响 git 内容一致性。
+## 四、macmini 的 GitHub 访问与 git 权限
 
-### `~/.pi/agent` 排除
+- **凭证**：独立 SSH key（或 fine-grained PAT，`contents:write`，只授需要的仓库），
+  出问题可单独吊销，不影响本机。**不要**把本机的私钥拷过去。
+- **git 权限（2026-11-05 起）**：从「严格 git 只读」改为「正常读写」——旧约束前提（`.git` 被双向同步）
+  已消失。撤除时机：`~/Developer` 共享正式移除之后（在那之前保持只读，否则两台机器会重新同时写同一份 `.git`）。
+  撤除动作：删 `extensions/git-readonly-guard.ts`、撤 macmini 的 `core.hooksPath` 只读 hook。
+- **仍然生效**：remote main 锁定（`git-main-guard.ts`，两机一致）、一个分支只做一件事、改动走 PR + CI。
+- **macmini 上仍连不上 GitHub 的历史配置**（需在恢复时清理）：`~/.ssh/config` 的
+  `BEGIN/END macmini-github-cut` 段、`git config --global` 里的 `url.https://github.invalid/.insteadOf`、
+  以及移到 `~/.ssh/disabled-github-20261028/` 的旧密钥（不再使用，建议删掉，换新 key）。
 
-| 排除项 | 原因 |
-|---|---|
-| `sessions/` | pi 会话记录，两台机器各自在写（活进程），同步会互相打架；macmini 保留自己的会话 |
-| `state/` | 运行时状态（ai-edit-diff 快照、workspace-history、ark-key-pool 状态），本机专属 |
-| `logs/`、`tmp/`、`*.log` | 运行日志与临时文件 |
-| `intercom/` | 会话间通信的运行时数据（socket / 注册表） |
-| `npm/` | pi 的 npm 包（含原生模块），架构相关；macmini 用自己的 x64 版本 |
-| `bin/` | fd / rg 等辅助二进制，架构相关；macmini 用自己的 x64 版本 |
-| `models-store.json`、`mcp-cache.json`、`mcp-npx-cache.json`、`mcp-last-seen-version.json` | 运行时缓存 |
-| `trust.json`、`mcp-project-approvals.json` | 记录本机绝对路径的信任 / 审批清单 |
-| `skills/anysearch/runtime.conf` | 含本机路径的运行时配置（两机各自维护） |
-| `patch/session-link/config.json`、`local-links.json`、`chain-registry.json` | 按 hostname 区分 source / replica 角色，两机必须不同 |
-| `__pycache__`、`*.pyc`、`.DS_Store`、`*.lock` | 缓存与系统垃圾 |
+## 五、两个共享目录的改删与「改前快照」
 
-**为什么不把这些也做成逐字节一致**（诚实说明）：`sessions` / `state` / `logs` 是活进程正在写的
-运行时数据，两边持续各自写入，强行同步只会制造无休止的冲突副本，反而破坏「一致」；`npm` / `bin`
-是 arm64 与 x64 的二进制，逐字节一致就意味着 macmini 上的 pi 直接跑不起来。其余部分（技能、扩展、
-文档、规则、补丁、模型配置、凭据等能力层）都是逐字节同步的。
+`~/.pi/agent` 与 `~/.dev/private` 允许任何会话（含 macmini）改删**里面的内容**，但必须满足前置条件：
 
-## 四、macmini 与 GitHub 断连
+- 改前先跑 `python3 ~/.pi/agent/patch/dev-snapshots/dev-snapshots.py snapshot <pi-agent|private>`
+  （打包 + 上传飞书云盘 `dev-snapshots/<target>/` + 本地各留最近 5 份）；
+- `extensions/snapshot-guard.ts` 会拦下没有新鲜快照的写入 / 删除（删除类要求指纹完全一致）；
+- **两个目录的根本身永远不许删**；
+- 说明见 `patch/dev-snapshots/README.md`，私有内容登记与接线见 `patch/private-links/README.md`。
 
-2026-10-28 起，macmini **不再直连 GitHub**，所有 GitHub 操作（push / PR / Release / clone / fetch）
-只在本机做。断连由三层保证（都在 macmini 上）：
-
-1. **SSH 密钥移走**：`~/.ssh/id_rsa`、`id_rsa.pub` 已移到
-   `~/.ssh/disabled-github-20261028/`（可逆，没有删除）。
-2. **SSH 层拦截**：`~/.ssh/config` 里 `Host github.com` 指向 `127.0.0.1:9`（立刻拒绝，不出网）。
-3. **git 层拦截**：`git config --global` 里用 `url.https://github.invalid/.insteadOf` 把
-   `https://github.com/`、`http://github.com/`、`git@github.com:`、`ssh://git@github.com/`、
-   `git://github.com/` 全部改写到不存在的域名——任何 fetch / push / clone 都会立刻失败。
-
-**验证过**（2026-10-28）：`git ls-remote https://github.com/...`、`git ls-remote git@github.com:...`、
-`ssh -T git@github.com` 全部失败；同步本身不依赖 GitHub，不受影响。
-
-**断的只是 ssh / git 层，HTTPS API 没断（2026-11-04 实测）**：`curl https://api.github.com/` 在 macmini
-上返回 `HTTP 200`。所以不是「macmini 上不了 GitHub」，而是「macmini 上 git / ssh 走不通 GitHub」——
-这是刻意的：两端同时写 `.git` 会互相覆盖。
-
-### macmini 上的 `gh`（2026-11-04 起可用，仅 Issue）
-
-**`gh issue …` 不是 git 写操作**：它走 GitHub REST API，不碰本地 `.git`（和 `git add / commit` 完全是
-两回事）。2026-11-04 用户核定：macmini 上**放开 `gh issue` 这一族**（建 / 查看 / 评论 / 改 / 关 Issue），
-方便远端常驻会话（值班会话、Mark 系会话）自己记录待办；**其余 gh 写操作照旧拦**
-（`gh pr` / `gh release` / `gh repo` / `gh workflow run` / `gh api` 非 GET），唯一例外里的例外是
-`gh issue develop`——它会建本地分支 + checkout，是真 git 写，继续拦。
-
-- **已安装**：`brew install gh` → `/usr/local/bin/gh`（2.14.4，x64；2026-11-04 装）。
-- **已认证**（2026-11-04，方案 A）：本机 keyring 里的 OAuth token 复制到 macmini 的
-  `~/.config/gh/hosts.yml`（`user: xhqing`，`oauth_token`，mode 600）；该目录**不在** Syncthing
-  镜像范围内，不会回流本机、也不会进任何 git 仓库。实测：`gh auth status` 显示已登录，
-  `gh api rate_limit` 正常返回（4990/5000），`gh issue list -R xhqing/...` 调用成功。
-  - **scope 跟本机一致**：`repo` / `workflow` / `gist` / `read:org` / `admin:public_key`。
-    对 Issue 来说权限偏大，但好处是零维护；若日后想收紧，改成只含 Issues 的细粒度 PAT
-    即可（写入方式同此）。
-  - **token 轮换时会失效**：本机 `gh auth login` 重新授权后，macmini 上的副本要重新写一遍（同上方式）。
-- **仍然禁的**：`gh issue develop`、所有 `gh pr` / `gh release` / `gh repo` / `gh workflow` 写操作、
-  `gh api` 的 POST / PATCH / DELETE（防止绕过 issue 这条口子改仓库状态）。
-- **敏感文本照样要过检查**：`public-text-guard` 扩展在 macmini 上同样生效，执行 `gh issue create`
-  前需做公开文本敏感自检并在命令末尾加 `# AI_SENSITIVE_CHECKED`。
-
-**要恢复 macmini 的 GitHub 访问**（一般不需要）：删除 `~/.ssh/config` 里的
-`BEGIN/END macmini-github-cut` 段；`git config --global --unset-all
-'url.https://github.invalid/.insteadOf'`；把 `~/.ssh/disabled-github-20261028/` 里的密钥移回 `~/.ssh/`。
-
-## 五、日常操作
+## 六、日常操作
 
 ```bash
 # 状态（链路、是否同步完、错误、冲突数）
 python3 ~/.pi/agent/patch/macmini-mirror/status.py
 
-# 逐字节校验（对全部文件算 SHA-256 比对；初始化或大改后跑一次，约 1~2 分钟）
+# 逐字节校验（只覆盖 private / pi-agent 两个目录，快；初始化或大改后跑一次）
 python3 ~/.pi/agent/patch/macmini-mirror/verify.py
 
-# 只看某个目录
-python3 ~/.pi/agent/patch/macmini-mirror/verify.py pi-agent
-
-# 重建 / 补齐 Syncthing 配置（幂等，可重复跑）
+# 重建 / 补齐 Syncthing 配置（幂等）
 python3 ~/.pi/agent/patch/macmini-mirror/setup.py
 
-# 看 macmini 的 Syncthing 面板（本机转发端口，不抢焦点）
-ssh -L 8385:127.0.0.1:8384 mac-mini    # 然后浏览器打开 http://127.0.0.1:8385
+# 移除 developer 共享（macmini 重新 clone 完成后再跑）
+python3 ~/.pi/agent/patch/macmini-mirror/setup.py --drop-developer
+
+# macmini 的 Syncthing 面板（本机转发端口，不抢焦点）
+ssh -L 8385:127.0.0.1:8384 mac-mini    # 浏览器打开 http://127.0.0.1:8385
 ```
 
-- **暂停同步**：本机面板 127.0.0.1:8384 → 对应 folder → Pause；macmini 面板经上面的 SSH 转发。
-- **冲突处理**：`status.py` 报冲突后，用 `find ~/Developer -name '*.sync-conflict-*'` 找到副本，
-  人工比较后保留正确版本、删掉冲突副本；删除动作会同步到另一台（版本库保留 30 天）。
-- **误删恢复**：去 `~/.syncthing-versions/<folder>/` 找对应日期的版本，拷回原位。
-- **macmini 上没有 node_modules**：需要在 macmini 跑某个 JS 项目时，进项目目录 `npm ci` 或
-  `npm install` 一次即可（依赖目录不参与同步，两边各自安装）。
-- **重活分流（2026-11-03 起）**：哪些活该放 macmini、常见重活（构建 / 转码 / 回测 / 大下载）
-  的跑法与远端工具链实况，见 skill `macmini-use`；执行通道是扩展提供的 `macmini_run` /
-  `macmini_status` 工具（`~/.pi/agent/extensions/macmini-use/`），不要手写 ssh 引号。
-  远端递归删除会经镜像删到本机、git 写操作会改坏同步的 `.git`——这两条工具会直接拦。
-- **健康检查**：本机 launchd `com.xhq.mirror-check` 每 10 分钟跑一次 `status.py --check`，
-  异常（断链 / 同步未完成 / 出现冲突）时发系统通知；日志在 `~/Library/Logs/macmini-mirror.log`。
-- **每日深度校验**：本机 launchd `com.xhq.mirror-verify` 每天 03:00 跑一次 `verify.py all`
-  （全量 SHA-256 比对，约 25 秒），发现差异时发通知；日志在 `~/Library/Logs/macmini-mirror-verify.log`。
-  这样即使出现「删除与写入竞争」留下的孤儿文件（Syncthing 自认为已一致、实际磁盘上多出一份），
-  也会在当天被发现。
+- **冲突处理**：`status.py` 报冲突后，`find ~/.pi/agent ~/.dev/private -name '*.sync-conflict-*'` 找副本，
+  人工比较保留正确版本。
+- **误删恢复**：`~/.syncthing-versions/<folder>/`（保留 30 天）可取回；共享目录另有飞书快照兜底。
+- **macmini 上没有 node_modules**：clone 完进项目目录 `npm ci` 一次即可（依赖不参与同步）。
+- **重活分流**：哪些活该放 macmini、怎么跑，见 skill `macmini-use`；执行通道是 `macmini_run` /
+  `macmini_status` 工具，不要手写 ssh 引号。
 
-## 六、首次迁移记录（2026-10-28）
+## 七、首次迁移记录
 
-- macmini 原有内容**没有删除**，整体归档在
-  `~/Archive-Migrated/mirror-seed-20261028-202611/`（约 910MB）：
-  - `Developer/`：原有的 QuantStrategistAgent / Intraday / Swing / gridtrader 副本；
-  - `pi-agent/`：原有能力层（CLAUDE.md / docs / skills / extensions / patch / 配置）。
-  - 核对过：macmini 的 QuantStrategistAgent HEAD `ea9adf5` 是本机 `697e0db` 的祖先（本机已包含），
-    Intraday 只有未跟踪的 `data_tick`，没有会丢失的独有提交。
-- macmini 上 `sessions/`、`state/`、`npm/`、`bin/` 等本机专属目录**原地保留**，未参与迁移。
-- 旧的单向同步（`patch/sync-to-macmini/watcher.js`，launchd `com.xhq.pi-sync-macmini`）已停用，
-  launchd 配置移到 `~/Library/LaunchAgents/disabled/`；脚本移入 `patch/_retired/sync-to-macmini/`。
-- macmini 的常驻会话（Mark / Mark-Intraday / Mark-Swing / Mark-gridtrader / macmini 值班）
-  在迁移期间暂停，迁移完成后由 `com.xhq.pi-duty` 恢复。
+### 2026-10-28（旧拓扑建立）
+- macmini 原有内容归档在 `~/Archive-Migrated/mirror-seed-20261028-202611/`（约 910MB），未删除。
+- 旧的单向同步（`patch/sync-to-macmini/watcher.js`、launchd `com.xhq.pi-sync-macmini`）已停用。
 
-## 七、已知边界与风险（务必知道）
+### 2026-11-05（本次改造）
+- 新建 `~/.dev/private`，把 13 个仓库共 99 项被忽略的私密内容（约 168 MB）从项目里搬成本体，
+  项目侧改为软链接；清单在 `patch/private-links/manifest.tsv`，巡检 `check` 0 问题。
+- 新增 Syncthing 共享 `private`（两机已配置并开始同步）。
+- 新增 `auth` 相关机制：`patch/dev-snapshots/`（快照）、`extensions/snapshot-guard.ts`（改前快照守卫）、
+  `macmini-use` 的删除守卫放行两个共享目录（仍拦删根）。
+- 首次快照：`pi-agent` 0.5 MB、`private` 95.3 MB，均已上传飞书 `dev-snapshots/`。
 
-1. **双机同时改同一文件** → 产生 `.sync-conflict-*` 副本，不会丢数据，但需要人工合并；
-   `status.py` 会报出来。
-2. **双机同时对同一个 git 仓库做写操作**（commit / rebase / gc）→ 有风险：`.git` 是逐文件同步的，
-   两边同时写 ref 可能互相覆盖，导致一边的提交变成「游离对象」。**2026-10-31 起 macmini 侧已由
-   工具强制只读**（pi 扩展 `git-readonly-guard.ts` + 全局 git hook，见
-   `~/.pi/agent/patch/macmini-git-readonly/README.md`）：在 macmini 上任何 git 写操作都会被拦下，
-   改动只留在工作区、经镜像回流本机后再提交。所以正常流程里不会再出现双机同时写；
-   若发现 macmini 上的写操作没被拦住（例如新增的绕过方式），应修复守卫而不是继续操作。
-3. **`.git` 同步存在短暂不一致窗口**：本机正在 commit 时，macmini 可能短暂看到「ref 已更新、
-   对象还没到」的中间态；等同步完成即恢复。不要在这个窗口里在 macmini 上跑修复类 git 命令。
-4. **架构差异**：macmini 是 Intel x64，本机是 arm64。依赖目录、原生二进制、Lean/Python 构建缓存
-   都不同步，需要在 macmini 上各装各的；纯源码 / 文档 / 配置逐字节一致。
-5. **macmini 上的 Mark 会话现在会回流**：过去「给 macmini 的 Mark-* 派活不会回流本机」的说法
-   **已失效**——镜像建立后，macmini 上的改动会同步回本机。详见全局 `CLAUDE.md`「跨机协作」节的更新说明。
-6. **`/Users/xhq` 与 `/Users/mac` 的绝对路径**：被排除的配置（trust / approvals / anysearch runtime /
-   session-link）两机各自维护；同步过去的文档里如果写了 `/Users/xhq/...`，在 macmini 上不成立，
-   属于「内容一致」的代价，按需在两机各自的机器上理解。
+## 八、已知边界与风险
 
-## 八、文件清单
+1. **双机同时改同一个私有文件** → 仍会产生 `.sync-conflict-*`（与旧拓扑一样，范围缩小到两个目录内）。
+2. **绝对路径差异**：`~/.dev/private` 的软链接用本机 `$HOME` 绝对路径，各自 `materialize`，不跨机传递。
+3. **`/Users/xhq` 与 `/Users/mac`**：被排除的配置（trust / approvals / anysearch runtime / session-link）
+   两机各自维护；同步过去的内容里如果写了 `/Users/xhq/...`，在 macmini 上不成立。
+4. **架构差异**：macmini 是 Intel x64，本机 arm64；依赖、原生二进制、构建缓存各装各的。
+5. **macmini 断 GitHub 属于「待恢复」状态**：恢复前所有 clone / push / PR 都只能在本机做。
+
+## 九、文件清单
 
 | 文件 | 作用 |
 |---|---|
-| `patch/macmini-mirror/setup.py` | 幂等配置两机 Syncthing（设备、folder、版本库） |
+| `patch/macmini-mirror/setup.py` | 幂等配置两机 Syncthing（设备、folder、版本库；`--drop-developer` 移除代码共享） |
 | `patch/macmini-mirror/status.py` | 状态检查；`--check` 供 launchd 做异常通知 |
-| `patch/macmini-mirror/verify.py` | 逐字节 SHA-256 校验 |
-| `patch/macmini-mirror/stignore-developer` | `~/Developer/.stignore` 模板 |
-| `patch/macmini-mirror/stignore-pi-agent` | `~/.pi/agent/.stignore` 模板 |
-| `patch/macmini-mirror/verify-daily.sh` | 每日全量校验脚本（launchd 调用） |
-| `patch/macmini-git-readonly/` | macmini 只读约束：全局 git hook（commit / push / merge / rebase 等写操作拒绝）+ `install.sh` / `uninstall.sh` + 说明；对应 pi 扩展 `extensions/git-readonly-guard.ts`（2026-10-31 立） |
+| `patch/macmini-mirror/verify.py` | 逐字节 SHA-256 校验（覆盖两个共享目录） |
+| `patch/macmini-mirror/stignore-private` / `stignore-pi-agent` | 两个共享目录的 `.stignore` 模板 |
+| `patch/macmini-mirror/stignore-developer` | 旧 `~/Developer` 共享的模板（过渡期仍用，移除共享后可删） |
+| `patch/private-links/` | 私有内容本体 ↔ 项目软链接（manifest + 工具 + README） |
+| `patch/dev-snapshots/` | 改前快照（飞书 + 本地各 5 份 + 令牌） |
+| `extensions/snapshot-guard.ts` | 改前快照的强制点（没有新鲜快照就拦写入 / 删除） |
 | `~/Library/LaunchAgents/com.xhq.mirror-check.plist` | 本机每 10 分钟健康检查 |
-| `~/Library/LaunchAgents/com.xhq.mirror-verify.plist` | 本机每日 03:00 全量逐字节校验 |
 | macmini `~/Library/LaunchAgents/com.local.syncthing.plist` | macmini Syncthing 守护 |

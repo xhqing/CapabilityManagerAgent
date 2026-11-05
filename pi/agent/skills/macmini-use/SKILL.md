@@ -1,12 +1,12 @@
 ---
 name: macmini-use
-description: 把重活分流到 macmini 常驻算力机（12 核 x64 / 32GB，与本机 ~/Developer、~/.pi/agent 双向镜像），给用户正在用的 8 核 / 8GB MacBook 减负。MUST USE 当任务里包含预计占用本机 CPU / 内存十几秒以上的编译、构建、测试套件、音视频转码、批量渲染、数据回测、大文件扫描或大下载时；当用户说「放 macmini 跑」「别卡本机」「用 macmini 的资源」「本机太卡」时；当需要在 x64 / 大内存 / 长时间常驻的环境里跑东西时。当你不确定某个任务该不该分流、或需要远端工具链 / 路径映射 / 结果回传的具体跑法时，也读本 skill。NOT for：几秒内结束的短命令、需要本机 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain、需要 arm64 产物或本机 node_modules、git 写与 gh 发版（macmini 只读且断网）、操作未镜像的本机路径。
+description: 把重活分流到 macmini 常驻算力机（12 核 x64 / 32GB，与本机共享 ~/.pi/agent 与 ~/.dev/private；项目代码走 GitHub、各自 clone），给用户正在用的 8 核 / 8GB MacBook 减负。MUST USE 当任务里包含预计占用本机 CPU / 内存十几秒以上的编译、构建、测试套件、音视频转码、批量渲染、数据回测、大文件扫描或大下载时；当用户说「放 macmini 跑」「别卡本机」「用 macmini 的资源」「本机太卡」时；当需要在 x64 / 大内存 / 长时间常驻的环境里跑东西时。当你不确定某个任务该不该分流、或需要远端工具链 / 路径映射 / 结果回传的具体跑法时，也读本 skill。NOT for：几秒内结束的短命令、需要本机 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain、需要 arm64 产物或本机 node_modules、需要操作本机专属路径（~/Downloads、~/Library、~/.ssh）。
 ---
 
 # macmini-use：把重活分流到 macmini
 
 本机是用户**此刻正在用**的 MacBook Air（8 核 / 8GB），macmini 是 12 核 x64 / 32GB 的常驻算力机。
-两机 `~/Developer` 与 `~/.pi/agent` **双向镜像**（Syncthing，约 3 秒同步，见
+两机只共享 `~/.pi/agent` 与 `~/.dev/private`（Syncthing，约 3 秒同步）；`~/Developer` **不再同步**（2026-11-05 起项目代码走 GitHub，两边各自 clone）。见
 `~/.pi/agent/docs/macmini-mirror.md`）。这个 skill 解决一件事：**把会拖慢用户的活，挪到
 macmini 上跑，再把结果带回来。**
 
@@ -26,8 +26,8 @@ macmini 上跑，再把结果带回来。**
 | 单条命令、读文件、grep、git status、跑一个测试文件 | **本机** | 十几秒内结束的分流是净亏 |
 | 需要 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain / 安装扩展 | **本机** | 远端没有用户眼前的那个界面 |
 | 需要 arm64 产物、本机原生模块、本机 node_modules | **本机** | 远端是 x64，编出来在本机跑不了 |
-| git add / commit / push / PR / Release / CI | **本机** | macmini 只读 + 断网（例外：Issue 可在 macmini 用 `gh issue`，见第二节末） |
-| 操作 `~/Downloads`、`/Volumes`、`~/Library`、`~/Key`、`~/.ssh` 等未镜像路径 | **本机** | macmini 上没有这些数据 |
+| 提交 / 推送 / PR / Release / CI | 过渡期仍 **本机** | macmini 恢复 GitHub 前仍是只读 + 断网；恢复后可在 macmini 上按同样流程（PR + CI）做 |
+| 操作 `~/Downloads`、`/Volumes`、`~/Library`、`~/Key`、`~/.ssh` 等本机专属路径 | **本机** | macmini 上没有这些数据 |
 
 **判断要落到行动**：决定分流就一句话说明（「这个放 macmini 跑」），然后直接执行，不要问用户。
 反过来，决定留本机也不必解释一大堆，一句「这个几秒就完了，本机跑」即可。
@@ -74,23 +74,21 @@ edit / close` 都不属于 git 写操作（走 REST API、不碰本地 `.git`）
 
 ## 三、硬约束（不知道就会出事）
 
-1. **远端删除会删到本机**。`~/Developer`、`~/.pi/agent` 是双向镜像，在 macmini 上
-   `rm -rf` 仓库里的东西，本机同一份也会消失（版本库保留 30 天，但别拿它当撤销键）。
-   临时文件一律放 `/tmp`（不在镜像内）。`macmini_run` 对非 `/tmp` 的递归删除默认拒绝；
-   确需删除时命令里带 `# AI_REMOTE_RM_OK` 并在回复里说清删什么、为什么。
-2. **macmini 是 git 只读机**。`git add / commit / checkout` 等写操作会改坏逐文件同步的
-   `.git`，也污染本机索引；`macmini_run` 直接拒绝（macmini 侧还有扩展 + git hook 两层）。
-   提交、发版、建 PR 全部回本机做。
+1. **远端删除只影响两个共享目录**。2026-11-05 起只有 `~/.pi/agent` 与 `~/.dev/private` 在同步：
+   在这两个目录里 `rm -rf`，本机同一份也会消失（改前必须做飞书快照，见第 2 条）。
+   `~/Developer` 是各自独立的 clone，删了可以用 GitHub 重建。其余路径的递归删除仍默认拒绝，
+   确需删时带 `# AI_REMOTE_RM_OK` 并说清删什么、为什么；临时文件一律放 `/tmp`。
+2. **两个共享目录改前必须快照 + 目录根本身禁止删除**。改它们的内容前先跑
+   `python3 ~/.pi/agent/patch/dev-snapshots/dev-snapshots.py snapshot <pi-agent|private>`
+   （`snapshot-guard` 会拦下没有快照的写入 / 删除），`rm -rf ~/.pi/agent` / `~/.dev/private` 一律拒绝。
 3. **x64 ≠ arm64**。远端编出来的原生二进制、`.node` 模块、Electron / Swift 产物在本机
    跑不了。要交付给本机或用户用的产物，必须本机编或走 CI（GitHub Actions）。
 4. **依赖目录不同步**：`node_modules`、`.venv`、`.lake`、`__pycache__` 都在 `.stignore` 里。
    远端第一次跑某个仓库要先装依赖；装完也**不会**回到本机（这是对的，架构不同）。
-5. **构建缓存别让它回流**：`target/`、`.build/`、`dist/` 之类不在排除清单里，写在仓库里
-   会同步回本机、白白占本地磁盘。把缓存指到 `/tmp`：
+5. **构建缓存落 /tmp**：`~/Developer` 已不再同步，但为了让远端磁盘干净、也避免把大件产物误提交，缓存仍统一指到 `/tmp`：
    `CARGO_TARGET_DIR=/tmp/<项目>-target`、`swift build --scratch-path /tmp/<项目>-build`、
    `GOCACHE` 默认就在 `~/Library/Caches`（不同步，可不动）。
-6. **GitHub 断连**：远端 `git clone / fetch / push`、`gh` 全部会失败。要拉新仓库或发版，
-   在本机做，产物 / 目录再靠镜像同步过去。
+6. **GitHub 断连（过渡状态）**：在恢复 macmini 的 GitHub 凭证之前，远端 clone / fetch / push、`gh` 都会失败；这期间拉仓库、发版在本机做。
 
 ## 四、macmini 工具链实况（2026-11-03 实测）
 
@@ -189,7 +187,7 @@ macmini_run: kill <pid>                                    # 停掉跑飞的进�
 macmini_run: rm -rf /tmp/macmini-jobs/<job>.sh /tmp/macmini-jobs/<job>.log
 ```
 
-`/tmp` 的清理不受删除守卫限制（不在镜像内）；镜像目录里的删除要走 `AI_REMOTE_RM_OK`。
+`/tmp` 的清理不受删除守卫限制；两个共享目录里的删除要带 `# AI_REMOTE_RM_OK`，且改前必须快照。
 不要留长期挂着的 `tmux` 会话——用户看不到它们。
 
 ## 八、故障排查
@@ -201,14 +199,14 @@ macmini_run: rm -rf /tmp/macmini-jobs/<job>.sh /tmp/macmini-jobs/<job>.log
 | 同一个命令远端 Node 版本不对 | 手写 ssh 用了 `bash -lc`（拿到 Node 16）；改用 `macmini_run` 或 `ssh mac-mini '命令'` |
 | `xcrun: error ... requires Xcode` | macmini 只有 Command Line Tools；`xcodebuild` 类任务回本机 / 走 CI |
 | 编译通过但本机跑不起来 | 产物是 x64；本机 arm64 需要重新编，或改用 CI 出 arm64 产物 |
-| `git ...` 在远端被拒 | 预期行为：macmini 只读。回本机提交 / 发版 |
+| `git ...` 在远端被拒 | 过渡期预期行为：macmini 仍是只读且断网。回本机提交 / 发版 |
 | 删除命令被拒 | 远端递归删除会删到本机；临时文件放 /tmp，确需删除加 `AI_REMOTE_RM_OK` |
 
 ## 九、不要这样做
 
 - ❌ 把一条 `grep` / `cat` / `git status` 也发到 macmini——SSH 往返比命令本身还慢。
 - ❌ 在 macmini 上 `git add` / `commit` / `checkout`，或指望它 push / 创建 PR。
-- ❌ 在镜像目录里随手 `rm -rf`——本机同步消失。
+- ❌ 在 `~/.pi/agent` / `~/.dev/private` 里随手 `rm -rf`——本机同一份也消失，这两个目录没有「重建」这条路。
 - ❌ 把 `node_modules` / `.venv` / 编译缓存 rsync 回本机——架构不通用、还占盘。
 - ❌ 在 macmini 上再开一个 pi 会话只为了跑一条命令——费用翻倍，不值得。
 - ❌ 分流完就忘了收尾——远端留一堆跑飞的进程和几 GB 的 /tmp 日志。

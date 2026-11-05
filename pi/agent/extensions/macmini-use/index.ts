@@ -2,7 +2,8 @@
  * macmini-use：把重活分流到 macmini 的常驻算力机，给本机（用户正在用的 MacBook）减负。
  *
  * 2026-11-03 用户立：本机是 8 核 / 8GB 的 MacBook Air，用户此刻就在用它；macmini 是
- * 12 核 / 32GB 的常驻算力机，两机 `~/Developer` 与 `~/.pi/agent` 双向镜像（见
+ * 12 核 / 32GB 的常驻算力机；2026-11-05 起两机只共享 `~/.pi/agent` 与 `~/.dev/private`，
+ * 项目代码走 GitHub、各自 clone（见
  * `~/.pi/agent/docs/macmini-mirror.md`）。目标是「用户的日常操作要流畅」，所以：
  *
  *   ① **每轮触发判断**：`before_agent_start` 往系统提示里追加一段很短的「分流判断」
@@ -45,10 +46,10 @@ function localLoad(): { cores: number; level: "轻" | "中" | "重" } {
 function buildBrief(): string {
 	const { cores, level } = localLoad();
 	return `【macmini-use 分流判断（2026-11-03 用户立）】
-用户正在用这台 ${cores} 核 / 8GB 的 MacBook（此刻负载「${level}」）；macmini 是 12 核 x64 / 32GB 的常驻算力机，与本机 \`~/Developer\`、\`~/.pi/agent\` 双向镜像。**每条用户指令先花一秒判断「里面的重活要不要放 macmini」**，判断完直接执行、不要问用户——目的是保住用户本机的流畅度。
+用户正在用这台 ${cores} 核 / 8GB 的 MacBook（此刻负载「${level}」）；macmini 是 12 核 x64 / 32GB 的常驻算力机，与本机共享 \`~/.pi/agent\` 与 \`~/.dev/private\`（项目代码走 GitHub、各自 clone）。**每条用户指令先花一秒判断「里面的重活要不要放 macmini」**，判断完直接执行、不要问用户——目的是保住用户本机的流畅度。
 - 分流（用 \`macmini_run\` 工具，别手写 ssh）：预计会占本机 CPU / 内存十几秒以上的编译 / 构建 / 测试套件 / 媒体转码 / 批量渲染 / 数据回测 / 大文件扫描 / 大下载；上面负载是「中 / 重」时把门槛再降，看着会跑一阵就分流。
 - 留本机：几秒内结束的短命令；需要 GUI / VSCode / osascript / 焦点 / 剪贴板 / Keychain；需要 arm64 产物或本机 node_modules；git 写 / gh / 发版 / CI；操作未镜像路径（~/Downloads、/Volumes、~/Library、~/Key、~/.ssh）。
-- 硬约束：远端递归删除会经镜像删到本机；macmini 是 x64 且 git 只读（提交 / 发版回本机做）；构建缓存导到 /tmp，别让它同步回来。
+- 硬约束：只有 \`~/.pi/agent\` 与 \`~/.dev/private\` 在同步（改前需飞书快照、删根禁止）；项目代码走 GitHub，macmini 上是独立 clone；构建缓存导到 /tmp。
 - 结论落到行动：分流时说一句「这个放 macmini 跑」；长任务用 \`macmini_run\` 的 background，稍后读日志把结果带回来。`;
 }
 
@@ -108,7 +109,7 @@ function callsRemote(command: string): boolean {
 const HEAVY_DENY = (label: string, segment: string) =>
 	`[macmini-use] 已拦下这条本机命令：**${label}** 属于重型任务，默认应分流到 macmini。\n` +
 	`命中片段：\`${segment}\`\n` +
-	`本机是用户正在用的 8 核 / 8GB MacBook，macmini 是 12 核 / 32GB 的常驻算力机（两机 \`~/Developer\`、\`~/.pi/agent\` 双向镜像）。\n` +
+	`本机是用户正在用的 8 核 / 8GB MacBook，macmini 是 12 核 / 32GB 的常驻算力机（两机共享 \`~/.pi/agent\` 与 \`~/.dev/private\`，项目代码走 GitHub）。\n` +
 	`- 首选：改用 \`macmini_run\` 工具（cwd 自动映射到镜像路径；长任务传 background:true，之后 tail 日志取结果）。\n` +
 	`- 确需在本机跑（产物必须 arm64 / 要操作本机路径 / 需要 GUI），在命令末尾加 \`# ${LOCAL_MARK}: <一句话理由>\` 重发，并在回复里向用户说明为什么留本机。\n` +
 	`细则见 skill \`macmini-use\`。`;
@@ -201,9 +202,9 @@ export default function (pi: ExtensionAPI) {
 		label: "在 macmini 上执行",
 		description:
 			"在 macmini（12 核 x64 / 32GB 常驻算力机）上执行命令，用来把重活从本机分流出去：编译 / 构建 / 测试套件 / 转码 / 批量渲染 / 数据回测 / 大文件扫描 / 大下载。" +
-			"cwd 传本机会话里的路径即可，自动映射成 macmini 的镜像路径（/Users/xhq → /Users/mac）；产物写在 ~/Developer 或 ~/.pi/agent 下会经 Syncthing 自动同步回本机。" +
+			"cwd 传本机会话里的路径即可，自动映射成 macmini 的镜像路径（/Users/xhq → /Users/mac）；产物写进 `~/.pi/agent` 或 `~/.dev/private` 会同步回本机（改前需快照）；写在 `~/Developer` 下**不会**回流——项目代码走 GitHub，需要产物就落 /tmp 再 scp，或按流程提交推送。" +
 			"长任务传 background:true，拿到 /tmp/macmini-jobs/ 下的日志路径后，再用本工具执行 tail 取进度 / 结果。" +
-			"远端前置：x64、git 只读、与 MacBook 双向镜像（递归删除会删到本机，非 /tmp 的 rm -r 默认被拒；git 写操作被拒）。" +
+			"远端前置：x64 / 32GB；2026-11-05 架构改造后项目代码走 GitHub（`~/Developer` 不再同步），只有 `~/.pi/agent` 与 `~/.dev/private` 双向同步——这两个目录允许改删内容但必须先做飞书快照，且目录根本身禁止删除；其余路径的递归删除默认被拒。" +
 			"几秒就能结束的短命令不要用它（SSH 往返更慢），留本机 bash 即可。",
 		promptSnippet: "在 macmini 算力机上跑重活（构建 / 转码 / 回测 / 长任务），给本机减负",
 		promptGuidelines: [
@@ -264,10 +265,12 @@ export default function (pi: ExtensionAPI) {
 								type: "text",
 								text:
 									`[macmini-use] 已拦截远端递归删除：\`${del.segment}\`\n` +
-									`macmini 与本机是双向镜像——在远端删 ` +
-									`\`${del.targets.join(" ")}\`，本机的同一份文件也会被删掉（版本库保留 30 天，但不是随手可逆）。\n` +
-									`- 临时文件请放 /tmp 再删（/tmp 不在镜像里）；\n` +
-									`- 确实要从远端清理镜像目录时，在命令里带上 \`# ${REMOTE_RM_MARK}\` 重试，并在回复里向用户说明删什么、为什么。`,
+									`以下目标不在允许范围内：\`${del.targets.join(" ")}\`\n` +
+									`规则（2026-11-05 架构改造后）：/tmp 可自由删；\`~/.pi/agent\` 与 \`~/.dev/private\` ` +
+									`允许改删里面的内容（改前快照由 snapshot-guard 强制），**但两个目录根本身永远不许删**；` +
+									`其余路径（含项目目录）维持默认拒绝。\n` +
+									`- 临时文件请放 /tmp 再删（/tmp 不在同步范围内）；\n` +
+									`- 确需删其它路径时，在命令里带上 \`# ${REMOTE_RM_MARK}\` 重试，并在回复里向用户说明删什么、为什么。`,
 							},
 						],
 						isError: true,
