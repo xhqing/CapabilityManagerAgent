@@ -109,26 +109,27 @@ def folder_spec(fid, label, path, device_ids, versions_path):
 
 
 def drop_folder(base, key, fid, remote):
-    """从配置里移除某个共享目录（默认不删磁盘文件，只停同步）。"""
-    import json
-    import urllib.request
+    """从配置里移除某个共享目录（只停同步，磁盘文件一律保留）。
 
-    cfg = api(base, key, "GET", "/config", remote=remote)
-    folders = [f for f in cfg.get("folders", []) if f.get("id") != fid]
-    if len(folders) == len(cfg.get("folders", [])):
-        print(f"  [skip] {fid} 不存在")
-        return
-    cfg["folders"] = folders
-    req = urllib.request.Request(
-        f"{base}/rest/config", method="PUT",
-        data=json.dumps(cfg).encode(),
-        headers={"X-API-Key": key, "Content-Type": "application/json"})
-    urllib.request.urlopen(req, timeout=20).read()
-    print(f"  [del ] {fid} 已从配置移除（磁盘文件保留）")
+    走 `DELETE /rest/config/folders/<id>`：精确、不用整份配置回写。
+    注意必须复用 `api()`，它会把 remote=True 的请求经 ssh + curl 打到 macmini 的
+    127.0.0.1:8384——直接用 urllib 打本机端点、却带对端 API key，会得到 403
+    （2026-11-05 踩过）。
+    """
+    try:
+        api(base, key, "DELETE", f"/config/folders/{fid}", remote=remote)
+        print(f"  [del ] {fid} 已从配置移除（磁盘文件保留）")
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        if "No folder with given ID" in msg or "404" in msg:
+            print(f"  [skip] {fid} 不存在")
+        else:
+            raise
 
 
 def main():
     drop_dev = "--drop-developer" in sys.argv
+    with_dev = "--with-developer" in sys.argv
     lk = local_key()
     rk = remote_key()
     lid = api(LOCAL, lk, "GET", "/system/status")["myID"]
@@ -137,9 +138,10 @@ def main():
 
     print("== 本机 ==")
     ensure_device(LOCAL, lk, rid, "Macs-Mac-mini", f"tcp://{REMOTE_IP}:22000", False)
-    ensure_folder(LOCAL, lk, folder_spec(
-        "developer", "Developer (team mirror)", "/Users/xhq/Developer",
-        [lid, rid], "/Users/xhq/.syncthing-versions/developer"), False)
+    if with_dev:  # 2026-11-05 起代码走 GitHub，只有显式 --with-developer 才重建这层同步
+        ensure_folder(LOCAL, lk, folder_spec(
+            "developer", "Developer (team mirror)", "/Users/xhq/Developer",
+            [lid, rid], "/Users/xhq/.syncthing-versions/developer"), False)
     ensure_folder(LOCAL, lk, folder_spec(
         "pi-agent", "pi agent (team mirror)", "/Users/xhq/.pi/agent",
         [lid, rid], "/Users/xhq/.syncthing-versions/pi-agent"), False)
@@ -149,9 +151,10 @@ def main():
 
     print("== macmini ==")
     ensure_device(LOCAL, rk, lid, "MacBook-Air-xhq", f"tcp://{LOCAL_IP}:22000", True)
-    ensure_folder(LOCAL, rk, folder_spec(
-        "developer", "Developer (team mirror)", "/Users/mac/Developer",
-        [rid, lid], "/Users/mac/.syncthing-versions/developer"), True)
+    if with_dev:
+        ensure_folder(LOCAL, rk, folder_spec(
+            "developer", "Developer (team mirror)", "/Users/mac/Developer",
+            [rid, lid], "/Users/mac/.syncthing-versions/developer"), True)
     ensure_folder(LOCAL, rk, folder_spec(
         "pi-agent", "pi agent (team mirror)", "/Users/mac/.pi/agent",
         [rid, lid], "/Users/mac/.syncthing-versions/pi-agent"), True)

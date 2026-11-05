@@ -54,15 +54,12 @@
 `~/.dev/snapshots/`（本地快照，各机各留 5 份）、机器本地配置（`.claude/settings.local.json`、
 `DATA-LOCATION.local.md` 等）。
 
-**过渡状态（2026-11-05）**：`developer` 共享还没移除——因为 macmini 目前拿不到 GitHub，
-先保留代码同步作为过渡。等 macmini 的 GitHub 凭证就位、按仓库名重新 clone 完成后，执行
-`python3 ~/.pi/agent/patch/macmini-mirror/setup.py --drop-developer` 移除共享（只动配置，不动磁盘文件），
-再清理 macmini 上的旧目录。
+**已完成（2026-11-05 收尾）**：`developer` 共享已移除（`setup.py --drop-developer`，只动配置、磁盘文件保留）；macmini 上 38 个仓库**原地转正**为正经 clone（`fetch --prune` + `reset --hard origin/<分支>`，依赖目录全部保留、没重下 7.7 GB）；10 个坏掉的 worktree 残留目录已删除；git 只读层（扩展 + `core.hooksPath` hook）已撤除。
+`setup.py` 现在默认**不**再重建 `developer`，确需恢复代码同步时显式加 `--with-developer`。
 
 ## 四、macmini 的 GitHub 访问与 git 权限
 
-- **凭证**：独立 SSH key（或 fine-grained PAT，`contents:write`，只授需要的仓库），
-  出问题可单独吊销，不影响本机。**不要**把本机的私钥拷过去。
+- **凭证（最终采用 HTTPS + gh token）**：`gh auth setup-git` 给 HTTPS 配好 credential helper，34 个 SSH remote 已改写为 `https://github.com/xhqing/<repo>.git`。**没有给 macmini 放 SSH 私钥**（本机私钥不该拷过去），因此也**不需要** GitHub 上的 SSH key。
 - **git 权限（2026-11-05 起）**：从「严格 git 只读」改为「正常读写」——旧约束前提（`.git` 被双向同步）
   已消失。撤除时机：`~/Developer` 共享正式移除之后（在那之前保持只读，否则两台机器会重新同时写同一份 `.git`）。
   撤除动作：删 `extensions/git-readonly-guard.ts`、撤 macmini 的 `core.hooksPath` 只读 hook。
