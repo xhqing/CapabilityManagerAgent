@@ -16,7 +16,7 @@
 
 [简体中文](README_cn.md)
 
-TeamToolkit is the **open-source mirror of a multi-agent team's shared capability layer**. Everything under the user-level `~/.pi/agent/` directory that is **not specific to one agent but shared by all** — global rules (`CLAUDE.md`), skills, pi extensions, helper scripts under `patch/`, reference docs, and the third-party package manifest — is reproduced here under `pi/agent/`, byte-identical to the global authoritative copy.
+TeamToolkit is the **open-source mirror of a multi-agent team's shared capability layer**. Everything under the user-level `~/.pi/agent/` directory that is **not specific to one agent but shared by all** — global rules (`AGENTS.md`), skills, pi extensions, helper scripts under `patch/`, reference docs, and the third-party package manifest — is reproduced here under `pi/agent/`, byte-identical to the global authoritative copy.
 
 > **Renamed on 2026-11-05.** This project was previously `CapabilityManagerAgent` and was maintained by an agent persona named Prometheus. It is now a **plain project** (no agent persona) owned by the team's executive assistant, and publishing is done by a single-pusher script on one machine. Old URLs redirect automatically.
 
@@ -26,7 +26,7 @@ TeamToolkit is the **open-source mirror of a multi-agent team's shared capabilit
 
 | Path | What it is |
 |---|---|
-| `pi/agent/CLAUDE.md` | The team's global rules: working conventions, tool-enforced guardrails, cross-machine workflow |
+| `pi/agent/AGENTS.md` | The team's global rules: working conventions, tool-enforced guardrails, cross-machine workflow |
 | `pi/agent/skills/` | General-purpose skills (backup, release, commit, macOS/remote-compute helpers, …) |
 | `pi/agent/extensions/` | pi extensions that enforce those rules in code (guards, banners, sync helpers) |
 | `pi/agent/patch/` | Self-built helper scripts and small mechanisms |
@@ -59,7 +59,7 @@ Clone and read — the docs and skills are self-contained Markdown, and the scri
 git clone https://github.com/xhqing/TeamToolkit.git
 cd TeamToolkit
 ls pi/agent/skills        # one directory per skill, each with SKILL.md
-cat pi/agent/CLAUDE.md    # the working rules these skills operate under
+cat pi/agent/AGENTS.md    # the working rules these skills operate under
 ```
 
 If you run [pi](https://github.com/earendil-works/pi), you can copy the parts you want into your own `~/.pi/agent/` (skills and extensions are discovered from there). Paths and credentials are deliberately not included, so re-authorize tools on your own machine.
