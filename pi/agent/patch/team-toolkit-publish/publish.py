@@ -50,6 +50,9 @@ MIRROR_SUB = Path("pi") / "agent"
 # 进镜像的五部分（顺序固定，便于 diff 阅读）
 PARTS = ["AGENTS.md", "skills", "docs", "patch", "extensions"]
 
+# 镜像里允许存在、但不归 rsync 管的顶层条目：npm 清单（由本机 note_npm 维护 / 发布机不生成）
+MIRROR_KEEP = {"npm"}
+
 # 不进镜像：本机私有配置 + 本机产物 + 运行时目录
 EXCLUDES = [
     # 运行时 / 架构相关
@@ -166,6 +169,27 @@ def dry_run_diff(part: str, mirror: Path) -> list[str]:
             continue
         keep.append(ln)
     return keep
+
+
+def prune_orphans(mirror: Path, dry: bool) -> list[str]:
+    """删掉镜像里的「孤儿顶层条目」（已不属于 PARTS、也不在 MIRROR_KEEP 里）。
+
+    为什么需要：rsync 只同步 PARTS 内部、负责不了「整个条目从清单里消失」的情况。
+    2026-11-05 全局规则文件由 CLAUDE.md 改名为 AGENTS.md 时就碰上了：新文件能同步过去，
+    旧文件却永远留在镜像里，读者会以为仍有两份规则。
+    """
+    removed = []
+    for entry in sorted(mirror.iterdir()):
+        if entry.name in PARTS or entry.name in MIRROR_KEEP:
+            continue
+        removed.append(entry.name)
+        if dry:
+            continue
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.rmtree(entry)
+        else:
+            entry.unlink()
+    return removed
 
 
 def note_npm() -> None:
@@ -288,6 +312,10 @@ def main() -> int:
                 print("  ", it)
             return 1
         print("[OK] 全局与镜像内容一致")
+        orphans = prune_orphans(mirror, dry=True)
+        if orphans:
+            print(f"[DIFF] 镜像里有 {len(orphans)} 个孤儿条目待清理：{'、'.join(orphans)}")
+            return 1
         dirty = changed_files(repo)
         if dirty:
             print(f"[NOTE] 仓库工作区另有 {len(dirty)} 处改动（非镜像内容，未纳入比对）")
@@ -295,6 +323,9 @@ def main() -> int:
 
     for part in PARTS:
         sync_part(part, mirror, args.dry_run)
+    orphans = prune_orphans(mirror, args.dry_run)
+    if orphans:
+        print(f"[PRUNE] 清理镜像孤儿条目：{'、'.join(orphans)}")
     note_npm()
 
     files = changed_files(repo)

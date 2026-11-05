@@ -22,6 +22,7 @@ python3 ~/.pi/agent/patch/team-toolkit-publish/publish.py --dry-run  # 看会改
 | 先等 Syncthing `idle` | 否则可能把「只同步到一半的全局目录」发布出去（AGENTS.md 引用还没到的 skill） |
 | 发现 `*.sync-conflict-*` 直接退出 | 有冲突副本说明能力层本身要人管，不能当正常内容推上去 |
 | rsync 带 `--delete` 单向覆盖 | 镜像必须与全局一致，删掉的文件也要同步删掉 |
+| 清理镜像孤儿顶层条目 | `--delete` 只管 PARTS 内部；整个条目从清单里消失（如规则文件改名）时，旧文件会永远留在镜像里，需额外删除（`MIRROR_KEEP` 里的 `npm` 除外） |
 | 自动写 CHANGELOG | 生成物手写必飘；条目里带「为什么改 / 改了什么 / 回归风险」 |
 | 分支 + PR + `--auto` 合并 | remote main 锁定，不直推 |
 
