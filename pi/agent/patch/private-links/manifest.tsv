@@ -1,0 +1,48 @@
+# 私有内容接线清单：每行「仓库名 <TAB> 仓库内相对路径」
+# - 相对路径以仓库根为基准，支持 * 通配（如 live-unlock.*.local）
+# - 本体的落位：~/.dev/private/<仓库名>/<相对路径>
+# - 项目里的同名位置是软链接，指向本体（软链接不进 git，靠 .git/info/exclude 忽略）
+# - 只登记「跨机需要保持一致的私密内容」；缓存 / 构建产物 / 机器本地配置不登记
+AgentCortex	monetization-plan.md
+ApplyOptimizerAgent	CHANGELOG.local.md
+ApplyOptimizerAgent	backup
+ApplyOptimizerAgent	docs
+DayTradingAgent	.claude/skills/trade/accounts.json
+DayTradingAgent	.claude/skills/trade/config.json
+DayTradingAgent	.claude/skills/trade/feishu.local.json
+DayTradingAgent	.claude/skills/trade/live-auth.*.local
+DayTradingAgent	.claude/skills/trade/live-unlock.*.local
+DayTradingAgent	archive
+DayTradingAgent	reviews/ip-node-log.local.csv
+DigiVendAgent	docs
+DigiVendAgent	vend
+ExecutiveAssistantAgent	CHANGELOG.local.md
+ExecutiveAssistantAgent	TODO.local.md
+ExecutiveAssistantAgent	TODO-archive.local.md
+ExecutiveAssistantAgent	backup
+ExecutiveAssistantAgent	docs
+GrowthMarketerAgent	CHANGELOG.local.md
+GrowthMarketerAgent	TODO.local.md
+GrowthMarketerAgent	TODO-archive.local.md
+GrowthMarketerAgent	artifacts
+GrowthMarketerAgent	assets/avatar
+GrowthMarketerAgent	assets/listing
+GrowthMarketerAgent	backup
+GrowthMarketerAgent	video-monetization
+Intraday	TODO.local.md
+Intraday	TODO-archive.local.md
+LegalAgent	CHANGELOG.local.md
+LegalAgent	TODO.local.md
+LegalAgent	product-research
+ProductProducerAgent	artifacts
+ProductStrategistAgent	artifacts
+ProductStrategistAgent	docs
+SiteBuilderAgent	artifacts
+SiteBuilderAgent	docs
+SiteBuilderAgent	site/config.js
+SocialMediaManagerAgent	CLAUDE.local.md
+SocialMediaManagerAgent	assets/brand/photo
+SocialMediaManagerAgent	docs/articles/ai-trading
+ToolCallingRules	quick-profit-plan.md
+ToolCallingRules	中国网盘拉新活动汇总.md
+ToolCallingRules	小红书店铺电子资源类目权限开通条件.md

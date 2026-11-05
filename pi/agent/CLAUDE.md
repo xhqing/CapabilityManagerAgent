@@ -187,6 +187,27 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 - **新建 `tmp/` 时必须确认 `tmp/` 已写入项目 `.gitignore`**（已有则检查、没有则追加，没有 `.gitignore` 则新建），绝不让临时产物被 git 跟踪。
 - 汇报时给 `tmp/...` 的**项目相对路径**（VSCode 工作区内链接可点）；用户要求保留为正式文件时再迁移到正式目录。
 
+### 私有内容目录 `~/.dev/private`（2026-11-05 用户立，工具强制）
+
+项目里那些被 `.gitignore` 忽略、但**跨机需要保持一致**的私密内容——隐私待办（`TODO.local.md` / `TODO-archive.local.md` / `CHANGELOG.local.md` / `CLAUDE.local.md`）、`backup/` 备份目录、本机文档（`docs/`）、交易凭证、素材图片等——**本体统一放 `~/.dev/private/<仓库名>/<相对路径>`**，项目里同名的位置放一个**软链接**指过来。这样「项目目录 clone 下来就是干净的公开仓库」和「私密内容跨机一致」同时成立：项目代码走 GitHub，`~/.dev/private` 走 Syncthing。
+
+- **工具**：`~/.pi/agent/patch/private-links/private-links.py`，清单 `manifest.tsv`（`仓库名<TAB>相对路径`，支持 `*` 通配）。四个子命令：`adopt`（把实体搬进 private 并原地建链接）、`materialize`（按清单建链接）、`check`（巡检：断链 / 被替换成实体 / 私有侧孤儿 / 未登记的忽略文件）、`restore`（取消接线，把本体搬回项目）。
+- **不要手建软链接**：编辑器「写临时文件再 rename」的原子保存会把链接换成实体文件（之后就不再同步了），`git clean -fdx` 也会删掉被忽略的链接。一律用脚本重建。
+- **新建 worktree 后必须跑** `private-links.py materialize <worktree 路径>`（工作区是新目录，链接不会自动出现），否则 worktree 里读不到 `.env` / `TODO.local.md` 这类内容。
+- **不进 private 的东西**：缓存与构建产物（`node_modules` / `.venv` / `data_cache` / `dist` / `*.vsix`）、以及**机器本地配置**（`.claude/settings.local.json`、`DATA-LOCATION.local.md` 等）——后者本来就该两台机器各自不同，塞进去等于把差异强行同步成互坑。
+- **`.git/info/exclude` 由工具维护**：软链接在 git 眼里是**文件**，而仓库 `.gitignore` 里常见的是带尾斜杠的目录规则（`docs/`、`backup/`），匹配不到软链接，会让它变成未跟踪文件被 `/add` 误收。工具会自动把这些路径写进仓库本地的 `.git/info/exclude`（**不改仓库里的 .gitignore**，避免为了一点本地接线去改公开仓库）。
+- **收尾巡检**：会话结束前的仓库自检里顺带跑一次 `private-links.py check`（0 问题才算干净）。
+
+### 两个共享目录的「改前快照」（2026-11-05 用户立，工具强制）
+
+`~/.pi/agent` 与 `~/.dev/private` 是**允许任何会话（含 macmini）改删内容**的，但代价是必须先有一次新鲜快照——它们是全队最不可重建的东西，而现在又没有「整套项目目录同步」兜底了。
+
+- **怎么做**：`python3 ~/.pi/agent/patch/dev-snapshots/dev-snapshots.py snapshot <pi-agent|private|both>`。快照 = `tar.gz`（`~/.dev/snapshots/`）+ 上传飞书云盘 `dev-snapshots/<target>/`，**本地与云端各只保留最近 5 份**（命名 `<target>-<YYYYMMDD-HHMMSS>.tar.gz`）。
+- **强制点**：`extensions/snapshot-guard.ts` 在写入 / 删除这两个目录前检查令牌——普通写入要求 **30 分钟内的快照**、删除 / 移动类要求**快照与当前内容完全一致**；不满足就拦下并给出命令。令牌在 `~/.dev/private/.state/snapshot-token.json`（随 Syncthing 同步，所以任一侧做的快照另一侧也认）。
+- **快照失败 = 不许改**：上传失败不写令牌，后续操作继续被挡（宁可不改，也不要「以为备份了其实没有」）。
+- **恢复**：`dev-snapshots.py restore <target> [--name <文件名>]`——恢复前会自动先给现状留一份，避免恢复动作把当前状态冲掉。
+- **两个目录的根本身永远不许删**（删共享根会让 Syncthing 对端状态难以收拾）；`snapshot-guard` 无条件拦截 `rm -rf ~/.pi/agent` / `rm -rf ~/.dev/private` 这类命令。
+
 ### `.pi/` 目录只放 pi 自己要读的东西（2026-10-28 用户立；工具已硬拦截）
 
 `.pi/`（项目级）是 **pi 的配置目录**，不是「项目里的一个隐藏文件夹」。判断标准只有一条：**pi 自己会不会去读它？** 不会——就禁止放进去，哪怕只是想躲开某个检查、或者图省事。
@@ -210,6 +231,16 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
 
 - 任何文件写操作后、向用户汇报前，**必须重新读取文件确认修改真正生效**——不能仅凭工具调用的成功返回值或上下文推断；逐行核对关键修改点，发现未生效或不完整就重新执行修改。
 - 汇报必须基于**实际读取到的文件内容**（正确示例：「验证完成，config.ts 第 45 行现在是 `const threshold = newValue;`」），而不是工具返回状态或修改计划。
+
+### 扩展代码写入必须先过语法检查（2026-11-05 用户立，工具强制）
+
+pi 加载扩展时**只要有一个文件解析失败就 `exit(1)`**——打印 `Error: Failed to load extension "…": ParserError: …` 和 `Hint: Start without extensions using "pi -ne"` 之后直接退出，整个 agent 变成不可用状态，只能人工修好再启动。所以「扩展代码里的一个字符写错」不是小失误，而是**把所有会话一起搞停**。
+
+- **适用范围**：pi 启动时会加载的扩展代码——`~/.pi/agent/extensions/**` 与 `<当前项目>/.pi/extensions/**` 下的 `.ts` / `.mts` / `.cts` / `.js` / `.mjs` / `.cjs`（`.tsx` / `.jsx` 除外：Node 类型擦除不支持 JSX）。技能脚本、项目源码、第三方 npm 包不在此列——它们写坏了不会让 pi 起不来。
+- **最常见的成因**：模板字符串里写了**未转义的反引号**。`` `只有 `~/.pi/agent` 与 …` `` 这种写法会把模板字符串提前闭合，正确写法是内部反引号加反斜杠：`\``。2026-11-04 的 `macmini-use/index.ts` 就是栽在这一处，导致 2026-11-05 一整天 `pi` 起不来。
+- **工具强制（`extensions/ts-syntax-guard.ts`）**：① `write` / `edit` 写入扩展目录时，先按「写入后的完整内容」用**pi 加载器同一个解析器**（Node `stripTypeScriptTypes`）校验，有语法错直接 block 并给出出错行与代码片段——坏内容根本落不了盘；② `bash` 执行后对比扩展文件 mtime，被改动的逐个复检，坏了就在工具结果里追加醒目告警（覆盖 `cat >` / `tee` / `sed -i` / `cp` / `mv` 这类旁路写入）。
+- **随时可手工复核**：`node ~/.pi/agent/patch/ts-syntax-check/check.mjs [目录…]`（无参数时查全局扩展目录 + 当前项目 `.pi/extensions`）。**成批同步 / 复制扩展代码之后（例如对齐 CapabilityManagerAgent 开源镜像）必跑一次**——手工复制不过守卫，只有事后核对能兜住。
+- **逃生门**：建 `~/.pi/agent/state/ts-syntax-guard-off` 可临时停用守卫，仅用于「解析器本身误报」这种极端情况；正常改代码永远不需要——解析器错了就该改代码，因为 pi 用的就是同一个解析器。
 
 ### 运行版本与开发版本隔离（禁止 npm link / 本地直跑开发源码）
 
@@ -308,7 +339,7 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 ### 跨机协作：macmini 值班会话（2026-10-17 用户立）
 
 - **重活默认分流到 macmini（2026-11-03 用户立，工具强制）**：本机是用户**此刻正在用**的 MacBook Air（8 核 / 8GB），macmini 是 12 核 x64 / 32GB 的常驻算力机、与本机 `~/Developer` / `~/.pi/agent` 双向镜像。**每条指令先判断一次「里面的重活要不要放 macmini」**：预计占本机 CPU / 内存十几秒以上的编译、构建、测试套件、音视频转码、批量渲染、数据回测、大文件扫描 / 大下载，一律用 `macmini_run` 工具在远端跑（长任务传 `background:true`、之后 tail 日志取结果），不要在本机硬扛；几秒内结束的短命令、需要 GUI / VSCode / osascript / 焦点 / 剪贴板、需要 arm64 产物或本机 `node_modules`、git 写与 gh 发版、操作未镜像路径（`~/Downloads`、`/Volumes`、`~/Library` 等）的留本机。判断标准是**用户的本机要流畅**，不是「尽量多用远端」。判定细则、远端工具链实况与常见重活跑法见 skill `macmini-use`；配套工具强制见 `~/.pi/agent/extensions/macmini-use/`（每轮注入分流判断 + 拦重型本机命令，逃生门 `# AI_LOCAL_OK: <理由>`；macmini 上不生效）。**用 macmini 时 pi 输入框下方会亮一行「🖥  当前使用的是 macmini」（前台调用 / `/macmini …` / `ssh mac-mini …` / `background:true` 的后台任务），用完自动撤——亮着就代表那个时刻确实在占用远端算力（2026-11-04 用户立）。**
-- **镜像删除与远端 git 的红线**：macmini 的 `~/Developer`、`~/.pi/agent` 与本机双向镜像——远端递归删除会删到本机（`macmini_run` 默认拒绝非 `/tmp` 的 `rm -r`，确需删除带 `# AI_REMOTE_RM_OK`），远端 git 写操作一律拒绝（提交 / 发版回本机做）。
+- **删除红线（2026-11-05 架构改造后）**：macmini 上的项目目录只是普通 clone（可从 GitHub 重建），删它无害；真正要护住的是两个共享目录 `~/.pi/agent` 与 `~/.dev/private`——它们**允许改删里面的内容**（2026-11-05 用户明示），但改前必须有一次新鲜飞书快照（`~/.pi/agent/patch/dev-snapshots/dev-snapshots.py`，由 `extensions/snapshot-guard.ts` 强制），并且**两个目录根本身永远不许删**（删同步根会让对端状态难以收拾）；其它路径的远端递归删除仍默认拒绝（`macmini_run` 需带 `# AI_REMOTE_RM_OK`）。
 
 macmini 上配有一个**常驻值班会话**（intercom 名：`macmini`，由 launchd 守护、掉线自动重拉）。本机各 agent 需要借用 macmini 的资源/环境时，用以下标准命令呼叫（**本机 → macmini**）：
 
@@ -327,8 +358,8 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 - **能力边界**：值班会话具备通用能力（跑命令/脚本/网络任务），**暂不具备「某个具体 agent 的身份与项目环境」**——「唤醒具体 agent 会话」的场景另待扩展（依赖 macmini 上的 tmux 与项目环境部署）。
 - **超时**：ask 默认 120 秒；长任务可在命令里加 `--timeout-ms <毫秒>`，或先用 send 派活、稍后再发 ask 询问进度。
 - **注意**：值班会话的 cwd 是 macmini 的 `~`（无项目上下文）；在 macmini 上产出的文件留在 macmini（本机如需取回需显式回传，如 `scp mac-mini:<路径> <本机路径>`）。
-- **全量镜像（2026-10-28 用户立）**：本机与 macmini 已建立全量双向镜像——`~/Developer`（全部 Agent / 非 Agent 项目）与 `~/.pi/agent`（全局能力层）逐字节同步，任一方改动自动同步；**macmini 已切断 GitHub**（push / PR / Release / clone / fetch 只在本机做）。同步范围、排除项（sessions / state / npm / bin / node_modules 等运行时或架构相关数据）、冲突处理、状态检查命令见 `~/.pi/agent/docs/macmini-mirror.md`。**同一个 git 仓库同一时间只在一台机器上做写操作**——两边同时写会让 `.git` 产生冲突（macmini 侧自 2026-10-31 起由工具强制只读，见下条）。
-- **macmini 严格 git 只读（2026-10-31 用户立，工具强制，无逃生门）**：**macmini 这台设备上任何 git 写操作一律禁止**——`git add` / `git commit` / `git push` / `git pull` / `git fetch` / `git tag`（写）/ `git branch`（写）/ `git reset` / `git restore` / `git stash`（写）/ `git merge` / `git rebase` / `git cherry-pick` / `git revert` / `git rm` / `git mv` / `git checkout` / `git switch` / `git clean` / `git config`（写）/ `git remote`（写）/ `git worktree` / `git submodule` / `git init` / `git clone` / `git filter-*` / `git gc` 等一切会改动 `.git` 或工作区的操作，以及 `gh` 的写操作（PR / Release / repo / workflow 变更、`api` 非 GET）。只读查询（status / diff / log / show / branch 查询 / tag -l / config --get / stash list 等）照常可用。**例外（2026-11-04 用户核定）：`gh issue …` 放行**——Issue 是 GitHub 侧对象、走 REST API，不碰本地 `.git`，不属于 git 写操作（实测 macmini 断的只是 ssh / git 层，HTTPS API 本来就通）；建 / 查看 / 评论 / 改 / 关 Issue 都可以在 macmini 上做，唯独 `gh issue develop`（会建本地分支 + checkout）仍拦。macmini 上 gh 已装（`brew install gh`，2.14.4），认证方式与边界见 `docs/macmini-mirror.md` 第四节。**为什么**：两机是逐字节双向镜像、`.git` 也一起同步，两边同时写 ref / index 会互相覆盖、产生游离提交甚至损坏索引；而且 macmini 不连 GitHub，写出来的提交最终仍要回本机重做。**做法**：macmini 只做计算、只产出文件，改动经镜像自动回流本机；提交 / 发版 / 建 PR 一律回本机做。**工具强制两层**：① pi 扩展 `~/.pi/agent/extensions/git-readonly-guard.ts`——按 hostname 判定 macmini，白名单放行只读子命令、其余全拦（含 `background_run` 路径）；扩展在会话启动时加载，macmini 上**已在运行的会话需重启**才生效（值班会话每 6h 自动重启、Mark 系需手动重启，期间它们的 commit / push 仍被下条 hook 拦）。② macmini 全局 git hook（`core.hooksPath` → `~/.pi/agent/patch/macmini-git-readonly/hooks`）——覆盖 pi / CC / 用户手动 / 脚本所有进程，拦 commit / push / merge / rebase / applypatch / gc --auto；git 自身没有 add 的钩子，add / tag / reset 这类只靠扩展那层。**无逃生门**：需要提交就回本机做，不要在 macmini 上加标记或换写法绕过。说明、安装与验证步骤见 `~/.pi/agent/patch/macmini-git-readonly/README.md`。
+- **同步范围（2026-11-05 架构改造：代码走 GitHub，只有两个目录用 Syncthing）**：`~/Developer` **不再同步**——每台机器各自 `clone`、各自开 worktree，靠 GitHub（push → PR → CI → merge → 本地 main 快进）交换代码；Syncthing 只同步两个目录：`~/.dev/private`（各项目私有内容**本体**，项目里放同名软链接，见「私有内容目录」节）与 `~/.pi/agent`（全局能力层）。macmini 为此恢复 GitHub 访问（用**独立凭证**，不与本机共用）。开工前先让 local main 与 `origin/main` 对齐、任务结束走完整提交 / PR / 合并链路，细节见 `docs/macmini-mirror.md` 与 commit / bump / release skill。
+- **macmini 的 git 权限（2026-11-05 起：从「严格只读」改为「正常读写」）**：旧的「严格 git 只读」（`extensions/git-readonly-guard.ts` + macmini 的 `core.hooksPath` 只读钩子）**前提已消失**——它当初是为了防「`.git` 被双向同步、两台机器同时写而互相损坏」；项目目录不再同步后，每台机器的 `.git` 各自独立。**撤除时机**：`~/Developer` 共享正式移除、macmini 按仓库名重新 clone 完成之后（在那之前保持只读，否则两台机器会重新同时写同一份 `.git`）；撤除动作 = 删 `extensions/git-readonly-guard.ts` + 撤 macmini 的 `core.hooksPath` 只读 hook。**仍然生效**：remote main 锁定（`git-main-guard.ts`，两机一致）、一个分支只做一件事、改动走 PR + CI。
 - **已迁回的 Agent（2026-10-26 用户决定：Mark 全体系拷回本机，本机为权威源）**：**Mark**（QuantStrategistAgent 及子项目 Intraday / Swing / gridtrader，另有同日移交的 NewsScoreStudy）原于 2026-10-17 整体迁至 macmini；**2026-10-26 已由用户拷回本机**——`~/Developer/` 下的目录即权威源。macmini 上的同名目录与 4 个 Mark 常驻会话**保留但不再权威**（用户当日明确选择「两边都不动、只改本机口径」，属对单宿主规则的已知例外）；5 个会话仍列在 `duty.conf` 里（值班会话每 6h 重启、Mark 系不重启），但**非必须用 macmini 环境的任务一律不在那边做**：
 
 | 呼叫名（intercom） | 进驻项目（cwd） | 现行口径 |
@@ -358,5 +389,6 @@ ssh mac-mini '~/.pi/agent/npm/node_modules/.bin/pi-intercom list'
 - **worktree 怎么提交（2026-11-04 用户立）**：任务在 worktree 里做的，按仓库流程走 `/add` → `/commit`，**全部 git 命令带 `git -C <worktree 绝对路径>`**（不能 `cd`，也不看主工作区的 status / 暂存区）；本地 main 的对齐与发版在主工作区执行（详见 add / commit skill 的「worktree 场景」节）。worktree 分支属「非 main 分支」，自动触发照常生效。
 - **处理方式**：按该仓库自己的流程处理——`/add` 预检 → `/commit`（该链条该 bump / 发版就照常走）；多仓库逐个处理；查不到、拿不准是不是在途 WIP 的，向用户说明后再动。**被 add-mode 或 commit-mode 暂停的仓库不适用本条**（任一暂停即跳过）：用户特意暂停了自动提交（多半在看 diff），保持原样、不催不提交，收尾时如实说明「这几个仓库被 add-mode / commit-mode 暂停，改动保留未提交」即可。
 - **为什么**：子项目随附版同步、文档补记这类零散改动会长期烂在各个工作区里（2026-10-09 实测：全队 22 个子项目仓库有 16 个不干净，其中 Atlas 名下 8 个只挂着上一轮同步改动未提交）。收尾自检让每个 Agent 交付时，名下所有仓库都处于「干净 + 与远端同步」的终态。
+- **顺带跑一次私有内容巡检**：`python3 ~/.pi/agent/patch/private-links/private-links.py check`（0 问题才算收尾干净；软链接断了 / 被替换成实体 / 新增了没登记的忽略文件都会报）。
 - **工具强制**：pi 端扩展 `~/.pi/agent/extensions/settle-repo-check.ts`（`agent_settled` 钩子自动巡检本会话所在 Agent 项目的子项目仓库：发现不干净时通知用户，并就同一批不干净仓库向会话注入一次提醒促其处理；底层调用 `~/.pi/agent/patch/settle-repo-check/settle-repo-check.py`）。
 - **边界**：只查「自己负责的」子项目仓库，不越界去动别人的仓库；临时产物仍放各自项目 `tmp/`（已忽略、不算不干净）；**开发流程中刻意留在工作区的在途改动**（如 dev-workflow 先行的测试产物）不适用本条——本条管的是「任务结束时点」的收尾状态，不是干活过程中的中间态。

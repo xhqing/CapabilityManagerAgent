@@ -17,8 +17,9 @@ from pathlib import Path
 HOME = Path.home()
 LOCAL = "http://127.0.0.1:8384"
 REMOTE_HOST = "mac-mini"
-FOLDERS = ["developer", "pi-agent"]
+FOLDERS = ["private", "pi-agent"]  # 2026-11-05：代码不再同步，developer 共享将在 macmini 重新 clone 后移除
 ROOTS = {
+    "private": (HOME / ".dev/private", "/Users/mac/.dev/private"),
     "developer": (HOME / "Developer", "/Users/mac/Developer"),
     "pi-agent": (HOME / ".pi/agent", "/Users/mac/.pi/agent"),
 }

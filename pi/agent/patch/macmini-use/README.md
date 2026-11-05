@@ -6,7 +6,8 @@
 ## 一、为什么
 
 本机是用户正在用的 MacBook Air（8 核 / 8GB），macmini 是 12 核 x64 / 32GB 的常驻算力机，
-两机 `~/Developer` 与 `~/.pi/agent` 双向镜像（见 `~/.pi/agent/docs/macmini-mirror.md`）。
+两机只共享 `~/.pi/agent` 与 `~/.dev/private`（见 `~/.pi/agent/docs/macmini-mirror.md`）；
+`~/Developer` 自 2026-11-05 起不再同步——项目代码走 GitHub，两边各自 clone。
 用户的痛点不是「算力不够」，而是「AI 在本机跑长任务时，用户自己也卡」。所以这套能力做三件事：
 
 1. **每轮提示**：往系统提示里追加一段很短的分流判断要求，让 AI 在每条指令开始时先想一秒
@@ -21,7 +22,7 @@
 | 文件 | 作用 |
 |---|---|
 | `~/.pi/agent/extensions/macmini-use/index.ts` | 扩展入口：每轮注入分流判断、注册两个工具与 `/macmini` 命令、重型本机命令闸门 |
-| `~/.pi/agent/extensions/macmini-use/classify.ts` | 纯判定逻辑：macmini 判定、重型命令识别、镜像目录递归删除识别 |
+| `~/.pi/agent/extensions/macmini-use/classify.ts` | 纯判定逻辑：macmini 判定、重型命令识别、递归删除识别（`/tmp` 与两个共享目录内放行，根目录禁止） |
 | `~/.pi/agent/extensions/macmini-use/remote.ts` | 远端执行层：路径映射、`ssh mac-mini bash -s`、后台任务、负载脚本 |
 | `~/.pi/agent/skills/macmini-use/SKILL.md` | 给 AI 的操作手册（判断表、硬约束、常见重活跑法、故障排查） |
 | `~/.pi/agent/patch/macmini-use/test-classify.ts` | 判定逻辑回归测试（49 个用例，`bun` 直接跑） |
@@ -35,7 +36,7 @@
 
 `before_agent_start` 追加到系统提示的文本基本固定（只有负载档位「轻 / 中 / 重」随 1 分钟
 load 变化），因此不会每轮破坏 prompt 缓存。内容口径：本机 8 核 / 8GB、macmini 12 核 / 32GB、
-什么该分流、什么留本机、硬约束（镜像删除、git 只读、缓存别回流）。
+什么该分流、什么留本机、硬约束（两个共享目录改前需快照、删根禁止、缓存落 /tmp）。
 
 ### 闸门拦什么
 
@@ -63,7 +64,7 @@ load 变化），因此不会每轮破坏 prompt 缓存。内容口径：本机 
   这一条比 macmini 侧的守卫更早——ssh 直接跑 bash 不经过 pi 的 `tool_call`，必须由本工具拦。
 - **递归删除**：非 `/tmp` 的 `rm -r` 默认拒绝（远端删除会经 Syncthing 删到本机），
   带 `# AI_REMOTE_RM_OK` 才放行。
-- 后台任务的脚本与日志都在远端 `/tmp/macmini-jobs/`（不在镜像内，不会回流）。
+- 后台任务的脚本与日志都在远端 `/tmp/macmini-jobs/`（不在共享范围内，不会回流）。
 
 ## 四、验证
 

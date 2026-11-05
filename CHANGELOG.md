@@ -6,6 +6,33 @@
 
 ## [Unreleased]
 
+### 2026-11-05 跨机架构改造：代码走 GitHub，只有两个共享目录用 Syncthing（镜像同步，20 个文件）
+
+同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。
+
+**为什么改**：2026-11-05 用户做了一次跨机架构改造——原先「整套 `~/Developer` 用 Syncthing 双向同步」的做法被彻底放弃，因为它会让两台机器同时写同一个 `.git` 而互相损坏，还逼出了 macmini 上那套严格 git 只读的限制。新架构是：**项目代码走 GitHub**（每台机器各自 `clone`、各自开 worktree，靠 push → PR → CI → merge → 本地 main 快进交换代码），**Syncthing 只同步两个目录**——`~/.dev/private`（各项目私有内容的本体，项目里放同名软链接）与 `~/.pi/agent`（全局能力层）。这两件事带来三个必须写进能力层的配套机制：
+
+1. **私有内容目录 `~/.dev/private`**：项目里那些被 `.gitignore` 忽略、但跨机要保持一致的私密内容（隐私待办、`backup/` 目录、本机文档、交易凭证等），本体统一放 `~/.dev/private/<仓库名>/<相对路径>`，项目里同位置放软链接。工具 `patch/private-links/` 负责 `adopt`（搬进私有目录并建链接）/ `materialize`（按清单重建链接）/ `check`（巡检断链、被替换成实体、未登记文件）/ `restore`（搬回项目）。同时明确「不要手建软链接」——编辑器原子保存会把链接换成实体文件、`git clean -fdx` 也会删掉被忽略的链接。
+2. **两个共享目录的改前快照**：`~/.pi/agent` 与 `~/.dev/private` 允许任何会话（含 macmini）改删内容，但改前必须有新鲜快照（本地 + 飞书各留最近 5 份，令牌随 Syncthing 同步）。`patch/dev-snapshots/` 是工具，`extensions/snapshot-guard.ts` 是强制点——普通写入要求 30 分钟内快照，删除 / 移动要求快照与当前内容完全一致，两个目录的根本身无条件禁止删除。
+3. **macmini 的使用口径重写**：删除红线改为「项目目录随便删（可从 GitHub 重建），真正要保护的是两个共享目录」；git 权限从「严格只读」回归正常读写（旧的只读前提随 `.git` 不再同步而消失）。
+
+**改了什么**（20 个文件，与全局逐字节一致）：
+
+- **新增 `pi/agent/patch/private-links/`**（`manifest.tsv` 清单、`private-links.py` 工具、`README.md`）：上面第 1 条的完整实现与说明。
+- **新增 `pi/agent/patch/dev-snapshots/`**（`dev-snapshots.py`、`README.md`）：打包 `tar.gz` + 上传飞书云盘 + 本地 / 云端各保留 5 份 + 令牌签发与恢复。
+- **新增 `pi/agent/extensions/snapshot-guard.ts`**：改前快照的强制点（写入 / 删除两个共享目录时检查令牌，不满足即拦下并给出命令；快照失败不写令牌）。
+- **新增 `pi/agent/extensions/ts-syntax-guard.ts` + `pi/agent/patch/ts-syntax-check/check.mjs`**（同日新增的配套守卫，一并纳入镜像）：pi 遇到任一扩展解析失败会直接 `exit(1)` 导致整个 agent 起不来（2026-11-04 的真实事故：模板字符串里一个未转义的反引号让 2026-11-05 全天 `pi` 无法启动）。守卫在 `write` / `edit` 写入扩展目录前用 pi 加载器同一个解析器（Node `stripTypeScriptTypes`）校验，坏内容落不了盘；`bash` 旁路写入后按 mtime 复检并告警。`check.mjs` 是可随时手工复核的脚本。
+- **修改 `pi/agent/extensions/macmini-use/{classify.ts,index.ts,remote.ts}`**：删除守卫放行两个共享目录、仍拦删根；文案改为新架构口径。
+- **修改 `pi/agent/skills/macmini-use/SKILL.md`**（description 与硬约束按新架构改写）与 `pi/agent/patch/macmini-use/README.md`。
+- **修改 `pi/agent/docs/macmini-mirror.md`**（整篇重写：代码走 GitHub + 只有两个共享目录用 Syncthing，含新架构下的 macmini git 权限、快照前置、私有内容接线）。
+- **修改 `pi/agent/patch/macmini-mirror/{setup.py,status.py,verify.py}` + 新增 `stignore-private`**：Syncthing 配置新增 private 共享、`--drop-developer` 移除旧的 `~/Developer` 共享、校验范围收敛到两个共享目录。
+- **修改 `pi/agent/CLAUDE.md`**：新增「私有内容目录 `~/.dev/private`」「两个共享目录的改前快照」两节；重写「删除红线 / 同步范围 / macmini 的 git 权限」三条；「扩展代码写入必须先过语法检查」节同步纳入。
+- **刷新 `pi/agent/npm/`**（`package.json` / `package-lock.json` / `PACKAGES.md`）：pi 第三方包清单跟随本机现状，`pi-mcp-adapter` 由 7.0.0 升到 7.0.1。
+
+**验证**：`diff -rq` 对 `skills` / `docs` / `patch` / `extensions` 四部分与 `CLAUDE.md` 逐一复核，全局与镜像**无内容差异**（仅剩合法差异：`.gitignore` 覆盖的 `anysearch/.env`、`backup/endpoints/endpoints.json`、`session-link` 运行时文件、`__pycache__`）；`npm-manifest/refresh.py --check` 通过；`ts-syntax-check/check.mjs` 对镜像 `pi/agent/extensions` 的 33 个扩展文件全部通过语法校验；新同步文件已做公开文本敏感自检（无凭证、无本机私有数据，`dev-snapshots.py` 只引用端点注册表路径与字段名）。
+
+**回归风险**：低。改动均为镜像同步与机制新增，没有删除镜像里已有的任何内容；`CLAUDE.md` 的三条重写是口径演进（旧规则的前提——`~/Developer` 双向同步——已经消失），新条文内部一致。需要注意的是：`snapshot-guard.ts` 生效后会拦「对两个共享目录的写入 / 删除」，这是有意的收紧，改动方须先做快照再改。
+
 ### 2026-11-04 补录：xhqing 仓库的 `traffic.yml` 已删除（镜像同步，`docs/repo-branch-protection.md`）
 
 同步全局 `~/.pi/agent` 的改动（本仓库是全局通用能力的开源镜像，与权威源逐字节一致）。上一批同步漏了这份文档——它里面有一句话已成事实错误。
