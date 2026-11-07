@@ -115,6 +115,21 @@ function cmuxCandidates(): string[] {
   const bundled = process.env.CMUX_BUNDLED_CLI_PATH;
   if (bundled && bundled.trim()) list.push(bundled.trim());
   list.push("cmux");
+  // 不在 cmux 里启动时（比如在 Ghostty 里跑的 pi 会话），上面两个候选一个都没有：
+  // `cmux` 一般不装进 PATH，CLI 只存在于 app 包内。这里扫 /Applications 与
+  // ~/Applications 下的 cmux*.app，取 app 内置的 CLI；release / staging 并存时全收，
+  // 由 runCmux 配 socket 逐个试，总能找到真在跑的那个实例。
+  for (const dir of ["/Applications", path.join(os.homedir(), "Applications")]) {
+    try {
+      for (const name of fs.readdirSync(dir)) {
+        if (!/^cmux.*\.app$/i.test(name)) continue;
+        const cli = path.join(dir, name, "Contents/Resources/bin/cmux");
+        if (fs.existsSync(cli)) list.push(cli);
+      }
+    } catch {
+      // 目录不存在 / 无权限：跳过，靠其它候选
+    }
+  }
   return Array.from(new Set(list));
 }
 
@@ -154,21 +169,19 @@ async function runCmux(
   timeoutMs = 60_000,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<RunResult> {
+  const sockets: (string | null)[] = [null, ...socketCandidates()];
   let last: RunResult | null = null;
   for (const command of cmuxCandidates()) {
-    const first = await run(command, args, cwd, timeoutMs, env);
-    if (first.ok) return first;
-    // 命令行本身不存在（ENOENT）就不用再试 socket 了，换下一个候选
-    if (first.code === null && /ENOENT/.test(first.error ?? "")) {
-      last = first;
-      continue;
-    }
-    last = first;
-    if (!/socket|pipe|connect|Connection/i.test(first.stderr + (first.error ?? ""))) continue;
-    for (const socketPath of socketCandidates()) {
-      const retried = await run(command, ["--socket", socketPath, ...args], cwd, timeoutMs, env);
-      if (retried.ok) return retried;
-      last = retried;
+    // 每条候选命令先按默认 socket 解析试一次（CLI 自己找最新的 marker 文件），
+    // 不行再显式带上每个候选 socket 重试——外部终端里 app 内置的 CLI 与 marker
+    // 文件不一定对得上，多组候选才能找到那个真在跑的实例。
+    for (const socketPath of sockets) {
+      const argv = socketPath ? ["--socket", socketPath, ...args] : args;
+      const result = await run(command, argv, cwd, timeoutMs, env);
+      if (result.ok) return result;
+      last = result;
+      // 命令本身不存在（ENOENT）：换下一个候选命令，不必再换 socket 重试
+      if (result.code === null && /ENOENT/.test(result.error ?? "")) break;
     }
   }
   return last ?? { ok: false, stdout: "", stderr: "cmux 命令不可用", code: null };
@@ -204,11 +217,19 @@ async function cmuxReachable(): Promise<{ ok: boolean; message: string }> {
   const result = await runCmux(["list-windows"], undefined, 15_000);
   if (result.ok) return { ok: true, message: "" };
   const detail = (result.stderr || result.error || "").trim().split("\n")[0];
+  const denied = /Access denied|only processes started inside cmux/i.test(
+    `${result.stderr}\n${result.error ?? ""}`,
+  );
   return {
     ok: false,
     message:
-      "连不上 cmux（app 没运行，或当前终端不是从 cmux 里启动的）。\n" +
-      `命令输出：${detail || "（无输出）"}`,
+      "连不上 cmux（app 没运行，或当前终端不被 cmux 接受）。\n" +
+      `命令输出：${detail || "（无输出）"}` +
+      (denied
+        ? "\n原因：cmux 的自动化 socket 默认只允许 cmux 自己启动的进程连接（automation.socketControlMode = cmuxOnly）。" +
+          "在外部终端（如 Ghostty）里用时，把 cmux 设置里的 automation.socketControlMode 改成 automation，" +
+          "或者在 cmux 里启动 pi。"
+        : ""),
   };
 }
 
@@ -471,7 +492,7 @@ async function closeDiff(options: CloseOptions): Promise<OpenResult> {
   const closed: string[] = [];
   const failed: string[] = [];
   for (const panel of targets) {
-    const result = await runCmux(["close-surface", "--surface", panel.surface], panel.cwd, 20_000);
+    const result = await closePanel(panel);
     // "Surface ref not found" 说明面板已经被用户手动关掉了——按已关闭处理，清掉登记
     if (result.ok || /not found|unknown surface/i.test(result.stderr)) {
       closed.push(panel.surface);
@@ -487,6 +508,54 @@ async function closeDiff(options: CloseOptions): Promise<OpenResult> {
   if (closed.length) lines.push(`已关闭 ${closed.length} 个 diff 面板。`);
   if (failed.length) lines.push(`有 ${failed.length} 个没关掉：\n${failed.map((item) => `  - ${item}`).join("\n")}`);
   return { ok: failed.length === 0, message: lines.join("\n") || "没有变化。" };
+}
+
+/**
+ * 找出某个 surface 所在的窗口句柄。
+ *
+ * `cmux close-surface --surface <ref>` 只有在能推断调用者上下文时才不用带
+ * `--workspace` / `--window`（env 里的 `CMUX_WORKSPACE_ID` 或 cwd 匹配到某个 workspace）。
+ * 从外部终端（Ghostty 里的 pi）调时两个都没有，CLI 直接报
+ * 「close-surface requires --workspace or --window with explicit --surface」。
+ * 这里遍历窗口的 panel 列表找到它属于哪个窗口，然后带上 `--window` 重试。
+ */
+async function findSurfaceWindow(surfaceRef: string): Promise<string | null> {
+  const windows = await runCmux(["list-windows", "--json"], undefined, 15_000);
+  if (!windows.ok) return null;
+  let parsed: any;
+  try {
+    parsed = JSON.parse(windows.stdout);
+  } catch {
+    return null;
+  }
+  const list: any[] = Array.isArray(parsed) ? parsed : (parsed?.windows ?? []);
+  for (const item of list) {
+    const handle = String(item?.index ?? item?.id ?? "").trim();
+    if (!handle) continue;
+    const panels = await runCmux(["list-panels", "--window", handle, "--json"], undefined, 15_000);
+    if (!panels.ok) continue;
+    try {
+      const surfaces: any[] = JSON.parse(panels.stdout)?.surfaces ?? [];
+      if (surfaces.some((surface) => surface?.ref === surfaceRef || surface?.id === surfaceRef)) {
+        return handle;
+      }
+    } catch {
+      // 解析失败就换下一个窗口
+    }
+  }
+  return null;
+}
+
+/** 关掉一个已登记的面板；外部终端里缺调用者上下文时先定位窗口再重试。 */
+async function closePanel(panel: OpenedPanel): Promise<RunResult> {
+  const first = await runCmux(["close-surface", "--surface", panel.surface], panel.cwd, 20_000);
+  if (first.ok) return first;
+  const needsWindow =
+    /requires --workspace or --window/i.test(first.stderr) || /requires --workspace/i.test(first.error ?? "");
+  if (!needsWindow) return first;
+  const windowHandle = await findSurfaceWindow(panel.surface);
+  if (!windowHandle) return first;
+  return runCmux(["close-surface", "--window", windowHandle, "--surface", panel.surface], panel.cwd, 20_000);
 }
 
 // ===== 扩展入口 =====

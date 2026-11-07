@@ -329,13 +329,14 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 需要其他 agent（另一条 pi 会话）配合时，用 `agent_call` 工具直接联系对方，不要人工传话、不要让用户中转。要点：
 
-- **Leader / Worker 分工（2026-11-07 用户立，子项目任务的默认跑法）**：
+- **Leader / Worker 分工（2026-11-07 用户立，**全队所有 Agent 的默认跑法——不是某一个 Agent 的约定**，适用于全部 17 个 Agent 及其名下全部子项目）**：
   - **Leader** = 以 Agent 项目根目录为 cwd 的本会话。只做四件事：① 名下所有子项目 local main 的同步（`git merge --ff-only origin/main`）；② 按任务建 worktree（`git -C <子项目> worktree add ~/Developer/<子项目>-<事项> -b <分支名>`）；③ 用 `agent_call` 把任务交给 Worker（消息写完整：背景、目标、验收标准、涉及文件）；④ 收尾：把 Worker 的 PR 合入后对齐 local main、`git worktree remove` 清掉 worktree，再向用户汇报。
   - **Worker** = 以子项目根 / worktree 为 cwd 的临时会话。只做 worktree 里的具体活：读代码、改代码、跑测试、走自己的 `/add` → `/commit` → PR 流程，干完向 Leader 汇报（改了什么、验证结果、PR 号 / 遗留问题）。**Worker 不碰 local main、不建 / 删 worktree**（那是 Leader 的活）。
   - **命名**：Worker 统一叫 `<Agent 名>-<子项目>`（如 `Atlas-cmux`）；同一子项目多个任务就多个 Worker，各自 worktree 不同、名字可相同（用 session-id 区分），也可以带上任务后缀。
   - **生命周期**：Worker 干完即清（Leader 主动 `tmux kill-session -t pi-<名字>`）——它是临时的，不常驻。
   - **汇报链路**：Worker → Leader → 用户。Leader 不能把 Worker 的原始输出直接转给用户（要自己消化、核对后再汇报）；反过来也不能把用户的需求原文甩给 Worker 不管（要自己把它翻译成明确的任务单）。
   - **简单任务不分发**：跨项目琐事（如统一改个徽章）、一次性查询、Leader 自己就能看完的小修——Leader 直接做，不为了形式而绕一圈。
+  - **各 Agent 项目的 AGENTS.md 不得与本节冲突**：项目级若有「后台会话只能以本项目根目录开启」「子项目按路径操作」之类旧口径（2026-10-17 定、2026-11-07 已废止），一律以本节为准；发现就改掉，不要留两套说法。
 - **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。`dir` 允许三类：Agent 项目根（如 `~/Developer/FullStackEngineerAgent`，Leader）/ 已登记子项目根（Worker）/ 该子项目的 git worktree（Worker）——按 `~/.pi/agent/docs/agents-registry.md` 校验，其它目录会被拒绝。
 - **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
 - **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
