@@ -24,9 +24,8 @@
  */
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, join, sep } from "node:path";
 import { homedir } from "node:os";
-import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -66,27 +65,66 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * 2026-10-17 用户决定：后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）。
- * 校验方式：目标目录名必须命中 `~/.pi/agent/docs/agents-registry.md` 里已登记的 Agent 项目名
- * （子项目的 AGENTS.md 软链接会让「标记文件存在性」检查误放行，故改用注册表校验）；
- * 注册表不可读时退回旧的标记文件检查（AGENTS.md / .pi；CLAUDE.md 已弃用、仅作向后兼容）。
+ * 会话目录角色（2026-11-07 用户决定，取代 2026-10-17「只允许 Agent 项目根目录」）：
+ *   - leader：Agent 项目根目录 → 该 agent 的主会话（项目负责人）；
+ *   - worker：已登记子项目根目录，或该子项目的 git worktree（临时工，只干某一件事）。
+ *
+ * 为什么放开：子项目有自己的专属规则（`.pi/APPEND_SYSTEM.md`）与工具，只有在「cwd 落在子项目 /
+ * worktree」时才会被 pi 加载；把子项目任务放在 Agent 项目会话里按路径做，等于让 Worker 在
+ * 没有本项目规则的情况下干活。Leader 只负责 local main 同步、建 worktree、收尾清理。
+ *
+ * 校验仍按 `~/.pi/agent/docs/agents-registry.md`：Agent 名单取注册表出现的 XxxAgent，子项目名单取
+ * 「子项目映射」表第二列；worktree 用 `.git` 文件里的 `gitdir:` 反查主仓库，主仓库必须是已登记子项目。
+ * 注册表不可读时退回旧的标记文件检查（AGENTS.md / .pi）。
  */
 const REGISTRY = join(homedir(), ".pi", "agent", "docs", "agents-registry.md");
 
-/** 从注册表表格里收集「已登记的 Agent 项目目录名」。 */
-function registeredAgentNames(): Set<string> | undefined {
+interface RegistryInfo {
+	/** 已登记的 Agent 项目目录名（保留原大小写）。 */
+	agents: Set<string>;
+	/** 已登记的子项目目录名，小写 → 负责的 Agent 项目名。 */
+	subprojects: Map<string, string>;
+}
+
+function cleanCell(raw: string): string {
+	return raw.replace(/\*\*/g, "").replace(/`/g, "").trim();
+}
+
+function extractAgentName(cell: string): string | undefined {
+	const m = /^([A-Za-z][A-Za-z0-9]*Agent)$/.exec(cell) ?? /^([A-Za-z][A-Za-z0-9]*Agent)（/.exec(cell);
+	return m?.[1];
+}
+
+/** 解析注册表：Agent 名单 + 「子项目映射」表的子项目名单。 */
+function readRegistry(): RegistryInfo | undefined {
 	try {
 		const text = readFileSync(REGISTRY, "utf8");
-		const names = new Set<string>();
+		const agents = new Set<string>();
+		const subprojects = new Map<string, string>();
+		let inSubprojectTable = false;
 		for (const line of text.split("\n")) {
-			if (!line.trim().startsWith("|")) continue;
-			for (const cellRaw of line.split("|").slice(1, -1)) {
-				const cell = cellRaw.replace(/\*\*/g, "").trim();
-				const m = /^([A-Za-z][A-Za-z0-9]*Agent)$/.exec(cell) ?? /^([A-Za-z][A-Za-z0-9]*Agent)（/.exec(cell);
-				if (m) names.add(m[1]);
+			const trimmed = line.trim();
+			if (!trimmed.startsWith("|")) {
+				inSubprojectTable = false;
+				continue;
+			}
+			const cells = trimmed.split("|").slice(1, -1).map(cleanCell);
+			if (cells.every((c) => c === "" || /^:?-{2,}:?$/.test(c))) continue; // 分隔行
+			if (/Agent\s*项目/.test(cells[0] ?? "") && /子项目/.test(cells[1] ?? "")) {
+				inSubprojectTable = true;
+				continue;
+			}
+			if (inSubprojectTable) {
+				const sub = cells[1] ?? "";
+				const owner = extractAgentName(cells[0] ?? "");
+				if (owner && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(sub)) subprojects.set(sub.toLowerCase(), owner);
+			}
+			for (const cell of cells) {
+				const name = extractAgentName(cell);
+				if (name) agents.add(name);
 			}
 		}
-		return names.size > 0 ? names : undefined;
+		return agents.size > 0 || subprojects.size > 0 ? { agents, subprojects } : undefined;
 	} catch {
 		return undefined;
 	}
@@ -96,7 +134,30 @@ function expandDir(dir: string): string {
 	return dir === "~" ? homedir() : dir.startsWith("~/") ? join(homedir(), dir.slice(2)) : dir;
 }
 
-function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: string } {
+/** 若 dir 是 git worktree，返回其主仓库根目录；否则返回 undefined（普通仓库的 .git 是目录）。 */
+function mainRepoOfWorktree(dir: string): string | undefined {
+	const gitPath = join(dir, ".git");
+	try {
+		if (!statSync(gitPath).isFile()) return undefined;
+		const content = readFileSync(gitPath, "utf8");
+		const m = /^\s*gitdir:\s*(.+?)\s*$/m.exec(content);
+		if (!m) return undefined;
+		const gitdir = m[1];
+		const marker = `${sep}.git${sep}worktrees${sep}`;
+		const idx = gitdir.lastIndexOf(marker);
+		if (idx < 0) return undefined;
+		return gitdir.slice(0, idx);
+	} catch {
+		return undefined;
+	}
+}
+
+type DirCheck =
+	| { ok: true; role: "leader"; project: string }
+	| { ok: true; role: "worker"; project: string; worktree: boolean }
+	| { ok: false; detail: string };
+
+function checkSessionDir(dir: string): DirCheck {
 	const expanded = expandDir(dir);
 	let stat;
 	try {
@@ -106,28 +167,37 @@ function checkAgentProjectDir(dir: string): { ok: true } | { ok: false; detail: 
 	}
 	if (!stat.isDirectory()) return { ok: false, detail: `目标不是目录：「${dir}」` };
 
-	const expected = `按 2026-10-17 用户决定，后台会话仍只能以 Agent 项目根目录为工作目录（子项目目录会被拒绝）；` +
-		`子项目目录开会话是用户手动操作的场景，经子项目里的 AGENTS.md / .pi 软链接继承负责 Agent 身份。`;
+	const info = readRegistry();
+	const name = basename(expanded);
+	const lower = name.toLowerCase();
 
-	const names = registeredAgentNames();
-	if (names) {
-		const hit = [...names].some((n) => n.toLowerCase() === basename(expanded).toLowerCase());
-		if (hit) return { ok: true };
-		return {
-			ok: false,
-			detail: `拒绝唤醒：目录「${dir}」不是已登记的 Agent 项目（按 ~/.pi/agent/docs/agents-registry.md 校验）。${expected}`,
-		};
+	if (!info) {
+		// 注册表不可读时的退路：标记文件存在性检查（子项目同样有 AGENTS.md / .pi）
+		const markers = [join(expanded, "AGENTS.md"), join(expanded, ".pi")];
+		if (markers.some((m) => existsSync(m))) return { ok: true, role: "worker", project: name, worktree: false };
+		return { ok: false, detail: `拒绝唤醒：注册表（${REGISTRY}）不可读，且目录「${dir}」根目录没有 AGENTS.md / .pi。` };
 	}
 
-	// 注册表不可读时的退路：标记文件存在性检查
-	const markers = [join(expanded, "CLAUDE.md"), join(expanded, "AGENTS.md"), join(expanded, ".pi")];
-	if (!markers.some((m) => existsSync(m))) {
-		return {
-			ok: false,
-			detail: `拒绝唤醒：目录「${dir}」不像 Agent 项目目录（根目录没有 AGENTS.md / .pi，注册表也读不到）。${expected}`,
-		};
+	if ([...info.agents].some((n) => n.toLowerCase() === lower)) {
+		return { ok: true, role: "leader", project: name };
 	}
-	return { ok: true };
+	if (info.subprojects.has(lower)) {
+		return { ok: true, role: "worker", project: name, worktree: false };
+	}
+	const mainRepo = mainRepoOfWorktree(expanded);
+	if (mainRepo) {
+		const mainName = basename(mainRepo);
+		if (info.subprojects.has(mainName.toLowerCase())) {
+			return { ok: true, role: "worker", project: mainName, worktree: true };
+		}
+	}
+
+	return {
+		ok: false,
+		detail:
+			`拒绝唤醒：目录「${dir}」既不是已登记的 Agent 项目根，也不是已登记子项目或其 git worktree` +
+			`（按 ~/.pi/agent/docs/agents-registry.md 校验）。`,
+	};
 }
 
 async function listSessions(pi: ExtensionAPI, signal?: AbortSignal): Promise<SessionInfo[]> {
@@ -163,7 +233,7 @@ async function wakeSession(
 	if (await isOnline(pi, name, signal)) {
 		return { ok: true, detail: `会话「${name}」已在线` };
 	}
-	const check = checkAgentProjectDir(dir);
+	const check = checkSessionDir(dir);
 	if (!check.ok) return { ok: false, detail: check.detail };
 	const tmuxSession = `pi-${name}`;
 	const has = await pi.exec("tmux", ["has-session", "-t", tmuxSession], { signal, timeout: 5_000 });
@@ -171,7 +241,9 @@ async function wakeSession(
 		const piBin = process.env.PI_AGENT_BIN ?? "pi";
 		const start = await pi.exec(
 			"tmux",
-			["new-session", "-d", "-s", tmuxSession, "-c", expandDir(dir), `${piBin} -n ${name}`],
+			// `-a` 必带：子项目有 .pi/settings.json，会触发「信任本项目」判定；tmux 后台会话没有
+			// 人能应答信任提示，不带 -a 会卡死在提示上、永远不注册（2026-11-07 实测确认）。
+			["new-session", "-d", "-s", tmuxSession, "-c", expandDir(dir), `${piBin} -n ${name} -a`],
 			{ signal, timeout: 10_000 },
 		);
 		if (start.code !== 0) {
@@ -276,10 +348,10 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		name: "agent_wake",
 		label: "Agent Wake",
 		description:
-			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。dir 必须是目标 agent 的 Agent 项目根目录（新规 2026-10-12：后台会话只能以 Agent 项目根目录为工作目录开启——只有那里才有会话启动时加载的项目级智能体专属文件；非 Agent 项目目录会被拒绝）。",
+			"确保另一个 pi 会话（pi-intercom 互通）处于在线状态：若不在线，则在指定项目目录用 tmux 启动一个新 pi 会话（pi -n <名字>，名字即 intercom 别名）并等待其注册。可在 agent_call 之前预热，或单独准备对方会话。dir 支持三类目录（按 ~/.pi/agent/docs/agents-registry.md 校验）：Agent 项目根 → Leader 会话；已登记子项目根 → Worker 会话；子项目的 git worktree → Worker 会话（临工干活的地方，能加载子项目自己的 .pi/APPEND_SYSTEM.md 与工具）。启动命令带 -a 信任项目文件（子项目有 .pi/settings.json，不带会卡在信任提示上）。非以上三类目录会被拒绝。",
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话名字（pi-intercom 别名，与 /alias 或 pi -n 设置一致）——唤醒只认名字（新会话按此名字启动）" }),
-			dir: Type.String({ description: "目标会话的启动工作目录（必须是该 agent 的 Agent 项目根目录——按 ~/.pi/agent/docs/agents-registry.md 校验，子项目目录会被拒绝；绝对路径或 ~ 开头）" }),
+			dir: Type.String({ description: "目标会话的启动工作目录：Agent 项目根（Leader）/ 已登记子项目根（Worker）/ 子项目的 git worktree（Worker）——按 ~/.pi/agent/docs/agents-registry.md 校验，其它目录会被拒绝；绝对路径或 ~ 开头" }),
 			wait_seconds: Type.Optional(
 				Type.Number({ description: `等待注册的最长秒数（默认 ${DEFAULT_WAIT_SECONDS}）`, minimum: 3, maximum: 120 }),
 			),
@@ -311,7 +383,7 @@ export default function agentCallExtension(pi: ExtensionAPI) {
 		parameters: Type.Object({
 			name: Type.String({ description: "目标会话：pi-intercom 别名（人格名，如 Kit）或 session-id（或其短前缀，`pi-intercom list` 可见）——同一个 agent 可多开同名会话，此时用 session-id 唯一定位" }),
 			message: Type.String({ description: "消息内容（对方看不到本会话上下文，请自带背景与明确请求）" }),
-			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒（必须是该 agent 的 Agent 项目根目录——按 ~/.pi/agent/docs/agents-registry.md 校验，子项目目录会被拒绝；建议总是提供）" })),
+			dir: Type.Optional(Type.String({ description: "目标会话工作目录；对方不在线时用它自动唤醒。允许：Agent 项目根（Leader）/ 已登记子项目根（Worker）/ 子项目的 git worktree（Worker）——按注册表校验，其它目录会被拒绝；建议总是提供" })),
 			mode: Type.Optional(
 				StringEnum(["ask", "send"] as const, { description: "ask=阻塞等回复（默认）；send=仅通知、以本会话身份发送" }),
 			),

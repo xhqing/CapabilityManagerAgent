@@ -162,7 +162,8 @@ AI 对 git 暂存区（staging area / index）**自主能做的只有只读查�
   - **能力层 —— `.pi/` 是子项目自己的真实目录（不再是软链接），做超集，但用「引用 + 追加」实现**：`.pi/settings.json` 把负责 Agent 的 `.pi/extensions`、`.pi/skills`、`.pi/prompts`、`.pi/themes` 以**路径**引用进来（`~` 或相对路径均可，数组支持 glob 与 `!` 排除），本地独有内容放子项目自己的 `./extensions`、`./skills` 等目录（`.pi/` 下这四个目录本来就会被自动发现，不必再写进 settings）；子项目专属**规则**用 `.pi/APPEND_SYSTEM.md` 追加（**不要用 `.pi/SYSTEM.md`**——那是整体替换，会把 agent 身份冲掉）。**为什么这样分层**：引用的是**目录**而不是逐个文件，Agent 侧以后新增技能 / 扩展会**自动带过来**、零同步动作；同时子项目往 `.pi` 写东西只写自己的目录，**不会污染 Agent 项目、也不影响兄弟子项目**（这是 `.pi` 整目录软链接时代做不到的——那时子项目写 `.pi` 等于直接写进 Agent 项目）。**一条纪律**：子项目 `.pi` 只允许**追加**，不允许重述 / 覆盖基座规则，一旦重述就有两套说法、必然打架。
   - **依据（2026-10-30 按 pi 官方文档核实 + 本机实测）**：`docs/settings.md`「Resources」——项目 `.pi/settings.json` 里的路径相对 `.pi` 解析、支持 `~` / 绝对路径 / glob / `!` 排除，路径可以是目录（递归收集）；`docs/skills.md`、`docs/extensions.md`——`.pi/{extensions,skills,prompts,themes}` 的自动发现照常生效；`docs/usage.md`「System Prompt Files」——`.pi/APPEND_SYSTEM.md` 追加、`.pi/SYSTEM.md` 替换。实测：在 `xhqing` 子项目跑 `pi --approve -p`，技能（termux-ssh / language-partner）与项目级扩展（input-llm-dump，落盘到子项目 `tmp/`）均从 Agent 项目加载成功。
   - **链接与配置随仓库提交**（2026-10-17 用户决定：仓库主要作本人备份，跨仓库关联是团队网络的组成部分，在说明文档写明即可）；`.claude/` 不挂链接、不再维护（2026-10-17 用户决定，现有 `.claude/` 内容暂留不动）。
-  - **通过 intercom / `agent_call` / `agent_wake` 为某个 agent 在后台开启 pi 会话，仍只能以该 Agent 项目的根目录为工作目录**（2026-10-17 用户决定保留；工具按注册表校验，子项目目录会被拒绝）；子项目的工作一律在 Agent 项目会话里按路径操作。子项目映射表与细则见 `~/.pi/agent/docs/agents-registry.md`。
+  - **子项目任务由 Worker 会话执行，Leader 只建 worktree 与收尾（2026-11-07 用户立，取代 2026-10-17「只允许 Agent 项目根目录」）**：Agent 项目根目录的会话是 **Leader**（项目负责人），子项目根目录 / 子项目 worktree 目录的会话是 **Worker**（临时工）。`agent_call` / `agent_wake` 的 `dir` 允许三类目录：Agent 项目根 / 已登记子项目根 / 该子项目的 git worktree（worktree 通过 `.git` 里的 `gitdir:` 反查主仓库校验），其它目录拒绝；启动命令固定带 `-a`（子项目有 `.pi/settings.json`，会触发信任提示，后台会话无人应答会卡死）。**为什么**：子项目的专属规则与工具只能靠「cwd 落在子项目上」才被 pi 加载（pi 只读 cwd 这一层 `.pi/`，不向上继承），放在 Agent 会话里按路径做等于永远读不到。子项目映射表与细则见 `~/.pi/agent/docs/agents-registry.md`，分工流程见下节「Leader / Worker 分工」。
+  - **子项目必须有 `.pi/APPEND_SYSTEM.md`（2026-11-07 起要求）**：子项目专属**硬规则**写进它（Worker 启动即加载），详细说明留在 `DEVELOPMENT.md` / `ARCHITECTURE.md` 等普通文档按需查阅。存量子项目尚未补齐的，处理到那个子项目时顺手补上。
 
 ## Skill 编写纪律
 
@@ -278,6 +279,7 @@ pi 加载扩展时**只要有一个文件解析失败就 `exit(1)`**——打印
 - **要给用户看的网页，一律把链接原文发给他、让他自己点开，不要用 `open` 代开**（2026-10-14 当晚用户追加立规：AI 在用户正看别的东西时打开了 tokenplus 页面抢走焦点，原话「下次不要帮我打开网页页面，给我链接就行」）。
 - **执行方式（按优先级）**：① **本机执行**——先向用户说明理由与影响、取得**当次**明确授权，命令加标记 `# AI_AUTHORIZED_LOCAL_FOCUS` 后运行（授权不跨次复用）；② 想不打扰用户时——登录 **macmini** 执行（`ssh mac-mini`，GUI 会话已登录，可在其屏幕上自由测试）；③ **需要 computer-use 类 GUI 能力**（看屏幕 / 真实点击拖拽 / 输入）时——找 **cuAgent**（其专属能力，见下节）。
 - 未获授权不得执行本机抢焦点操作、不得擅自加标记；授权由用户当次明确给出。
+- **授权焦点用完必须归还（2026-11-06 用户立）**：拿到当次授权、执行完抢焦点的操作后，**必须把焦点交还给授权时用户所在的窗口**（通常就是发起授权的那条 pi 会话窗口）——用户要靠「焦点回来了」判断 AI 已经用完；不要停在被操作的应用上。做法：执行前记录当前前台 app（`lsappinfo front` 或等价查询），操作结束（含失败）后用 `osascript -e 'tell application id "<bundle id>" to activate'` 或等价方式切回；切回失败要如实说明「焦点可能仍留在 <app>，请手动切回」。这条只约束「归还」动作，**不构成新的抢焦点授权**——下一次抢焦点仍需重新取得当次授权。
 - 由 pi 端 `~/.pi/agent/extensions/focus-guard.ts` 硬拦截兜底（命令里含 `ssh` 时放行——那是 macmini 等远端机、不是用户本机）。
 
 ### 电脑操作（computer-use）：仅限 cuAgent 项目内使用（2026-10-09 修订）
@@ -327,11 +329,18 @@ KeePass 数据库（`*.kdbx`）与密钥文件（`~/Key/` 下）是**丢了就�
 
 需要其他 agent（另一条 pi 会话）配合时，用 `agent_call` 工具直接联系对方，不要人工传话、不要让用户中转。要点：
 
-- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数（目标 agent 的 Agent 项目目录，如 `~/Developer/FullStackEngineerAgent`——后台会话只能以 Agent 项目根目录为工作目录，工具按注册表校验、子项目目录会被拒绝；子项目目录开会话是用户手动操作的场景，不走后台唤醒）自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。
+- **Leader / Worker 分工（2026-11-07 用户立，子项目任务的默认跑法）**：
+  - **Leader** = 以 Agent 项目根目录为 cwd 的本会话。只做四件事：① 名下所有子项目 local main 的同步（`git merge --ff-only origin/main`）；② 按任务建 worktree（`git -C <子项目> worktree add ~/Developer/<子项目>-<事项> -b <分支名>`）；③ 用 `agent_call` 把任务交给 Worker（消息写完整：背景、目标、验收标准、涉及文件）；④ 收尾：把 Worker 的 PR 合入后对齐 local main、`git worktree remove` 清掉 worktree，再向用户汇报。
+  - **Worker** = 以子项目根 / worktree 为 cwd 的临时会话。只做 worktree 里的具体活：读代码、改代码、跑测试、走自己的 `/add` → `/commit` → PR 流程，干完向 Leader 汇报（改了什么、验证结果、PR 号 / 遗留问题）。**Worker 不碰 local main、不建 / 删 worktree**（那是 Leader 的活）。
+  - **命名**：Worker 统一叫 `<Agent 名>-<子项目>`（如 `Atlas-cmux`）；同一子项目多个任务就多个 Worker，各自 worktree 不同、名字可相同（用 session-id 区分），也可以带上任务后缀。
+  - **生命周期**：Worker 干完即清（Leader 主动 `tmux kill-session -t pi-<名字>`）——它是临时的，不常驻。
+  - **汇报链路**：Worker → Leader → 用户。Leader 不能把 Worker 的原始输出直接转给用户（要自己消化、核对后再汇报）；反过来也不能把用户的需求原文甩给 Worker 不管（要自己把它翻译成明确的任务单）。
+  - **简单任务不分发**：跨项目琐事（如统一改个徽章）、一次性查询、Leader 自己就能看完的小修——Leader 直接做，不为了形式而绕一圈。
+- **自动唤醒**：`agent_call` 会先检查目标会话是否在线；**不在线时用 `dir` 参数自动启动对方会话**，等它注册后再发消息。因此调用时尽量带上 `dir`。`dir` 允许三类：Agent 项目根（如 `~/Developer/FullStackEngineerAgent`，Leader）/ 已登记子项目根（Worker）/ 该子项目的 git worktree（Worker）——按 `~/.pi/agent/docs/agents-registry.md` 校验，其它目录会被拒绝。
 - **两种模式**：只需要对方知晓用 `mode: "send"`（以本会话身份发送、立即返回）；需要对方答复才能继续干活用 `mode: "ask"`（阻塞等待回复，默认超时 2 分钟，可用 `timeout_ms` 调整）。只想提前把对方会话拉起来，用 `agent_wake`。
 - **消息自带背景**：对方看不到本会话的上下文与对话历史，消息里要把背景、目标、期望对方做什么写完整。
 - **联系不上不硬等**：`ask` 超时或唤醒失败时，如实向用户报告「暂时联系不上 XX」，不无限重试、不静默卡住；可改用 `send` 留言、或等对方上线后再联系。
-- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.pi/agent/docs/agents-registry.md` 的注册表一致，即人格名）；**同一个 Agent 允许同时开多个会话、共用同一个名字**（一个人同时办几件事是合理的：Agent 项目根开会话、子项目目录也可以各开一个）——此时「**人格名 + session-id**」才能唯一确定一个会话：`intercom list` 会列出每个会话的 session-id（短前缀即可唯一定位），`intercom` 与 `agent_call` 都支持按名字（全名）或 session-id（或其短前缀）指定目标。已在运行的会话可用 `/alias <名字>` 补设。
+- **会话命名约定**：启动 pi 会话统一用 `pi -n <agent名字>`（名字与 `~/.pi/agent/docs/agents-registry.md` 的注册表一致，即人格名）；**同一个 Agent 允许同时开多个会话、共用同一个名字**（一个人同时办几件事是合理的：Agent 项目根开会话、子项目目录也可以各开一个）——此时「**人格名 + session-id**」才能唯一确定一个会话：`intercom list` 会列出每个会话的 session-id（短前缀即可唯一定位），`intercom` 与 `agent_call` 都支持按名字（全名）或 session-id（或其短前缀）指定目标。已在运行的会话可用 `/alias <名字>` 补设。**子项目的 Worker 会话用 `<Agent 名>-<子项目>` 命名**（如 `Atlas-cmux`），避免与 Leader 同名混淆。
 - **常设授权：其它 agent 仓库有待提交内容 → 自动委派（2026-10-04 用户立）**：检查到或得知任何 agent 项目的仓库有该提交却未提交的内容（工作区脏、暂存区有未提交内容等），**直接 `agent_call` 对方、由它用自己的 `/add` → `/commit` 流程处理**，不要拿这个问题去问用户——用户原话「每次检查到或者得知其它 Agent 的仓库有需要 commit 的内容就自动 call 这个 agent 使用 /add skill 或 /commit skill 处理一下，不要每次都问我」。授权边界：只允许「委派对方按它自己的 skill 流程提交」，**不得由本会话替对方仓库执行 git 写操作**；对方的 `/add` 预检、敏感扫描、cache 检测、发版链等安全阀照常生效；对方 /add 预检出现「需人工过目 / 不建议入库」时照旧停在 add 阶段、由对方报告用户。
 - **后台会话用完即清、不活跃即清（2026-10-04 用户立）**：用户**看不到 tmux 后台会话**，「后台会话对他而言等于不存在」——所以不要让它长期挂着。
   - **用完就清**：`agent_call` / `agent_wake` 拉起的会话，使命完成后**主动关闭**（`tmux kill-session -t <会话名>`），不留常驻隐形进程；下次需要时 `agent_call` 会自动重新唤醒（代价只是一次启动）。
